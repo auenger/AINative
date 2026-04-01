@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-01T11:10:00Z"
+  last_updated: "2026-04-01T11:30:00Z"
   version: 1
 
 parents:
@@ -18,20 +18,6 @@ parents:
 active: []
 
 pending:
-  - id: feat-fs-database-engine
-    name: "FS-as-Database 数据引擎 + 看板活数据"
-    priority: 75
-    size: L
-    dependencies:
-      - feat-workspace-loader
-
-  - id: feat-editor-monaco
-    name: "Monaco Editor 代码编辑器"
-    priority: 60
-    size: M
-    dependencies:
-      - feat-workspace-loader
-
   - id: feat-hardware-monitor
     name: "硬件监控探针 + 仪表盘"
     priority: 40
@@ -63,3 +49,13 @@ completed:
     name: "xterm.js 真实终端"
     completed_at: "2026-04-01T11:10:00Z"
     tag: feat-native-terminal-20260401
+
+  - id: feat-editor-monaco
+    name: "Monaco Editor 代码编辑器"
+    completed_at: "2026-04-01T11:30:00Z"
+    tag: feat-editor-monaco-20260401
+
+  - id: feat-fs-database-engine
+    name: "FS-as-Database 数据引擎 + 看板活数据"
+    completed_at: "2026-04-01T11:30:00Z"
+    tag: feat-fs-database-engine-20260401

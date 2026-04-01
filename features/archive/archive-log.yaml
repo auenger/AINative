@@ -1,8 +1,8 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-01T11:10:00Z"
+  last_updated: "2026-04-01T11:30:00Z"
   version: 1
-  total_completed: 3
+  total_completed: 5
 
 records:
   - id: feat-tauri-v2-init
@@ -21,4 +21,16 @@ records:
     name: "xterm.js 真实终端"
     completed_at: "2026-04-01T11:10:00Z"
     tag: feat-native-terminal-20260401
+    size: L
+
+  - id: feat-editor-monaco
+    name: "Monaco Editor 代码编辑器"
+    completed_at: "2026-04-01T11:30:00Z"
+    tag: feat-editor-monaco-20260401
+    size: M
+
+  - id: feat-fs-database-engine
+    name: "FS-as-Database 数据引擎 + 看板活数据"
+    completed_at: "2026-04-01T11:30:00Z"
+    tag: feat-fs-database-engine-20260401
     size: L
