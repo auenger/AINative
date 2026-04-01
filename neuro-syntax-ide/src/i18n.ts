@@ -57,7 +57,18 @@ const resources = {
         claudeCode: 'Claude Code',
         geminiCli: 'Gemini CLI',
         noWorkspace: 'Open a project to browse files',
-        openProject: 'Open Project'
+        openProject: 'Open Project',
+        selectFile: 'Select a file to view',
+        fileSaved: 'File saved',
+        saveFailed: 'Save failed',
+        fileTooLarge: 'File is too large to open (>1MB)',
+        fileReloadPrompt: 'File changed externally. Reload?',
+        reload: 'Reload',
+        keep: 'Keep',
+        unsavedTitle: 'Unsaved changes',
+        unsavedMessage: 'has unsaved changes. Close anyway?',
+        closeAnyway: 'Close',
+        cancel: 'Cancel'
       },
       tasks: {
         title: 'Task Board',
@@ -139,7 +150,18 @@ const resources = {
         claudeCode: 'Claude 代码',
         geminiCli: 'Gemini 命令行',
         noWorkspace: '打开项目以浏览文件',
-        openProject: '打开项目'
+        openProject: '打开项目',
+        selectFile: '选择文件以查看',
+        fileSaved: '文件已保存',
+        saveFailed: '保存失败',
+        fileTooLarge: '文件太大，无法打开 (>1MB)',
+        fileReloadPrompt: '文件已被外部修改。重新加载？',
+        reload: '重新加载',
+        keep: '保留',
+        unsavedTitle: '未保存的更改',
+        unsavedMessage: '有未保存的更改。确定关闭？',
+        closeAnyway: '关闭',
+        cancel: '取消'
       },
       tasks: {
         title: '任务板',

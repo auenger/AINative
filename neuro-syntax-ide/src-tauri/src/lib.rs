@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
+use notify::{RecommendedWatcher, RecursiveMode, Watcher, Config as NotifyConfig, Event as NotifyEvent};
 
 // ===========================================================================
 // Data types shared with the frontend - File system
@@ -46,6 +47,87 @@ pub struct PtyConfig {
 pub struct PtyOutputEvent {
     pub pty_id: String,
     pub data: String,
+}
+
+// ===========================================================================
+// Data types - FS-as-Database (Queue & Feature)
+// ===========================================================================
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FeatureNode {
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub priority: i32,
+    #[serde(default)]
+    pub size: String,
+    #[serde(default)]
+    pub dependencies: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<FeatureDetails>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FeatureDetails {
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plan: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ParentEntry {
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub features: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct QueueMeta {
+    #[serde(default)]
+    pub last_updated: String,
+    #[serde(default)]
+    pub version: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct QueueYaml {
+    #[serde(default)]
+    pub meta: QueueMeta,
+    #[serde(default)]
+    pub parents: Vec<ParentEntry>,
+    #[serde(default)]
+    pub active: Vec<FeatureNode>,
+    #[serde(default)]
+    pub pending: Vec<FeatureNode>,
+    #[serde(default)]
+    pub blocked: Vec<FeatureNode>,
+    #[serde(default)]
+    pub completed: Vec<FeatureNode>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct QueueState {
+    pub meta: QueueMeta,
+    pub parents: Vec<ParentEntry>,
+    pub active: Vec<FeatureNode>,
+    pub pending: Vec<FeatureNode>,
+    pub blocked: Vec<FeatureNode>,
+    pub completed: Vec<FeatureNode>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct FsChangeEvent {
+    pub paths: Vec<String>,
+    pub kind: String,
 }
 
 // ===========================================================================
@@ -177,6 +259,8 @@ impl PtyManager {
 
 struct AppState {
     pty_manager: Mutex<PtyManager>,
+    workspace_path: Mutex<String>,
+    fs_watcher: Mutex<Option<RecommendedWatcher>>,
 }
 
 // ===========================================================================
@@ -184,7 +268,7 @@ struct AppState {
 // ===========================================================================
 
 #[tauri::command]
-async fn pick_workspace(app: AppHandle) -> Result<WorkspaceResult, String> {
+async fn pick_workspace(app: AppHandle, state: tauri::State<'_, AppState>) -> Result<WorkspaceResult, String> {
     use tauri_plugin_dialog::DialogExt;
     let picked = app
         .dialog()
@@ -198,12 +282,20 @@ async fn pick_workspace(app: AppHandle) -> Result<WorkspaceResult, String> {
             let dir = PathBuf::from(&path_str);
             let valid = dir.is_dir();
 
+            // Store workspace path in app state for FS-as-Database commands
+            *state.workspace_path.lock().map_err(|e| e.to_string())? = path_str.clone();
+
             if let Err(e) = persist_workspace(&app, &path_str) {
                 return Ok(WorkspaceResult {
                     path: path_str,
                     valid,
                     error: Some(format!("Failed to persist workspace: {}", e)),
                 });
+            }
+
+            // Auto-start FS watcher for the new workspace
+            if valid {
+                let _ = start_fs_watcher(tauri::State::clone(&state), app.clone()).await;
             }
 
             Ok(WorkspaceResult { path: path_str, valid, error: None })
@@ -217,7 +309,7 @@ async fn pick_workspace(app: AppHandle) -> Result<WorkspaceResult, String> {
 }
 
 #[tauri::command]
-async fn get_stored_workspace(app: AppHandle) -> Result<WorkspaceResult, String> {
+async fn get_stored_workspace(app: AppHandle, state: tauri::State<'_, AppState>) -> Result<WorkspaceResult, String> {
     let store = get_store(&app)?;
 
     if let Some(value) = store.get(STORE_KEY_WORKSPACE) {
@@ -228,6 +320,13 @@ async fn get_stored_workspace(app: AppHandle) -> Result<WorkspaceResult, String>
 
         let dir = PathBuf::from(&path_str);
         let valid = dir.exists() && dir.is_dir();
+
+        // Restore workspace path in app state
+        if valid {
+            *state.workspace_path.lock().map_err(|e| e.to_string())? = path_str.clone();
+            let _ = start_fs_watcher(tauri::State::clone(&state), app.clone()).await;
+        }
+
         Ok(WorkspaceResult {
             path: path_str,
             valid,
@@ -294,6 +393,306 @@ fn kill_pty(
 ) -> Result<(), String> {
     let mut manager = state.pty_manager.lock().map_err(|e| e.to_string())?;
     manager.kill(&pty_id)
+}
+
+// ===========================================================================
+// Tauri commands - FS-as-Database
+// ===========================================================================
+
+/// Fetch the full queue state by parsing queue.yaml + scanning features/ dir.
+#[tauri::command]
+async fn fetch_queue_state(
+    state: tauri::State<'_, AppState>,
+) -> Result<QueueState, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded. Please select a workspace first.".into());
+    }
+
+    let queue_yaml_path = PathBuf::from(&workspace)
+        .join("feature-workflow")
+        .join("queue.yaml");
+
+    let content = fs::read_to_string(&queue_yaml_path)
+        .map_err(|e| format!("Failed to read queue.yaml: {}", e))?;
+
+    let mut queue: QueueYaml = serde_yaml::from_str(&content)
+        .map_err(|e| format!("Failed to parse queue.yaml: {}", e))?;
+
+    // Enrich each feature node with details from its directory
+    let features_dir = PathBuf::from(&workspace).join("features");
+
+    let enrich = |node: &mut FeatureNode| {
+        let dir_name = format!("pending-{}", node.id);
+        // Check both pending- and active- prefixes, plus bare id
+        let candidates = [
+            dir_name.clone(),
+            format!("active-{}", node.id),
+            node.id.clone(),
+        ];
+        for candidate in &candidates {
+            let feat_dir = features_dir.join(candidate);
+            if feat_dir.is_dir() {
+                // Read spec.md as description
+                let spec_path = feat_dir.join("spec.md");
+                if spec_path.exists() {
+                    if let Ok(spec_content) = fs::read_to_string(&spec_path) {
+                        // Extract first paragraph as description
+                        let desc = spec_content
+                            .lines()
+                            .skip_while(|l| l.trim().is_empty() || l.starts_with('#'))
+                            .take_while(|l| !l.trim().is_empty())
+                            .collect::<Vec<_>>()
+                            .join(" ");
+                        node.details = Some(FeatureDetails {
+                            status: "loaded".into(),
+                            description: if desc.is_empty() { None } else { Some(desc) },
+                            plan: Some(spec_content),
+                        });
+                    }
+                }
+                // Read task.md for status
+                let task_path = feat_dir.join("task.md");
+                if task_path.exists() {
+                    if let Ok(task_content) = fs::read_to_string(&task_path) {
+                        let completed = task_content.lines().filter(|l| l.starts_with("- [x]")).count();
+                        let total = task_content.lines().filter(|l| l.starts_with("- [") && (l.contains("[x]") || l.contains("[ ]"))).count();
+                        if total > 0 {
+                            if let Some(ref mut details) = node.details {
+                                details.status = format!("{}/{}", completed, total);
+                            } else {
+                                node.details = Some(FeatureDetails {
+                                    status: format!("{}/{}", completed, total),
+                                    description: None,
+                                    plan: None,
+                                });
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    };
+
+    for node in &mut queue.active { enrich(node); }
+    for node in &mut queue.pending { enrich(node); }
+    for node in &mut queue.blocked { enrich(node); }
+    for node in &mut queue.completed { enrich(node); }
+
+    Ok(QueueState {
+        meta: queue.meta,
+        parents: queue.parents,
+        active: queue.active,
+        pending: queue.pending,
+        blocked: queue.blocked,
+        completed: queue.completed,
+    })
+}
+
+/// Update a feature's queue status by modifying queue.yaml.
+#[tauri::command]
+async fn update_task_status(
+    state: tauri::State<'_, AppState>,
+    app: AppHandle,
+    task_id: String,
+    target_queue: String,
+) -> Result<(), String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let queue_yaml_path = PathBuf::from(&workspace)
+        .join("feature-workflow")
+        .join("queue.yaml");
+
+    let content = fs::read_to_string(&queue_yaml_path)
+        .map_err(|e| format!("Failed to read queue.yaml: {}", e))?;
+
+    let mut queue: QueueYaml = serde_yaml::from_str(&content)
+        .map_err(|e| format!("Failed to parse queue.yaml: {}", e))?;
+
+    // Find and remove from current queue
+    let mut found: Option<FeatureNode> = None;
+
+    let queues: Vec<&mut Vec<FeatureNode>> = vec![
+        &mut queue.active,
+        &mut queue.pending,
+        &mut queue.blocked,
+        &mut queue.completed,
+    ];
+
+    for q in queues {
+        if let Some(pos) = q.iter().position(|n| n.id == task_id) {
+            found = Some(q.remove(pos));
+            break;
+        }
+    }
+
+    let mut node = found.ok_or_else(|| format!("Feature '{}' not found in any queue", task_id))?;
+
+    // Update timestamps for completed
+    if target_queue == "completed" {
+        node.completed_at = Some(chrono::Utc::now().to_rfc3339());
+        node.tag = Some(format!("{}-{}", node.id, chrono::Utc::now().format("%Y%m%d")));
+    }
+
+    // Insert into target queue
+    match target_queue.as_str() {
+        "active" => queue.active.push(node),
+        "pending" => queue.pending.push(node),
+        "blocked" => queue.blocked.push(node),
+        "completed" => queue.completed.push(node),
+        other => return Err(format!("Unknown target queue: {}", other)),
+    }
+
+    // Update meta timestamp
+    queue.meta.last_updated = chrono::Utc::now().to_rfc3339();
+
+    // Atomic write: write to temp file then rename
+    let temp_path = queue_yaml_path.with_extension("yaml.tmp");
+    let yaml_str = serde_yaml::to_string(&queue)
+        .map_err(|e| format!("Failed to serialize queue.yaml: {}", e))?;
+
+    fs::write(&temp_path, &yaml_str)
+        .map_err(|e| format!("Failed to write temp file: {}", e))?;
+
+    fs::rename(&temp_path, &queue_yaml_path)
+        .map_err(|e| format!("Failed to rename temp to queue.yaml: {}", e))?;
+
+    // Broadcast change
+    let _ = app.emit("fs://workspace-changed", FsChangeEvent {
+        paths: vec![queue_yaml_path.to_string_lossy().to_string()],
+        kind: "queue-update".into(),
+    });
+
+    Ok(())
+}
+
+/// Read a single feature's detail (spec.md, task.md, checklist.md).
+#[tauri::command]
+async fn read_feature_detail(
+    state: tauri::State<'_, AppState>,
+    feature_id: String,
+) -> Result<HashMap<String, String>, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let features_dir = PathBuf::from(&workspace).join("features");
+
+    // Search for the feature directory
+    let candidates = [
+        format!("pending-{}", feature_id),
+        format!("active-{}", feature_id),
+        feature_id.clone(),
+    ];
+
+    let mut feat_dir: Option<PathBuf> = None;
+    for candidate in &candidates {
+        let d = features_dir.join(candidate);
+        if d.is_dir() {
+            feat_dir = Some(d);
+            break;
+        }
+    }
+
+    let dir = feat_dir.ok_or_else(|| format!("Feature directory for '{}' not found", feature_id))?;
+
+    let mut result = HashMap::new();
+
+    for filename in &["spec.md", "task.md", "checklist.md"] {
+        let path = dir.join(filename);
+        if path.exists() {
+            if let Ok(content) = fs::read_to_string(&path) {
+                result.insert(filename.to_string(), content);
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+/// Start watching the feature-workflow/ and features/ directories for changes.
+#[tauri::command]
+async fn start_fs_watcher(
+    state: tauri::State<'_, AppState>,
+    app: AppHandle,
+) -> Result<(), String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    // Stop existing watcher first
+    stop_fs_watcher_inner(&state)?;
+
+    let watch_paths = vec![
+        PathBuf::from(&workspace).join("feature-workflow"),
+        PathBuf::from(&workspace).join("features"),
+    ];
+
+    let app_handle = app.clone();
+    let mut watcher = RecommendedWatcher::new(
+        move |res: Result<NotifyEvent, notify::Error>| {
+            match res {
+                Ok(event) => {
+                    let paths: Vec<String> = event.paths
+                        .iter()
+                        .map(|p| p.to_string_lossy().to_string())
+                        .collect();
+
+                    if !paths.is_empty() {
+                        let kind_str = format!("{:?}", event.kind);
+                        let _ = app_handle.emit("fs://workspace-changed", FsChangeEvent {
+                            paths,
+                            kind: kind_str,
+                        });
+                    }
+                }
+                Err(_) => {}
+            }
+        },
+        NotifyConfig::default(),
+    ).map_err(|e| format!("Failed to create file watcher: {}", e))?;
+
+    for watch_path in &watch_paths {
+        if watch_path.exists() {
+            watcher.watch(watch_path, RecursiveMode::Recursive)
+                .map_err(|e| format!("Failed to watch {:?}: {}", watch_path, e))?;
+        }
+    }
+
+    *state.fs_watcher.lock().map_err(|e| e.to_string())? = Some(watcher);
+
+    Ok(())
+}
+
+/// Stop the file system watcher.
+#[tauri::command]
+async fn stop_fs_watcher(
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    stop_fs_watcher_inner(&state)
+}
+
+fn stop_fs_watcher_inner(state: &tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut watcher_opt = state.fs_watcher.lock().map_err(|e| e.to_string())?;
+    // Dropping the watcher stops it
+    *watcher_opt = None;
+    Ok(())
+}
+
+/// Set the workspace path (called when workspace is loaded).
+#[tauri::command]
+async fn set_workspace_path(
+    state: tauri::State<'_, AppState>,
+    path: String,
+) -> Result<(), String> {
+    *state.workspace_path.lock().map_err(|e| e.to_string())? = path;
+    Ok(())
 }
 
 // ===========================================================================
@@ -371,6 +770,8 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .manage(AppState {
             pty_manager: Mutex::new(PtyManager::new()),
+            workspace_path: Mutex::new(String::new()),
+            fs_watcher: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
             greet,
@@ -381,6 +782,12 @@ pub fn run() {
             write_to_pty,
             resize_pty,
             kill_pty,
+            fetch_queue_state,
+            update_task_status,
+            read_feature_detail,
+            start_fs_watcher,
+            stop_fs_watcher,
+            set_workspace_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -37,3 +37,14 @@ export interface LogEntry {
   level: 'SUCCESS' | 'INFO' | 'DEBUG' | 'WARN' | 'EXEC' | 'ACTIVE' | 'BUSY' | 'ERROR';
   message: string;
 }
+
+/** State for a single open file tab in the editor. */
+export interface OpenFileState {
+  path: string;
+  name: string;
+  content: string;
+  language: string;
+  isDirty: boolean;
+  /** Monaco view state to preserve cursor & scroll on tab switch */
+  viewState: unknown | null;
+}
