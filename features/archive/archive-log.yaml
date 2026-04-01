@@ -1,13 +1,24 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-01T10:00:00Z"
+  last_updated: "2026-04-01T11:10:00Z"
   version: 1
-  total_completed: 1
+  total_completed: 3
 
 records:
   - id: feat-tauri-v2-init
     name: "Tauri V2 工程初始化"
     completed_at: "2026-04-01T10:00:00Z"
     tag: feat-tauri-v2-init-20260401
-    commit: dbb8c74
     size: M
+
+  - id: feat-workspace-loader
+    name: "工作区加载器 + 真实文件树"
+    completed_at: "2026-04-01T11:10:00Z"
+    tag: feat-workspace-loader-20260401
+    size: M
+
+  - id: feat-native-terminal
+    name: "xterm.js 真实终端"
+    completed_at: "2026-04-01T11:10:00Z"
+    tag: feat-native-terminal-20260401
+    size: L
