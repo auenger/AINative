@@ -1,7 +1,13 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-01T07:09:31Z"
+  last_updated: "2026-04-01T10:00:00Z"
   version: 1
-  total_completed: 0
+  total_completed: 1
 
-records: []
+records:
+  - id: feat-tauri-v2-init
+    name: "Tauri V2 工程初始化"
+    completed_at: "2026-04-01T10:00:00Z"
+    tag: feat-tauri-v2-init-20260401
+    commit: dbb8c74
+    size: M

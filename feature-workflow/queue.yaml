@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-01T08:00:00Z"
+  last_updated: "2026-04-01T10:00:00Z"
   version: 1
 
 parents:
@@ -18,12 +18,6 @@ parents:
 active: []
 
 pending:
-  - id: feat-tauri-v2-init
-    name: "Tauri V2 工程初始化"
-    priority: 90
-    size: M
-    dependencies: []
-
   - id: feat-workspace-loader
     name: "工作区加载器 + 真实文件树"
     priority: 80
@@ -67,4 +61,8 @@ pending:
       - feat-fs-database-engine
 
 blocked: []
-completed: []
+completed:
+  - id: feat-tauri-v2-init
+    name: "Tauri V2 工程初始化"
+    completed_at: "2026-04-01T10:00:00Z"
+    tag: feat-tauri-v2-init-20260401
