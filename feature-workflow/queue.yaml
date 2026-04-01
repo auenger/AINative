@@ -1,0 +1,70 @@
+# feature-workflow/queue.yaml
+meta:
+  last_updated: "2026-04-01T08:00:00Z"
+  version: 1
+
+parents:
+  - id: epic-neuro-syntax-ide-roadmap
+    name: "Neuro Syntax IDE — 从原型到桌面 App"
+    features:
+      - feat-tauri-v2-init
+      - feat-workspace-loader
+      - feat-fs-database-engine
+      - feat-editor-monaco
+      - feat-native-terminal
+      - feat-hardware-monitor
+      - feat-ai-agent-service
+
+active: []
+
+pending:
+  - id: feat-tauri-v2-init
+    name: "Tauri V2 工程初始化"
+    priority: 90
+    size: M
+    dependencies: []
+
+  - id: feat-workspace-loader
+    name: "工作区加载器 + 真实文件树"
+    priority: 80
+    size: M
+    dependencies:
+      - feat-tauri-v2-init
+
+  - id: feat-fs-database-engine
+    name: "FS-as-Database 数据引擎 + 看板活数据"
+    priority: 75
+    size: L
+    dependencies:
+      - feat-workspace-loader
+
+  - id: feat-editor-monaco
+    name: "Monaco Editor 代码编辑器"
+    priority: 60
+    size: M
+    dependencies:
+      - feat-workspace-loader
+
+  - id: feat-native-terminal
+    name: "xterm.js 真实终端"
+    priority: 55
+    size: L
+    dependencies:
+      - feat-tauri-v2-init
+
+  - id: feat-hardware-monitor
+    name: "硬件监控探针 + 仪表盘"
+    priority: 40
+    size: M
+    dependencies:
+      - feat-workspace-loader
+
+  - id: feat-ai-agent-service
+    name: "AI Agent 服务化接口"
+    priority: 30
+    size: L
+    dependencies:
+      - feat-fs-database-engine
+
+blocked: []
+completed: []

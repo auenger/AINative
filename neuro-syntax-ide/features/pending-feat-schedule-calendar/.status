@@ -1,0 +1,20 @@
+{
+  "feature_id": "feat-schedule-calendar",
+  "feature_name": "日历视图",
+  "status": "pending",
+  "priority": 60,
+  "size": "S",
+  "parent": "feat-user-schedule",
+  "children": [],
+  "dependencies": [
+    "feat-schedule-basic"
+  ],
+  "created_at": "2024-03-06T00:00:00Z",
+  "updated_at": null,
+  "started_at": null,
+  "completed_at": null,
+  "has_ui_components": true,
+  "has_backend_api": false,
+  "has_gherkin_scenarios": true,
+  "feature_type": "frontend"
+}

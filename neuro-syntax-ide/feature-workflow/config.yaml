@@ -1,0 +1,47 @@
+project:
+  name: feature-workflow-test
+  main_branch: main
+
+parallelism:
+  max_concurrent: 2
+
+workflow:
+  auto_start: false
+  require_checklist: true
+  splitting:
+    enabled: true
+    threshold: 3
+    auto_dependencies: true
+    force_split: false
+    suggest_split: true
+  verification:
+    enabled: true
+    require_pass: false
+    playwright_mcp: true
+    save_evidence: true
+    dev_server:
+      auto_start: true
+      port: 5173
+      command: "npm run dev"
+
+completion:
+  archive:
+    create_tag: false
+  cleanup:
+    delete_worktree: false
+    delete_branch: false
+  record:
+    update_spec: true
+    update_archive_log: true
+    preserve_evidence: true
+
+naming:
+  feature_prefix: feat
+  branch_prefix: feature
+  worktree_prefix: fwt
+
+paths:
+  features_dir: features
+  archive_dir: features/archive
+  worktree_base: .worktrees
+  evidence_dir: evidence

@@ -1,0 +1,314 @@
+# Feature 调度队列
+# 此文件由 workflow 自动维护
+
+meta:
+  last_updated: 2026-03-07T00:30:00
+  version: 29
+
+# 父需求（用于分组追踪）
+parents:
+  - id: feat-auth-system
+    name: 用户认证系统
+    priority: 80
+    size: L
+    children:
+      - feat-auth-register
+      - feat-auth-login
+      - feat-auth-logout
+    status: completed
+    created: 2026-03-03T12:00:00
+    completed: 2026-03-03T14:00:00
+
+  - id: feat-department-system
+    name: 用户绑定部门系统
+    priority: 80
+    size: M
+    children:
+      - feat-department-mgmt
+      - feat-user-department
+    status: completed
+    created: 2026-03-03T17:10:00
+    completed: 2026-03-03T17:20:00
+    parallel_test: true
+
+  - id: feat-role-system
+    name: 用户和角色的相互绑定
+    priority: 80
+    size: L
+    children:
+      - feat-role-mgmt
+      - feat-user-role
+      - feat-role-user
+    status: completed
+    created: 2026-03-03T17:30:00
+    completed: 2026-03-05T13:50:00
+
+  - id: feat-user-dept-leader-system
+    name: 用户部门领导管理
+    priority: 80
+    size: L
+    children:
+      - feat-user-dept-leader-view
+      - feat-user-dept-leader-set
+      - feat-user-dept-leader-modify
+    status: in_progress
+    created: 2026-03-04T17:47:00
+
+  - id: feat-skill-system
+    name: 用户技能管理系统
+    priority: 80
+    size: M
+    children:
+      - feat-skill-mgmt
+      - feat-user-skill
+    status: in_progress
+    created: 2026-03-05T16:30:00
+
+  - id: feat-notification-system
+    name: 通知管理系统
+    priority: 70
+    size: M
+    children:
+      - feat-notification-mgmt
+      - feat-user-notification
+      - feat-notification-history
+    status: completed
+    created: 2026-03-05T20:15:00
+    completed: 2026-03-06T00:00:00
+
+  - id: feat-material-warehouse-system
+    name: 物料和仓库管理系统
+    priority: 85
+    size: L
+    children:
+      - feat-material-basic
+      - feat-warehouse-basic
+      - feat-inventory-basic
+    status: in_progress
+    created: 2026-03-07T00:00:00
+
+# 正在开发的需求
+active: []
+
+# 等待中的需求
+pending:
+  - id: feat-warehouse-basic
+    name: 仓库基础信息管理
+    priority: 85
+    size: S
+    parent: feat-material-warehouse-system
+    children: []
+    dependencies: []
+    created: 2026-03-07T00:00:00
+
+  - id: feat-inventory-basic
+    name: 物料库存信息管理
+    priority: 85
+    size: S
+    parent: feat-material-warehouse-system
+    children: []
+    dependencies:
+      - feat-material-basic
+      - feat-warehouse-basic
+    created: 2026-03-07T00:00:00
+
+# 阻塞中的需求
+blocked: []
+
+# 已完成的需求
+completed:
+  - id: feat-auth-register
+    name: 用户注册
+    priority: 80
+    size: S
+    parent: feat-auth-system
+    completed: 2026-03-03T13:00:00
+    evidence: features/archive/done-feat-auth-register/evidence/
+    tag: v0.1.0-feat-auth-register
+
+  - id: feat-auth-login
+    name: 用户登录
+    priority: 80
+    size: S
+    parent: feat-auth-system
+    completed: 2026-03-03T13:30:00
+    evidence: features/archive/done-feat-auth-login/evidence/
+    tag: v0.2.0-feat-auth-login
+
+  - id: feat-auth-logout
+    name: 用户登出
+    priority: 70
+    size: S
+    parent: feat-auth-system
+    completed: 2026-03-03T14:00:00
+    evidence: features/archive/done-feat-auth-logout/evidence/
+    tag: v0.3.0-feat-auth-logout
+
+  - id: feat-department-mgmt
+    name: 部门管理
+    priority: 80
+    size: S
+    parent: feat-department-system
+    completed: 2026-03-03T17:16:00
+    evidence: features/archive/done-feat-department-mgmt-20260303/evidence/
+    tag: v0.4.0-feat-department-mgmt
+    conflicts:
+      had_conflict: false
+
+  - id: feat-user-department
+    name: 用户绑定部门
+    priority: 75
+    size: S
+    parent: feat-department-system
+    completed: 2026-03-03T17:19:00
+    evidence: features/archive/done-feat-user-department-20260303/evidence/
+    tag: v0.5.0-feat-user-department
+    conflicts:
+      had_conflict: true
+      conflict_files:
+        - src/App.tsx
+        - src/types/user.ts
+      resolved_at: 2026-03-03T17:18:00
+      re_verified: true
+
+  - id: feat-role-mgmt
+    name: 角色管理
+    priority: 80
+    size: S
+    parent: feat-role-system
+    completed: 2026-03-03T18:00:00
+    evidence: features/archive/done-feat-role-mgmt-20260303/evidence/
+    tag: v0.6.0-feat-role-mgmt
+    conflicts:
+      had_conflict: false
+
+  - id: feat-user-role
+    name: 用户绑定角色
+    priority: 80
+    size: S
+    parent: feat-role-system
+    completed: 2026-03-04T10:20:00
+    evidence: features/archive/done-feat-user-role-20260304/evidence/
+    tag: v0.7.0-feat-user-role
+    conflicts:
+      had_conflict: false
+
+  - id: feat-user-dept-leader-view
+    name: 查看用户部门领导
+    priority: 80
+    size: S
+    parent: feat-user-dept-leader-system
+    completed: 2026-03-04T18:15:00
+    evidence: features/archive/done-feat-user-dept-leader-view-20260304/evidence/
+    tag: feat-user-dept-leader-view-20260304
+    conflicts:
+      had_conflict: false
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+
+  - id: feat-user-dept-leader-set
+    name: 设置用户部门领导
+    priority: 80
+    size: S
+    parent: feat-user-dept-leader-system
+    completed: 2026-03-05T13:40:00
+    evidence: features/archive/done-feat-user-dept-leader-set-20260305/
+    tag: feat-user-dept-leader-set-20260305
+    conflicts:
+      had_conflict: false
+
+  - id: feat-role-user
+    name: 角色绑定用户
+    priority: 75
+    size: S
+    parent: feat-role-system
+    completed: 2026-03-05T13:50:00
+    evidence: features/archive/done-feat-role-user-20260305/
+    tag: feat-role-user-20260305
+    conflicts:
+      had_conflict: false
+
+  - id: feat-skill-mgmt
+    name: 技能管理
+    priority: 80
+    size: S
+    parent: feat-skill-system
+    completed: 2026-03-05T19:03:00
+    evidence: features/archive/done-feat-skill-mgmt-20260305/
+    tag: feat-skill-mgmt-20260305
+    conflicts:
+      had_conflict: false
+
+  - id: feat-user-dept-leader-modify
+    name: 修改/取消部门领导
+    priority: 80
+    size: S
+    parent: feat-user-dept-leader-system
+    completed: 2026-03-05T19:04:00
+    evidence: features/archive/done-feat-user-dept-leader-modify-20260305/
+    tag: feat-user-dept-leader-modify-20260305
+    conflicts:
+      had_conflict: false
+
+  - id: feat-user-skill
+    name: 用户绑定技能
+    priority: 80
+    size: S
+    parent: feat-skill-system
+    completed: 2026-03-05T15:36:00
+    evidence: features/active-feat-user-skill/evidence/
+    tag: feat-user-skill-20260305
+    commit: 5a0b06e
+    conflicts:
+      had_conflict: false
+
+  - id: feat-notification-mgmt
+    name: 通知管理
+    priority: 70
+    size: S
+    parent: feat-notification-system
+    completed: 2026-03-05T20:50:00
+    evidence: features/archive/done-feat-notification-mgmt-20260305/
+    tag: feat-notification-mgmt-20260305
+    commit: ae7fa86
+    conflicts:
+      had_conflict: false
+
+  - id: feat-user-notification
+    name: 用户通知设置
+    priority: 70
+    size: S
+    parent: feat-notification-system
+    completed: 2026-03-05T20:51:00
+    evidence: features/archive/done-feat-user-notification-20260305/
+    tag: feat-user-notification-20260305
+    commit: a31eb4c
+    conflicts:
+      had_conflict: false
+
+  - id: feat-notification-history
+    name: 通知历史
+    priority: 70
+    size: S
+    parent: feat-notification-system
+    completed: 2026-03-06T00:00:00
+    evidence: features/archive/done-feat-notification-history-20260306/
+    tag: feat-notification-history-20260306
+    commit: f45bd80
+    conflicts:
+      had_conflict: false
+
+  - id: feat-material-basic
+    name: 物料基础信息管理
+    priority: 85
+    size: S
+    parent: feat-material-warehouse-system
+    completed: 2026-03-07T00:30:00
+    evidence: features/archive/done-feat-material-basic-20260307/
+    tag: feat-material-basic-20260307
+    commit: 742634d
+    merge_commit: 32c3a1f
+    conflicts:
+      had_conflict: false

@@ -1,0 +1,11 @@
+version: "1.0"
+updated_at: 2026-03-06T12:54:00Z
+
+completed:
+  - id: feat-schedule-basic
+    name: 基础排班管理
+    archived_at: 2026-03-06T12:53:00Z
+    archive_dir: done-feat-schedule-basic-20260306
+    commit: d126f47
+
+pending: []

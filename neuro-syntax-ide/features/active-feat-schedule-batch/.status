@@ -1,0 +1,32 @@
+{
+  "feature_id": "feat-schedule-batch",
+  "feature_name": "批量操作",
+  "status": "completed",
+  "priority": 50,
+  "size": "S",
+  "parent": "feat-user-schedule",
+  "children": [],
+  "dependencies": [
+    "feat-schedule-basic"
+  ],
+  "created_at": "2024-03-06T00:00:00Z",
+  "updated_at": "2026-03-06T14:00:00Z",
+  "started_at": "2026-03-06T12:00:00Z",
+  "completed_at": "2026-03-06T14:00:00Z",
+  "has_ui_components": true,
+  "has_backend_api": true,
+  "has_gherkin_scenarios": true,
+  "feature_type": "fullstack",
+  "implementation_summary": {
+    "backend_api": "已实现 batchCreateSchedules API，支持批量创建排班记录，自动跳过冲突日期",
+    "frontend_components": [
+      "ScheduleBatchForm.tsx - 批量排班表单组件，支持多用户选择、日期范围选择、部门筛选",
+      "ScheduleBatchPreview.tsx - 批量排班预览组件，显示预览列表和创建结果",
+      "ScheduleList.tsx - 已集成批量排班功能入口和弹窗"
+    ],
+    "permissions": "已实现权限控制：管理员可查看所有部门，部门领导只能查看和操作本部门员工",
+    "notifications": "已实现批量通知功能 notifyBatchSchedulesCreated，成功创建后发送通知给相关用户",
+    "result_display": "已实现批量排班结果展示，显示成功/跳过/失败的统计信息",
+    "e2e_tests": "已创建 schedule-batch.spec.ts，包含5个测试场景：管理员批量创建、跳过已有排班、预览功能、取消批量排班、部门领导权限控制"
+  }
+}

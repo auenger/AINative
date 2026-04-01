@@ -1,0 +1,3110 @@
+{
+  "config": {
+    "configFile": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/playwright.config.ts",
+    "rootDir": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 8
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 8
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "features/active-feat-auth-logout/evidence/playwright-report"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "features/active-feat-auth-logout/evidence/test-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "runAgents": "none",
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.58.2",
+    "workers": 8,
+    "webServer": {
+      "command": "npm run dev",
+      "url": "http://localhost:5173",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "login.spec.ts",
+      "file": "login.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "feat-auth-login 用户登录",
+          "file": "login.spec.ts",
+          "line": 6,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Scenario 1: 登录成功",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5759,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:31.988Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/login-feat-auth-login-用户登录-Scenario-1-登录成功-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/login-feat-auth-login-用户登录-Scenario-1-登录成功-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "41d3fd2474a19feb00a1-7ec3bb87e5cfc4a140df",
+              "file": "login.spec.ts",
+              "line": 16,
+              "column": 3
+            },
+            {
+              "title": "Scenario 2: 用户名不存在",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2260,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:40.460Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/login-feat-auth-login-用户登录-Scenario-2-用户名不存在-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/login-feat-auth-login-用户登录-Scenario-2-用户名不存在-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "41d3fd2474a19feb00a1-579fe5c0d3733defb650",
+              "file": "login.spec.ts",
+              "line": 55,
+              "column": 3
+            },
+            {
+              "title": "Scenario 3: 密码错误",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3525,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:42.791Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/login-feat-auth-login-用户登录-Scenario-3-密码错误-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/login-feat-auth-login-用户登录-Scenario-3-密码错误-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "41d3fd2474a19feb00a1-76c57f21e5d45211e2f9",
+              "file": "login.spec.ts",
+              "line": 75,
+              "column": 3
+            },
+            {
+              "title": "Scenario 4: 表单验证 - 用户名为空",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 852,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:46.404Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/login-feat-auth-login-用户登录-Scenario-4-表单验证---用户名为空-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/login-feat-auth-login-用户登录-Scenario-4-表单验证---用户名为空-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "41d3fd2474a19feb00a1-1f1c1964616fc27a5670",
+              "file": "login.spec.ts",
+              "line": 104,
+              "column": 3
+            },
+            {
+              "title": "Scenario 5: 表单验证 - 密码为空",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 920,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:47.290Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/login-feat-auth-login-用户登录-Scenario-5-表单验证---密码为空-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/login-feat-auth-login-用户登录-Scenario-5-表单验证---密码为空-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "41d3fd2474a19feb00a1-2c99aa471a7732e45780",
+              "file": "login.spec.ts",
+              "line": 121,
+              "column": 3
+            },
+            {
+              "title": "Scenario 6: 注册成功后跳转登录页",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2487,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:48.246Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/login-feat-auth-login-用户登录-Scenario-6-注册成功后跳转登录页-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/login-feat-auth-login-用户登录-Scenario-6-注册成功后跳转登录页-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "41d3fd2474a19feb00a1-f230b24c09860413ffac",
+              "file": "login.spec.ts",
+              "line": 138,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "logout.spec.ts",
+      "file": "logout.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "feat-auth-logout 用户登出",
+          "file": "logout.spec.ts",
+          "line": 6,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Scenario 1: 登出成功",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 5778,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:31.988Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/logout-feat-auth-logout-用户登出-Scenario-1-登出成功-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/logout-feat-auth-logout-用户登出-Scenario-1-登出成功-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "01b3c3c82abdc8a715b2-0e4a96629136be5edb37",
+              "file": "logout.spec.ts",
+              "line": 16,
+              "column": 3
+            },
+            {
+              "title": "Scenario 2: 未登录访问受保护页面",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1194,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:40.464Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/logout-feat-auth-logout-用户登出-Scenario-2-未登录访问受保护页面-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/logout-feat-auth-logout-用户登出-Scenario-2-未登录访问受保护页面-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "01b3c3c82abdc8a715b2-32af2df8e17421b9eba0",
+              "file": "logout.spec.ts",
+              "line": 48,
+              "column": 3
+            },
+            {
+              "title": "Scenario 3: 登出后后退",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 3053,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:41.716Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/logout-feat-auth-logout-用户登出-Scenario-3-登出后后退-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/logout-feat-auth-logout-用户登出-Scenario-3-登出后后退-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "01b3c3c82abdc8a715b2-e56430a84cba7d935ee1",
+              "file": "logout.spec.ts",
+              "line": 58,
+              "column": 3
+            },
+            {
+              "title": "Scenario 4: 登录后访问受保护页面",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 2998,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:44.847Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/logout-feat-auth-logout-用户登出-Scenario-4-登录后访问受保护页面-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/logout-feat-auth-logout-用户登出-Scenario-4-登录后访问受保护页面-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "01b3c3c82abdc8a715b2-eaa56b3fa875ddce014f",
+              "file": "logout.spec.ts",
+              "line": 87,
+              "column": 3
+            },
+            {
+              "title": "Scenario 5: 从 Dashboard 登出",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 3109,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:47.943Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/logout-feat-auth-logout-用户登出-Scenario-5-从-Dashboard-登出-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/logout-feat-auth-logout-用户登出-Scenario-5-从-Dashboard-登出-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "01b3c3c82abdc8a715b2-092e6139a4eb153ff3f6",
+              "file": "logout.spec.ts",
+              "line": 111,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "register.spec.ts",
+      "file": "register.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "feat-auth-register 用户注册",
+          "file": "register.spec.ts",
+          "line": 6,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Scenario 1: 注册成功",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 4415,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:31.991Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/register-feat-auth-register-用户注册-Scenario-1-注册成功-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/register-feat-auth-register-用户注册-Scenario-1-注册成功-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ab6fb19b790d2390d751-8b2d35e0b760bd93fd2c",
+              "file": "register.spec.ts",
+              "line": 16,
+              "column": 3
+            },
+            {
+              "title": "Scenario 2: 用户名已存在",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "timedOut",
+                      "duration": 30172,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/register.spec.ts",
+                            "column": 16,
+                            "line": 67
+                          },
+                          "message": "Error: page.fill: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input#confirmPassword')\u001b[22m\n\n\n  65 |\n  66 |     // And 用户输入确认密码 \"Test123!\"\n> 67 |     await page.fill('input#confirmPassword', 'Test123!');\n     |                ^\n  68 |\n  69 |     // And 点击注册按钮\n  70 |     await page.click('button[type=\"submit\"]');\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/register.spec.ts:67:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:39.082Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/register-feat-auth-register-用户注册-Scenario-2-用户名已存在-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/register-feat-auth-register-用户注册-Scenario-2-用户名已存在-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/register-feat-auth-register-用户注册-Scenario-2-用户名已存在-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "ab6fb19b790d2390d751-a68cf952273a71b4f365",
+              "file": "register.spec.ts",
+              "line": 49,
+              "column": 3
+            },
+            {
+              "title": "Scenario 3: 密码不匹配",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 856,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:15:10.787Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/register-feat-auth-register-用户注册-Scenario-3-密码不匹配-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/register-feat-auth-register-用户注册-Scenario-3-密码不匹配-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ab6fb19b790d2390d751-06c81ee097a9dbdb0dd2",
+              "file": "register.spec.ts",
+              "line": 79,
+              "column": 3
+            },
+            {
+              "title": "Scenario 4: 表单验证 - 用户名太短",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 741,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:15:12.535Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/register-feat-auth-register-用户注册-Scenario-4-表单验证---用户名太短-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/register-feat-auth-register-用户注册-Scenario-4-表单验证---用户名太短-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ab6fb19b790d2390d751-598288ed79394aa371ca",
+              "file": "register.spec.ts",
+              "line": 99,
+              "column": 3
+            },
+            {
+              "title": "Scenario 5: 表单验证 - 密码太短",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 728,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:15:13.310Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/register-feat-auth-register-用户注册-Scenario-5-表单验证---密码太短-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/register-feat-auth-register-用户注册-Scenario-5-表单验证---密码太短-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ab6fb19b790d2390d751-8cdf97a1ec0812ea612b",
+              "file": "register.spec.ts",
+              "line": 116,
+              "column": 3
+            },
+            {
+              "title": "Scenario 6: localStorage 存储用户数据",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 1754,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:15:14.068Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/register-feat-auth-registe-bb7e8-nario-6-localStorage-存储用户数据-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/register-feat-auth-registe-bb7e8-nario-6-localStorage-存储用户数据-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ab6fb19b790d2390d751-c78f6c4b7c8272b690aa",
+              "file": "register.spec.ts",
+              "line": 136,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "role-mgmt.spec.ts",
+      "file": "role-mgmt.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Role Management Feature",
+          "file": "role-mgmt.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Scenario 1: 成功创建角色",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 8157,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:32.026Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/role-mgmt-Role-Management-Feature-Scenario-1-成功创建角色-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/role-mgmt-Role-Management-Feature-Scenario-1-成功创建角色-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "5aebbae50811e4b58526-e046b0cccaf44e231812",
+              "file": "role-mgmt.spec.ts",
+              "line": 38,
+              "column": 3
+            },
+            {
+              "title": "Scenario 2: 角色名称重复",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 6383,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:42.832Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/role-mgmt-Role-Management-Feature-Scenario-2-角色名称重复-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/role-mgmt-Role-Management-Feature-Scenario-2-角色名称重复-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "5aebbae50811e4b58526-d4fa67c7ce6fa56f5862",
+              "file": "role-mgmt.spec.ts",
+              "line": 60,
+              "column": 3
+            },
+            {
+              "title": "Scenario 3: 编辑角色信息",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 6282,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:49.359Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/role-mgmt-Role-Management-Feature-Scenario-3-编辑角色信息-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/role-mgmt-Role-Management-Feature-Scenario-3-编辑角色信息-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "5aebbae50811e4b58526-993adeca305baa615851",
+              "file": "role-mgmt.spec.ts",
+              "line": 86,
+              "column": 3
+            },
+            {
+              "title": "Scenario 4: 删除无用户的角色",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 6095,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:55.758Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/role-mgmt-Role-Management-Feature-Scenario-4-删除无用户的角色-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/role-mgmt-Role-Management-Feature-Scenario-4-删除无用户的角色-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "5aebbae50811e4b58526-f70d1244fa95d715b26b",
+              "file": "role-mgmt.spec.ts",
+              "line": 117,
+              "column": 3
+            },
+            {
+              "title": "Scenario 6: 查看角色列表",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 5007,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:15:01.977Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/role-mgmt-Role-Management-Feature-Scenario-6-查看角色列表-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/role-mgmt-Role-Management-Feature-Scenario-6-查看角色列表-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "5aebbae50811e4b58526-921b29293fe2ebbbe42f",
+              "file": "role-mgmt.spec.ts",
+              "line": 141,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "schedule-basic.spec.ts",
+      "file": "schedule-basic.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "基础排班管理功能 (feat-schedule-basic)",
+          "file": "schedule-basic.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Scenario 1: 管理员创建单个排班",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "timedOut",
+                      "duration": 30267,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/schedule-basic.spec.ts",
+                            "column": 16,
+                            "line": 59
+                          },
+                          "message": "Error: page.waitForSelector: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('h1:has-text(\"排班管理\")') to be visible\u001b[22m\n\n\n  57 |     // When 管理员访问排班列表页面\n  58 |     await page.click('text=排班管理');\n> 59 |     await page.waitForSelector('h1:has-text(\"排班管理\")');\n     |                ^\n  60 |\n  61 |     // And 管理员点击\"新增排班\"\n  62 |     await page.click('button:has-text(\"新增排班\")');\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/schedule-basic.spec.ts:59:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:32.035Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/schedule-basic-基础排班管理功能-fe-39dae--basic-Scenario-1-管理员创建单个排班-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/schedule-basic-基础排班管理功能-fe-39dae--basic-Scenario-1-管理员创建单个排班-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/schedule-basic-基础排班管理功能-fe-39dae--basic-Scenario-1-管理员创建单个排班-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6b4f0d3777dd10545107-877296c83c68251bb1aa",
+              "file": "schedule-basic.spec.ts",
+              "line": 38,
+              "column": 3
+            },
+            {
+              "title": "Scenario 2: 管理员编辑排班",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 1,
+                      "status": "timedOut",
+                      "duration": 30142,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/schedule-basic.spec.ts",
+                            "column": 16,
+                            "line": 95
+                          },
+                          "message": "Error: page.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text=排班管理')\u001b[22m\n\n\n  93 |     // Given 管理员登录系统\n  94 |     // And 用户\"张三\"在\"2024-03-15\"有早班排班\n> 95 |     await page.click('text=排班管理');\n     |                ^\n  96 |     await page.waitForSelector('h1:has-text(\"排班管理\")');\n  97 |\n  98 |     // 先创建一个排班\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/schedule-basic.spec.ts:95:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:15:06.457Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/schedule-basic-基础排班管理功能-fe-884f7-le-basic-Scenario-2-管理员编辑排班-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/schedule-basic-基础排班管理功能-fe-884f7-le-basic-Scenario-2-管理员编辑排班-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/schedule-basic-基础排班管理功能-fe-884f7-le-basic-Scenario-2-管理员编辑排班-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6b4f0d3777dd10545107-8640f84b8a9b9652d538",
+              "file": "schedule-basic.spec.ts",
+              "line": 92,
+              "column": 3
+            },
+            {
+              "title": "Scenario 3: 管理员删除排班",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 12,
+                      "parallelIndex": 1,
+                      "status": "timedOut",
+                      "duration": 30167,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/schedule-basic.spec.ts",
+                            "column": 16,
+                            "line": 128
+                          },
+                          "message": "Error: page.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text=排班管理')\u001b[22m\n\n\n  126 |     // Given 管理员登录系统\n  127 |     // And 用户\"张三\"在\"2024-03-15\"有早班排班\n> 128 |     await page.click('text=排班管理');\n      |                ^\n  129 |     await page.waitForSelector('h1:has-text(\"排班管理\")');\n  130 |\n  131 |     // 先创建一个排班\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/schedule-basic.spec.ts:128:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:15:39.080Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/schedule-basic-基础排班管理功能-fe-42bf2-le-basic-Scenario-3-管理员删除排班-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/schedule-basic-基础排班管理功能-fe-42bf2-le-basic-Scenario-3-管理员删除排班-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/schedule-basic-基础排班管理功能-fe-42bf2-le-basic-Scenario-3-管理员删除排班-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6b4f0d3777dd10545107-36d3e7c0039c3ca474cc",
+              "file": "schedule-basic.spec.ts",
+              "line": 125,
+              "column": 3
+            },
+            {
+              "title": "Scenario 5: 冲突检测阻止重复排班",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 16,
+                      "parallelIndex": 1,
+                      "status": "timedOut",
+                      "duration": 30153,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/schedule-basic.spec.ts",
+                            "column": 16,
+                            "line": 155
+                          },
+                          "message": "Error: page.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text=排班管理')\u001b[22m\n\n\n  153 |     // Given 管理员登录系统\n  154 |     // And 用户\"张三\"在\"2024-03-15\"已有早班排班\n> 155 |     await page.click('text=排班管理');\n      |                ^\n  156 |     await page.waitForSelector('h1:has-text(\"排班管理\")');\n  157 |\n  158 |     // 先创建一个排班\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/schedule-basic.spec.ts:155:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:16:11.471Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/schedule-basic-基础排班管理功能-fe-cc9fe-basic-Scenario-5-冲突检测阻止重复排班-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/schedule-basic-基础排班管理功能-fe-cc9fe-basic-Scenario-5-冲突检测阻止重复排班-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/schedule-basic-基础排班管理功能-fe-cc9fe-basic-Scenario-5-冲突检测阻止重复排班-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6b4f0d3777dd10545107-f9a298a9e512e461fcbe",
+              "file": "schedule-basic.spec.ts",
+              "line": 152,
+              "column": 3
+            },
+            {
+              "title": "Scenario 6: 用户查看自己的排班",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 18,
+                      "parallelIndex": 1,
+                      "status": "timedOut",
+                      "duration": 30178,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/schedule-basic.spec.ts",
+                            "column": 16,
+                            "line": 203
+                          },
+                          "message": "Error: page.waitForSelector: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('h1:has-text(\"排班管理\")') to be visible\u001b[22m\n\n\n  201 |\n  202 |     await page.click('text=排班管理');\n> 203 |     await page.waitForSelector('h1:has-text(\"排班管理\")');\n      |                ^\n  204 |     await page.click('button:has-text(\"新增排班\")');\n  205 |     await page.waitForSelector('.schedule-form');\n  206 |     await page.selectOption('#userId', 'user_schedule');\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/schedule-basic.spec.ts:203:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:16:43.818Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/schedule-basic-基础排班管理功能-fe-7917c--basic-Scenario-6-用户查看自己的排班-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/schedule-basic-基础排班管理功能-fe-7917c--basic-Scenario-6-用户查看自己的排班-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/schedule-basic-基础排班管理功能-fe-7917c--basic-Scenario-6-用户查看自己的排班-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6b4f0d3777dd10545107-545cb8ce7354ca4a6662",
+              "file": "schedule-basic.spec.ts",
+              "line": 183,
+              "column": 3
+            },
+            {
+              "title": "Scenario 8: 排班筛选功能",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 20,
+                      "parallelIndex": 1,
+                      "status": "timedOut",
+                      "duration": 30138,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/schedule-basic.spec.ts",
+                            "column": 16,
+                            "line": 235
+                          },
+                          "message": "Error: page.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text=排班管理')\u001b[22m\n\n\n  233 |     // Given 管理员登录系统\n  234 |     // And 系统中有多个排班记录\n> 235 |     await page.click('text=排班管理');\n      |                ^\n  236 |     await page.waitForSelector('h1:has-text(\"排班管理\")');\n  237 |\n  238 |     // 创建多个排班\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/schedule-basic.spec.ts:235:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:17:16.129Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/schedule-basic-基础排班管理功能-fe-f3671-ule-basic-Scenario-8-排班筛选功能-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/schedule-basic-基础排班管理功能-fe-f3671-ule-basic-Scenario-8-排班筛选功能-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/schedule-basic-基础排班管理功能-fe-f3671-ule-basic-Scenario-8-排班筛选功能-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6b4f0d3777dd10545107-f65317943cc9d43410c0",
+              "file": "schedule-basic.spec.ts",
+              "line": 232,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "skill-mgmt.spec.ts",
+      "file": "skill-mgmt.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Skill Management Feature",
+          "file": "skill-mgmt.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Scenario 1: 成功创建技能",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 7731,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:32.030Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/skill-mgmt-Skill-Management-Feature-Scenario-1-成功创建技能-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/skill-mgmt-Skill-Management-Feature-Scenario-1-成功创建技能-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "aa9b057879bb80b0885b-88391d86caced836b2b6",
+              "file": "skill-mgmt.spec.ts",
+              "line": 38,
+              "column": 3
+            },
+            {
+              "title": "Scenario 2: 技能名称重复校验",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 6633,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:42.400Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/skill-mgmt-Skill-Management-Feature-Scenario-2-技能名称重复校验-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/skill-mgmt-Skill-Management-Feature-Scenario-2-技能名称重复校验-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "aa9b057879bb80b0885b-99818b5dac5cc210edfb",
+              "file": "skill-mgmt.spec.ts",
+              "line": 60,
+              "column": 3
+            },
+            {
+              "title": "Scenario 3: 编辑技能信息",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 6273,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:49.145Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/skill-mgmt-Skill-Management-Feature-Scenario-3-编辑技能信息-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/skill-mgmt-Skill-Management-Feature-Scenario-3-编辑技能信息-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "aa9b057879bb80b0885b-e1086be973f1fdfb7224",
+              "file": "skill-mgmt.spec.ts",
+              "line": 88,
+              "column": 3
+            },
+            {
+              "title": "Scenario 4: 删除技能",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 6093,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:55.495Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/skill-mgmt-Skill-Management-Feature-Scenario-4-删除技能-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/skill-mgmt-Skill-Management-Feature-Scenario-4-删除技能-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "aa9b057879bb80b0885b-eb12ee50808f5bb63b8f",
+              "file": "skill-mgmt.spec.ts",
+              "line": 119,
+              "column": 3
+            },
+            {
+              "title": "Scenario 5: 搜索技能",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 6198,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:15:01.662Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/skill-mgmt-Skill-Management-Feature-Scenario-5-搜索技能-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/skill-mgmt-Skill-Management-Feature-Scenario-5-搜索技能-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "aa9b057879bb80b0885b-12e67cce6b77e447a676",
+              "file": "skill-mgmt.spec.ts",
+              "line": 144,
+              "column": 3
+            },
+            {
+              "title": "Scenario 6: 查看技能列表",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 5072,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:15:07.983Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/skill-mgmt-Skill-Management-Feature-Scenario-6-查看技能列表-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/skill-mgmt-Skill-Management-Feature-Scenario-6-查看技能列表-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "aa9b057879bb80b0885b-85fcfbd4e7fe39ab2b3c",
+              "file": "skill-mgmt.spec.ts",
+              "line": 167,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "user-dept-leader-modify.spec.ts",
+      "file": "user-dept-leader-modify.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "User Department Leader Modify Feature",
+          "file": "user-dept-leader-modify.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Scenario 1: 修改用户部门领导",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 6,
+                      "status": "timedOut",
+                      "duration": 30297,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-dept-leader-modify.spec.ts",
+                            "column": 16,
+                            "line": 59
+                          },
+                          "message": "Error: page.waitForSelector: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.message.success') to be visible\u001b[22m\n\n\n  57 |     await page.selectOption('#leader-select', 'leader1');\n  58 |     await page.click('button:has-text(\"设置部门领导\")');\n> 59 |     await page.waitForSelector('.message.success');\n     |                ^\n  60 |\n  61 |     // When 用户点击修改按钮\n  62 |     const firstRow = page.locator('table tbody tr').first();\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-dept-leader-modify.spec.ts:59:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:32.027Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-modify-Us-e9383-Feature-Scenario-1-修改用户部门领导-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-modify-Us-e9383-Feature-Scenario-1-修改用户部门领导-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-modify-Us-e9383-Feature-Scenario-1-修改用户部门领导-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "78f68d7f40fac2b4ebc6-b93011e854e4e83d129b",
+              "file": "user-dept-leader-modify.spec.ts",
+              "line": 49,
+              "column": 3
+            },
+            {
+              "title": "Scenario 2: 解绑用户部门领导",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 4,
+                      "status": "timedOut",
+                      "duration": 30214,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-dept-leader-modify.spec.ts",
+                            "column": 16,
+                            "line": 94
+                          },
+                          "message": "Error: page.waitForSelector: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.message.success') to be visible\u001b[22m\n\n\n  92 |     await page.selectOption('#leader-select', 'leader1');\n  93 |     await page.click('button:has-text(\"设置部门领导\")');\n> 94 |     await page.waitForSelector('.message.success');\n     |                ^\n  95 |\n  96 |     // When 用户点击解绑按钮\n  97 |     const firstRow = page.locator('table tbody tr').first();\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-dept-leader-modify.spec.ts:94:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:15:06.470Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-modify-Us-8c2e7-Feature-Scenario-2-解绑用户部门领导-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-modify-Us-8c2e7-Feature-Scenario-2-解绑用户部门领导-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-modify-Us-8c2e7-Feature-Scenario-2-解绑用户部门领导-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "78f68d7f40fac2b4ebc6-a4c4b672711402d08171",
+              "file": "user-dept-leader-modify.spec.ts",
+              "line": 84,
+              "column": 3
+            },
+            {
+              "title": "Scenario 3: 修改操作需要确认",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 13,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 5115,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:15:39.147Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-modify-Us-0b6a2-Feature-Scenario-3-修改操作需要确认-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-modify-Us-0b6a2-Feature-Scenario-3-修改操作需要确认-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "78f68d7f40fac2b4ebc6-b9857945cc932f84cc77",
+              "file": "user-dept-leader-modify.spec.ts",
+              "line": 120,
+              "column": 3
+            },
+            {
+              "title": "Scenario 4: 解绑操作需要二次确认",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 13,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 4919,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:15:45.244Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-modify-Us-390d0-ature-Scenario-4-解绑操作需要二次确认-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-modify-Us-390d0-ature-Scenario-4-解绑操作需要二次确认-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "78f68d7f40fac2b4ebc6-57a6d201a65c7dd32db4",
+              "file": "user-dept-leader-modify.spec.ts",
+              "line": 145,
+              "column": 3
+            },
+            {
+              "title": "Scenario 5: 未设置部门领导的用户不能修改或解绑",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 13,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 4695,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:15:50.277Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-modify-Us-19671-cenario-5-未设置部门领导的用户不能修改或解绑-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-modify-Us-19671-cenario-5-未设置部门领导的用户不能修改或解绑-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "78f68d7f40fac2b4ebc6-cd5c00095cfadb47259a",
+              "file": "user-dept-leader-modify.spec.ts",
+              "line": 170,
+              "column": 3
+            },
+            {
+              "title": "Scenario 6: 操作成功后显示提示信息",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 13,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 9859,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.message.success')\nExpected substring: \u001b[32m\"部门领导设置成功\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.message.success')\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.message.success')\nExpected substring: \u001b[32m\"部门领导设置成功\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.message.success')\u001b[22m\n\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-dept-leader-modify.spec.ts:206:52",
+                        "location": {
+                          "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-dept-leader-modify.spec.ts",
+                          "column": 52,
+                          "line": 206
+                        },
+                        "snippet": "  204 |     // Then 显示成功提示\n  205 |     await expect(page.locator('.message.success')).toBeVisible();\n> 206 |     await expect(page.locator('.message.success')).toContainText('部门领导设置成功');\n      |                                                    ^\n  207 |\n  208 |     // When 修改部门领导\n  209 |     const firstRow = page.locator('table tbody tr').first();"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-dept-leader-modify.spec.ts",
+                            "column": 52,
+                            "line": 206
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.message.success')\nExpected substring: \u001b[32m\"部门领导设置成功\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.message.success')\u001b[22m\n\n\n  204 |     // Then 显示成功提示\n  205 |     await expect(page.locator('.message.success')).toBeVisible();\n> 206 |     await expect(page.locator('.message.success')).toContainText('部门领导设置成功');\n      |                                                    ^\n  207 |\n  208 |     // When 修改部门领导\n  209 |     const firstRow = page.locator('table tbody tr').first();\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-dept-leader-modify.spec.ts:206:52"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:15:55.057Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-modify-Us-365f4-ture-Scenario-6-操作成功后显示提示信息-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-modify-Us-365f4-ture-Scenario-6-操作成功后显示提示信息-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-modify-Us-365f4-ture-Scenario-6-操作成功后显示提示信息-chromium/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-dept-leader-modify.spec.ts",
+                        "column": 52,
+                        "line": 206
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "78f68d7f40fac2b4ebc6-97b3e0de04a7c8372bc7",
+              "file": "user-dept-leader-modify.spec.ts",
+              "line": 193,
+              "column": 3
+            },
+            {
+              "title": "Scenario 7: 验证修改功能错误处理",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 4911,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:16:06.293Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-modify-Us-8c976-ature-Scenario-7-验证修改功能错误处理-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-modify-Us-8c976-ature-Scenario-7-验证修改功能错误处理-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "78f68d7f40fac2b4ebc6-b923f5ec0b81fea45890",
+              "file": "user-dept-leader-modify.spec.ts",
+              "line": 227,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "user-dept-leader-view.spec.ts",
+      "file": "user-dept-leader-view.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "User Department Leader View Feature",
+          "file": "user-dept-leader-view.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Scenario 1: 查看用户部门领导管理页面",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 4855,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:32.008Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-view-User-8c183-ure-Scenario-1-查看用户部门领导管理页面-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-view-User-8c183-ure-Scenario-1-查看用户部门领导管理页面-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "1b3a0413ced982ca9069-e2fd23b72e52e20d8d78",
+              "file": "user-dept-leader-view.spec.ts",
+              "line": 26,
+              "column": 3
+            },
+            {
+              "title": "Scenario 2: 查看部门领导时无用户数据",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 3671,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:39.627Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-view-User-8419e-ure-Scenario-2-查看部门领导时无用户数据-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-view-User-8419e-ure-Scenario-2-查看部门领导时无用户数据-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "1b3a0413ced982ca9069-ee143408db76654eda2e",
+              "file": "user-dept-leader-view.spec.ts",
+              "line": 55,
+              "column": 3
+            },
+            {
+              "title": "页面布局和功能验证",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 2447,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:43.397Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-view-User-c47f9-ader-View-Feature-页面布局和功能验证-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-dept-leader-view-User-c47f9-ader-View-Feature-页面布局和功能验证-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "1b3a0413ced982ca9069-ef9c7d3a0db6855082b8",
+              "file": "user-dept-leader-view.spec.ts",
+              "line": 74,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "user-role.spec.ts",
+      "file": "user-role.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "User-Role Binding Feature",
+          "file": "user-role.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Scenario 1: 查看用户角色管理页面",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 5139,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:45.924Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-role-User-Role-Binding-Feature-Scenario-1-查看用户角色管理页面-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-role-User-Role-Binding-Feature-Scenario-1-查看用户角色管理页面-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b4564ad9dc36e1e208f2-09ea3cb9fe91d0a1ab93",
+              "file": "user-role.spec.ts",
+              "line": 38,
+              "column": 3
+            },
+            {
+              "title": "Scenario 2: 用户角色管理页面功能验证",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 4989,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:51.213Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-role-User-Role-Binding-Feature-Scenario-2-用户角色管理页面功能验证-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-role-User-Role-Binding-Feature-Scenario-2-用户角色管理页面功能验证-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b4564ad9dc36e1e208f2-61bb3685c59859290bde",
+              "file": "user-role.spec.ts",
+              "line": 53,
+              "column": 3
+            },
+            {
+              "title": "Scenario 3: 为用户分配角色（如有用户数据）",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 5615,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:56.270Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-role-User-Role-Bindin-a5f75--Scenario-3-为用户分配角色（如有用户数据）-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-role-User-Role-Bindin-a5f75--Scenario-3-为用户分配角色（如有用户数据）-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b4564ad9dc36e1e208f2-9e7f11d6aeefd3687cc6",
+              "file": "user-role.spec.ts",
+              "line": 80,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "user-skill.spec.ts",
+      "file": "user-skill.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "User-Skill Binding Feature",
+          "file": "user-skill.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Scenario 1: 查看用户技能管理页面",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 30131,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-skill.spec.ts",
+                            "column": 16,
+                            "line": 40
+                          },
+                          "message": "Error: page.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text=用户技能绑定')\u001b[22m\n\n\n  38 |   test('Scenario 1: 查看用户技能管理页面', async ({ page }) => {\n  39 |     // Given 管理员在用户技能管理页面\n> 40 |     await page.click('text=用户技能绑定');\n     |                ^\n  41 |     await page.waitForSelector('h1:has-text(\"用户技能管理\")');\n  42 |\n  43 |     // Then 页面应该正确显示\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-skill.spec.ts:40:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:14:50.837Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-1-查看用户技能管理页面-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-1-查看用户技能管理页面-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-1-查看用户技能管理页面-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "961f37f0d7bd4a3d9422-de64d2dd39bed2bfd687",
+              "file": "user-skill.spec.ts",
+              "line": 38,
+              "column": 3
+            },
+            {
+              "title": "Scenario 2: 为用户分配技能",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 11,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 30195,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-skill.spec.ts",
+                            "column": 16,
+                            "line": 60
+                          },
+                          "message": "Error: page.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text=用户技能绑定')\u001b[22m\n\n\n  58 |   test('Scenario 2: 为用户分配技能', async ({ page }) => {\n  59 |     // Given 管理员在用户技能管理页面\n> 60 |     await page.click('text=用户技能绑定');\n     |                ^\n  61 |     await page.waitForSelector('h1:has-text(\"用户技能管理\")');\n  62 |\n  63 |     // 检查是否有用户数据\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-skill.spec.ts:60:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:15:22.289Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-2-为用户分配技能-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-2-为用户分配技能-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-2-为用户分配技能-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "961f37f0d7bd4a3d9422-649c6ad766e946b626a7",
+              "file": "user-skill.spec.ts",
+              "line": 58,
+              "column": 3
+            },
+            {
+              "title": "Scenario 3: 分配已拥有的技能",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 14,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 30180,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-skill.spec.ts",
+                            "column": 16,
+                            "line": 110
+                          },
+                          "message": "Error: page.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text=用户技能绑定')\u001b[22m\n\n\n  108 |   test('Scenario 3: 分配已拥有的技能', async ({ page }) => {\n  109 |     // Given 管理员在用户技能管理页面\n> 110 |     await page.click('text=用户技能绑定');\n      |                ^\n  111 |     await page.waitForSelector('h1:has-text(\"用户技能管理\")');\n  112 |\n  113 |     // 查找一个已有技能的用户\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-skill.spec.ts:110:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:15:54.602Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-3-分配已拥有的技能-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-3-分配已拥有的技能-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-3-分配已拥有的技能-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "961f37f0d7bd4a3d9422-5161eb31f878ae3e06a1",
+              "file": "user-skill.spec.ts",
+              "line": 108,
+              "column": 3
+            },
+            {
+              "title": "Scenario 4: 移除用户技能",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 17,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 30157,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-skill.spec.ts",
+                            "column": 16,
+                            "line": 146
+                          },
+                          "message": "Error: page.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text=用户技能绑定')\u001b[22m\n\n\n  144 |   test('Scenario 4: 移除用户技能', async ({ page }) => {\n  145 |     // Given 管理员在用户技能管理页面\n> 146 |     await page.click('text=用户技能绑定');\n      |                ^\n  147 |     await page.waitForSelector('h1:has-text(\"用户技能管理\")');\n  148 |\n  149 |     // 查找一个有技能的用户\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-skill.spec.ts:146:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:16:27.114Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-4-移除用户技能-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-4-移除用户技能-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-4-移除用户技能-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "961f37f0d7bd4a3d9422-37fc2b2a238aa64e8bb6",
+              "file": "user-skill.spec.ts",
+              "line": 144,
+              "column": 3
+            },
+            {
+              "title": "Scenario 5: 更新技能等级",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 19,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 30159,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-skill.spec.ts",
+                            "column": 16,
+                            "line": 182
+                          },
+                          "message": "Error: page.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text=用户技能绑定')\u001b[22m\n\n\n  180 |   test('Scenario 5: 更新技能等级', async ({ page }) => {\n  181 |     // Given 管理员在用户技能管理页面\n> 182 |     await page.click('text=用户技能绑定');\n      |                ^\n  183 |     await page.waitForSelector('h1:has-text(\"用户技能管理\")');\n  184 |\n  185 |     // 查找一个有技能的用户\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-skill.spec.ts:182:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:16:59.784Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-5-更新技能等级-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-5-更新技能等级-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-5-更新技能等级-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "961f37f0d7bd4a3d9422-da4ec6fdecc4c25a484e",
+              "file": "user-skill.spec.ts",
+              "line": 180,
+              "column": 3
+            },
+            {
+              "title": "Scenario 6: 查看用户技能列表",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 21,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 30153,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-skill.spec.ts",
+                            "column": 16,
+                            "line": 228
+                          },
+                          "message": "Error: page.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text=用户技能绑定')\u001b[22m\n\n\n  226 |   test('Scenario 6: 查看用户技能列表', async ({ page }) => {\n  227 |     // Given 管理员在用户技能管理页面\n> 228 |     await page.click('text=用户技能绑定');\n      |                ^\n  229 |     await page.waitForSelector('h1:has-text(\"用户技能管理\")');\n  230 |\n  231 |     // 查找一个有多个技能的用户\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-skill.spec.ts:228:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:17:32.070Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-6-查看用户技能列表-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-6-查看用户技能列表-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-6-查看用户技能列表-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "961f37f0d7bd4a3d9422-e93e196bf6c2e604b23d",
+              "file": "user-skill.spec.ts",
+              "line": 226,
+              "column": 3
+            },
+            {
+              "title": "Scenario 7: 用户无技能时显示",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 22,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 30160,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-skill.spec.ts",
+                            "column": 16,
+                            "line": 277
+                          },
+                          "message": "Error: page.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text=用户技能绑定')\u001b[22m\n\n\n  275 |   test('Scenario 7: 用户无技能时显示', async ({ page }) => {\n  276 |     // Given 管理员在用户技能管理页面\n> 277 |     await page.click('text=用户技能绑定');\n      |                ^\n  278 |     await page.waitForSelector('h1:has-text(\"用户技能管理\")');\n  279 |\n  280 |     // 查找一个没有技能的用户\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-skill.spec.ts:277:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:18:04.343Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-7-用户无技能时显示-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-7-用户无技能时显示-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-7-用户无技能时显示-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "961f37f0d7bd4a3d9422-05ded68d515e70ae5ced",
+              "file": "user-skill.spec.ts",
+              "line": 275,
+              "column": 3
+            },
+            {
+              "title": "Scenario 8: 技能等级颜色区分",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 23,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 30168,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-skill.spec.ts",
+                            "column": 16,
+                            "line": 311
+                          },
+                          "message": "Error: page.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('text=用户技能绑定')\u001b[22m\n\n\n  309 |   test('Scenario 8: 技能等级颜色区分', async ({ page }) => {\n  310 |     // Given 管理员在用户技能管理页面\n> 311 |     await page.click('text=用户技能绑定');\n      |                ^\n  312 |     await page.waitForSelector('h1:has-text(\"用户技能管理\")');\n  313 |\n  314 |     // 查找有技能的用户\n    at /Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/e2e/user-skill.spec.ts:311:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-06T04:18:36.702Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-8-技能等级颜色区分-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-8-技能等级颜色区分-chromium/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ryan/mycode/feature-workflow-test/.worktrees/feat-schedule-basic/test-results/user-skill-User-Skill-Binding-Feature-Scenario-8-技能等级颜色区分-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "961f37f0d7bd4a3d9422-a33262eb679916f33d32",
+              "file": "user-skill.spec.ts",
+              "line": 309,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-03-06T04:14:30.076Z",
+    "duration": 277897.173,
+    "expected": 37,
+    "skipped": 0,
+    "unexpected": 18,
+    "flaky": 0
+  }
+}

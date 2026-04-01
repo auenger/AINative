@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-headline: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-surface: #10141a;
+  --color-surface-container: #1c2026;
+  --color-surface-container-low: #181c22;
+  --color-surface-container-high: #262a31;
+  --color-surface-container-highest: #31353c;
+  --color-surface-container-lowest: #0a0e14;
+  
+  --color-primary: #a2c9ff;
+  --color-primary-container: #58a6ff;
+  --color-on-primary-container: #003a6b;
+  
+  --color-secondary: #bdf4ff;
+  --color-tertiary: #67df70;
+  --color-error: #ffb4ab;
+  
+  --color-outline: #8b919d;
+  --color-outline-variant: #414752;
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+}
+
+@utility animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+@layer base {
+  body {
+    @apply bg-surface text-[#dfe2eb] font-sans overflow-hidden;
+  }
+}
+
+.glass-panel {
+  background: rgba(88, 166, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(162, 201, 255, 0.1);
+}
+
+.node-grid {
+  background-image: radial-gradient(circle, #31353c 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.scroll-hide::-webkit-scrollbar {
+  display: none;
+}

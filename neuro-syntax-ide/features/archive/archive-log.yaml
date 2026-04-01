@@ -1,0 +1,28 @@
+# Feature Archive Log
+archived:
+  - id: feat-material-basic
+    name: 物料基础信息管理
+    completed: 2026-03-07T00:30:00
+    tag: feat-material-basic-20260307
+    merge_commit: 32c3a1f
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/material-basic
+    worktree_deleted: true
+    worktree_path: .worktrees/fwt-material-basic
+    docs_path: done-feat-material-basic-20260307
+
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+
+    verification:
+      status: skipped
+      scenarios_total: 6
+      scenarios_passed: 0
+
+    stats:
+      started: 2026-03-07T00:05:00
+      duration: 25m
+      commits: 1
+      files_changed: 7

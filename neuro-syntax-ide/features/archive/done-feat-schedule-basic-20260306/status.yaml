@@ -1,0 +1,19 @@
+feature_id: feat-schedule-basic
+feature_name: 基础排班管理
+status: archived
+stage: complete
+stp_pointer: STP-END
+progress:
+  tasks_total: 76
+  tasks_done: 76
+  current_task: 完成
+started_at: 2026-03-06T04:06:37Z
+updated_at: 2026-03-06T12:55:00Z
+completion:
+  commit: d126f47
+  merge_commit: d126f47
+checkpoint:
+  has_gherkin: true
+  lint_passed: true
+  e2e_partial: true
+  checklist_pending: true

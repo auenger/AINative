@@ -1,0 +1,71 @@
+# LockStep Feature Status
+# 此文件记录执行状态，用于断点恢复
+
+feature_id: feat-user-skill
+feature_name: Feature: feat-user-skill 用户绑定技能
+status: done
+stage: complete
+stp_pointer: STP-END
+stp_history:
+  - STP-000
+  - STP-001
+  - STP-002
+  - STP-003
+  - STP-004
+  - STP-010
+  - STP-011
+  - STP-015
+  - STP-011
+  - STP-012
+  - STP-013
+  - STP-014
+  - STP-015
+  - STP-011
+  - STP-012
+  - STP-013
+  - STP-014
+  - STP-015
+  - STP-011
+  - STP-100
+  - STP-101
+  - STP-102
+  - STP-103
+  - STP-104
+  - STP-105
+  - STP-110
+  - STP-200
+  - STP-201
+  - STP-202
+  - STP-203
+  - STP-210
+  - STP-END
+progress:
+  tasks_total: 11
+  tasks_done: 11
+  current_task: 完成
+registers:
+  REG_CUR_TASK: |
+      - [x] 验证页面交互和用户流程
+started_at: 2026-03-05T11:34:01Z
+updated_at: 2026-03-05T15:36:00Z
+completed_at: 2026-03-05T15:36:00Z
+
+# LockStep 检查点
+checkpoint:
+  last_stp: STP-END
+  timestamp: 2026-03-05T15:36:00Z
+  registers:
+    REG_SPEC: spec.md loaded
+    REG_TASK_RAW: task.md loaded
+    REG_TEST_RESULTS: 8/8 tests passed
+    REG_CHECKLIST: all verified
+    REG_LINT: user-skill files passed
+    REG_E2E: 8/8 tests passed
+    REG_CHECKLIST_PASSED: all items checked
+    REG_VERIFY_COMPLETE: true
+    REG_COMPLETE_START: true
+    REG_GIT_STATUS: changes detected
+    REG_STAGED: true
+    REG_COMMIT: 5a0b06e
+    REG_COMPLETE: true
+    REG_FINAL_STATUS: done

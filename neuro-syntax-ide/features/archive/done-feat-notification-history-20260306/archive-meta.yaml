@@ -1,0 +1,7 @@
+feature_id: feat-notification-history
+feature_name: 通知历史
+branch: feature/notification-history
+tag: feat-notification-history-20260306
+archive_dir: done-feat-notification-history-20260306
+completed_at: 2026-03-06T00:00:00Z
+commit: f45bd80
