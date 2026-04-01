@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-01T11:30:00Z"
+  last_updated: "2026-04-01T12:00:00Z"
   version: 1
 
 parents:
@@ -17,20 +17,7 @@ parents:
 
 active: []
 
-pending:
-  - id: feat-hardware-monitor
-    name: "硬件监控探针 + 仪表盘"
-    priority: 40
-    size: M
-    dependencies:
-      - feat-workspace-loader
-
-  - id: feat-ai-agent-service
-    name: "AI Agent 服务化接口"
-    priority: 30
-    size: L
-    dependencies:
-      - feat-fs-database-engine
+pending: []
 
 blocked: []
 
@@ -59,3 +46,13 @@ completed:
     name: "FS-as-Database 数据引擎 + 看板活数据"
     completed_at: "2026-04-01T11:30:00Z"
     tag: feat-fs-database-engine-20260401
+
+  - id: feat-hardware-monitor
+    name: "硬件监控探针 + 仪表盘"
+    completed_at: "2026-04-01T12:00:00Z"
+    tag: feat-hardware-monitor-20260401
+
+  - id: feat-ai-agent-service
+    name: "AI Agent 服务化接口"
+    completed_at: "2026-04-01T12:00:00Z"
+    tag: feat-ai-agent-service-20260401
