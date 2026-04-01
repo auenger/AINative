@@ -1,29 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   FolderOpen,
   Github,
-  MessageSquare,
   FileText,
   Send,
   Bot,
-  ChevronRight,
-  Globe,
-  Search,
-  GitBranch,
-  GitCommit,
-  GitPullRequest,
   ArrowUpRight,
   RefreshCw,
   X,
   Sparkles,
   Layers,
   CheckCircle2,
-  Folder
+  Folder,
+  Key,
+  AlertTriangle,
+  Loader2,
+  Plus
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import ReactMarkdown from 'react-markdown';
+import { useAgentChat } from '../../lib/useAgentChat';
+import type { FeaturePlanOutput } from '../../lib/useAgentChat';
 
 interface WorkspaceHook {
   workspacePath: string;
@@ -38,19 +37,22 @@ interface ProjectViewProps {
 
 export const ProjectView: React.FC<ProjectViewProps> = ({ workspace }) => {
   const { t } = useTranslation();
-  const { workspacePath, loading, error, selectWorkspace } = workspace;
+  const { workspacePath, loading: workspaceLoading, error: workspaceError, selectWorkspace } = workspace;
 
-  const [gitRemote, setGitRemote] = useState('https://github.com/neuro/syntax-ide.git');
+  const agentChat = useAgentChat();
+
+  const [gitRemote] = useState('https://github.com/neuro/syntax-ide.git');
   const [chatInput, setChatInput] = useState('');
   const [showGitModal, setShowGitModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [messages, setMessages] = useState([
-    { role: 'assistant', content: "Hello! I'm your PM Agent. I'll help you define and maintain the project context. What are we building today?" }
-  ]);
+  const [generatedPlan, setGeneratedPlan] = useState<FeaturePlanOutput | null>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const [projectContext, setProjectContext] = useState(`
+  const [projectContext] = useState(`
 # Project Context: Neuro Syntax IDE
 
 ## Overview
@@ -74,21 +76,15 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
 `);
 
   const handleSendMessage = () => {
-    if (!chatInput.trim()) return;
-
-    const newMessages = [...messages, { role: 'user', content: chatInput }];
-    setMessages(newMessages);
+    if (!chatInput.trim() || agentChat.isStreaming) return;
+    agentChat.sendMessage(chatInput);
     setChatInput('');
-
-    // Simulate PM Agent response
-    setTimeout(() => {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: "I've updated the project context based on our discussion. I've added the new requirements to the roadmap."
-      }]);
-      setProjectContext(prev => prev + "\n- [ ] New Requirement: " + chatInput);
-    }, 1000);
   };
+
+  // Auto-scroll chat to bottom when new messages arrive
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [agentChat.messages]);
 
   const handleSync = () => {
     setIsSyncing(true);
@@ -98,18 +94,42 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
     }, 2000);
   };
 
-  const handleGenerateTasks = () => {
+  const handleGenerateTasks = async () => {
+    if (!agentChat.apiKeyConfigured) {
+      setShowApiKeyModal(true);
+      return;
+    }
     setIsGenerating(true);
-    setTimeout(() => {
-      setIsGenerating(false);
-    }, 3000);
+    setGeneratedPlan(null);
+
+    const plan = await agentChat.generateFeaturePlan(
+      'Analyze the current project and create a new feature plan based on the project context and recent discussion.'
+    );
+
+    if (plan) {
+      setGeneratedPlan(plan);
+    }
+    setIsGenerating(false);
   };
 
-  const MOCK_GENERATED_TASKS = [
-    { module: 'Core Architecture', tasks: ['Define Plugin System', 'Implement IPC Bridge'] },
-    { module: 'UI/UX', tasks: ['Design Theme Engine', 'Responsive Layout System'] },
-    { module: 'AI Integration', tasks: ['Gemini API Connector', 'Context Window Manager'] }
-  ];
+  const handleCreateFeature = async () => {
+    if (!generatedPlan) return;
+    const featureId = await agentChat.createFeature(
+      'epic-neuro-syntax-ide-roadmap',
+      generatedPlan
+    );
+    if (featureId) {
+      setGeneratedPlan(null);
+      setShowTaskModal(false);
+    }
+  };
+
+  const handleStoreApiKey = () => {
+    if (!apiKeyInput.trim()) return;
+    agentChat.configureApiKey(apiKeyInput);
+    setApiKeyInput('');
+    setShowApiKeyModal(false);
+  };
 
   return (
     <div className="flex-1 flex flex-col bg-surface overflow-hidden relative">
@@ -127,7 +147,7 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
         <div className="flex items-center gap-3">
           <button
             onClick={selectWorkspace}
-            disabled={loading}
+            disabled={workspaceLoading}
             className={cn(
               "flex items-center gap-2 px-3 py-1.5 rounded text-xs font-bold transition-all border",
               workspacePath
@@ -135,7 +155,7 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                 : "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
             )}
           >
-            {loading ? (
+            {workspaceLoading ? (
               <RefreshCw size={14} className="animate-spin" />
             ) : (
               <FolderOpen size={14} />
@@ -159,9 +179,9 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
         </div>
       </header>
 
-      {/* Error banner */}
+      {/* Workspace error banner */}
       <AnimatePresence>
-        {error && (
+        {workspaceError && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
@@ -170,15 +190,41 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
           >
             <div className="px-6 py-2 bg-error/10 border-b border-error/20 text-xs text-error flex items-center gap-2">
               <X size={12} />
-              {error}
+              {workspaceError}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* API Key prompt banner */}
+      {workspacePath && agentChat.apiKeyConfigured === false && !agentChat.isStreaming && (
+        <div className="px-6 py-2 bg-warning/10 border-b border-warning/20 text-xs text-warning flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Key size={12} />
+            Configure your API Key to enable AI features
+          </div>
+          <button onClick={() => setShowApiKeyModal(true)} className="text-primary underline text-[10px]">
+            Set API Key
+          </button>
+        </div>
+      )}
+
+      {/* Agent error banner */}
+      {workspacePath && agentChat.error && (
+        <div className="px-6 py-2 bg-error/10 border-b border-error/20 text-xs text-error flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={12} />
+            {agentChat.error}
+          </div>
+          <button onClick={() => setShowApiKeyModal(true)} className="text-primary underline text-[10px]">
+            Configure API Key
+          </button>
+        </div>
+      )}
+
       {/* No workspace prompt */}
       <AnimatePresence>
-        {!workspacePath && !loading && (
+        {!workspacePath && !workspaceLoading && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -210,9 +256,8 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
       {/* Main content: shown when workspace is loaded */}
       {workspacePath && (
         <div className="flex-1 flex overflow-hidden">
-          {/* Left: PM Chat (Purely for discussion) */}
+          {/* Left: PM Chat */}
           <div className="w-[400px] border-r border-outline-variant/10 flex flex-col bg-surface-container-lowest shrink-0">
-            {/* PM Agent Chat */}
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="p-4 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-low">
                 <div className="flex items-center gap-2">
@@ -224,14 +269,36 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                     <span className="text-[9px] text-outline uppercase font-medium tracking-tighter">Context Architect</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 bg-tertiary/10 px-2 py-0.5 rounded-full">
-                  <div className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></div>
-                  <span className="text-[9px] text-tertiary font-bold uppercase tracking-tighter">Active</span>
+                <div className="flex items-center gap-2">
+                  <div className={cn(
+                    "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
+                    agentChat.apiKeyConfigured
+                      ? "bg-tertiary/10"
+                      : "bg-outline-variant/10"
+                  )}>
+                    <div className={cn(
+                      "w-1.5 h-1.5 rounded-full",
+                      agentChat.apiKeyConfigured ? "bg-tertiary animate-pulse" : "bg-outline-variant"
+                    )}></div>
+                    <span className={cn(
+                      "text-[9px] font-bold uppercase tracking-tighter",
+                      agentChat.apiKeyConfigured ? "text-tertiary" : "text-outline"
+                    )}>
+                      {agentChat.isStreaming ? 'Thinking...' : agentChat.apiKeyConfigured ? 'Active' : 'No Key'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setShowApiKeyModal(true)}
+                    className="p-1 text-on-surface-variant hover:text-primary transition-colors"
+                    title="API Key Settings"
+                  >
+                    <Key size={12} />
+                  </button>
                 </div>
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4 scroll-hide">
-                {messages.map((msg, idx) => (
+                {agentChat.messages.map((msg, idx) => (
                   <div key={idx} className={cn(
                     "flex flex-col gap-1 max-w-[85%]",
                     msg.role === 'user' ? "ml-auto items-end" : "items-start"
@@ -242,10 +309,20 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                         ? "bg-primary text-on-primary rounded-tr-none"
                         : "bg-surface-container-high text-on-surface rounded-tl-none border border-outline-variant/10"
                     )}>
-                      {msg.content}
+                      {msg.role === 'assistant' ? (
+                        <div className="prose prose-invert prose-xs [&_pre]:text-[10px] [&_p]:text-[10px] [&_pre]:p-2 [&_pre]:bg-surface-container-lowest [&_pre]:rounded [&_code]:text-[10px]">
+                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          {idx === agentChat.messages.length - 1 && agentChat.isStreaming && (
+                            <span className="inline-block w-1.5 h-3 bg-primary/70 animate-pulse ml-0.5 align-middle"></span>
+                          )}
+                        </div>
+                      ) : (
+                        msg.content
+                      )}
                     </div>
                   </div>
                 ))}
+                <div ref={chatEndRef} />
               </div>
 
               <div className="p-4 border-t border-outline-variant/10 bg-surface">
@@ -255,13 +332,24 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                     onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
                     placeholder={t('project.chatPlaceholder')}
-                    className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg p-3 pr-10 text-xs text-on-surface focus:outline-none focus:border-primary/50 resize-none h-20 scroll-hide"
+                    disabled={agentChat.isStreaming}
+                    className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg p-3 pr-10 text-xs text-on-surface focus:outline-none focus:border-primary/50 resize-none h-20 scroll-hide disabled:opacity-50"
                   />
                   <button
                     onClick={handleSendMessage}
-                    className="absolute right-2 bottom-2 p-1.5 text-primary hover:bg-primary/10 rounded-md transition-colors"
+                    disabled={agentChat.isStreaming || !chatInput.trim()}
+                    className={cn(
+                      "absolute right-2 bottom-2 p-1.5 rounded-md transition-colors",
+                      agentChat.isStreaming || !chatInput.trim()
+                        ? "text-outline-variant cursor-not-allowed"
+                        : "text-primary hover:bg-primary/10"
+                    )}
                   >
-                    <Send size={16} />
+                    {agentChat.isStreaming ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Send size={16} />
+                    )}
                   </button>
                 </div>
               </div>
@@ -326,7 +414,6 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
               </div>
 
               <div className="p-6 space-y-6">
-                {/* Branch Visualization Mock */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-outline">{t('project.branch')}</span>
@@ -340,7 +427,7 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                         <span className="text-[8px] font-mono text-outline">main</span>
                       </div>
                       <div className="flex flex-col items-center gap-1 -mt-8">
-                        <div className="w-3 h-3 rounded-full bg-secondary border-2 border-surface shadow-[0_0_8px_rgba(var(--secondary),0.5)]"></div>
+                        <div className="w-3 h-3 rounded-full bg-secondary border-2 border-surface"></div>
                         <span className="text-[8px] font-mono text-secondary">current</span>
                       </div>
                       <div className="flex flex-col items-center gap-1">
@@ -348,14 +435,12 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                         <span className="text-[8px] font-mono text-outline">origin/main</span>
                       </div>
                     </div>
-                    {/* Merge Line Mock */}
                     <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30">
                       <path d="M 40 40 Q 100 10 200 40" fill="none" stroke="currentColor" strokeWidth="1" className="text-secondary" strokeDasharray="4 2" />
                     </svg>
                   </div>
                 </div>
 
-                {/* Document Changes Detected */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-outline">{t('project.changesDetected')}</span>
@@ -383,11 +468,7 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                   disabled={isSyncing}
                   className="flex-1 flex items-center justify-center gap-2 bg-primary text-on-primary py-2.5 rounded-lg text-xs font-bold hover:brightness-110 transition-all disabled:opacity-50"
                 >
-                  {isSyncing ? (
-                    <RefreshCw size={14} className="animate-spin" />
-                  ) : (
-                    <ArrowUpRight size={14} />
-                  )}
+                  {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <ArrowUpRight size={14} />}
                   {isSyncing ? t('project.syncing') : t('project.pushChanges')}
                 </button>
                 <button
@@ -412,7 +493,7 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowTaskModal(false)}
+              onClick={() => { setShowTaskModal(false); setGeneratedPlan(null); }}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             />
             <motion.div
@@ -432,15 +513,15 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                   </div>
                 </div>
                 <button
-                  onClick={() => setShowTaskModal(false)}
+                  onClick={() => { setShowTaskModal(false); setGeneratedPlan(null); }}
                   className="p-2 hover:bg-surface-container-high rounded-full transition-colors"
                 >
                   <X size={18} />
                 </button>
               </div>
 
-              <div className="p-8 flex flex-col items-center justify-center min-h-[300px]">
-                {!isGenerating ? (
+              <div className="p-8 flex flex-col items-center justify-center min-h-[300px] max-h-[60vh] overflow-y-auto">
+                {!isGenerating && !generatedPlan ? (
                   <div className="text-center space-y-6 max-w-md">
                     <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
                       <Layers size={32} className="text-primary" />
@@ -458,7 +539,7 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                       {t('project.generateTask')}
                     </button>
                   </div>
-                ) : (
+                ) : isGenerating ? (
                   <div className="w-full space-y-8">
                     <div className="flex flex-col items-center gap-4">
                       <div className="relative">
@@ -469,42 +550,178 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                         {t('project.splittingModules')}
                       </span>
                     </div>
-
-                    <div className="space-y-4">
-                      {MOCK_GENERATED_TASKS.map((module, idx) => (
-                        <motion.div
-                          key={idx}
-                          initial={{ x: -20, opacity: 0 }}
-                          animate={{ x: 0, opacity: 1 }}
-                          transition={{ delay: idx * 0.5 }}
-                          className="bg-surface-container-lowest p-4 rounded-lg border border-outline-variant/10"
-                        >
-                          <div className="flex items-center gap-2 mb-3">
-                            <CheckCircle2 size={14} className="text-tertiary" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                              {module.module}
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {module.tasks.map((task, tIdx) => (
-                              <span key={tIdx} className="text-[10px] bg-surface-container-high px-2 py-1 rounded border border-outline-variant/10">
-                                {task}
-                              </span>
-                            ))}
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
                   </div>
-                )}
+                ) : generatedPlan ? (
+                  <div className="w-full space-y-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h4 className="text-sm font-bold">{generatedPlan.name}</h4>
+                        <p className="text-[10px] text-on-surface-variant font-mono">{generatedPlan.id}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold">
+                          P{generatedPlan.priority}
+                        </span>
+                        <span className="text-[10px] bg-secondary/10 text-secondary px-2 py-0.5 rounded font-bold">
+                          {generatedPlan.size}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-on-surface-variant leading-relaxed">
+                      {generatedPlan.description}
+                    </p>
+                    {generatedPlan.tasks.map((group, idx) => (
+                      <motion.div
+                        key={idx}
+                        initial={{ x: -20, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        transition={{ delay: idx * 0.2 }}
+                        className="bg-surface-container-lowest p-4 rounded-lg border border-outline-variant/10"
+                      >
+                        <div className="flex items-center gap-2 mb-3">
+                          <CheckCircle2 size={14} className="text-tertiary" />
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                            {group.group_name}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {group.items.map((item, tIdx) => (
+                            <span key={tIdx} className="text-[10px] bg-surface-container-high px-2 py-1 rounded border border-outline-variant/10">
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
 
-              <div className="p-4 bg-surface-container-high/30 border-t border-outline-variant/10 flex justify-end">
+              <div className="p-4 bg-surface-container-high/30 border-t border-outline-variant/10 flex gap-3">
+                {generatedPlan ? (
+                  <>
+                    <button
+                      onClick={() => setGeneratedPlan(null)}
+                      className="flex-1 px-6 py-2 bg-surface-container-highest text-on-surface rounded-lg text-xs font-bold hover:bg-surface-variant transition-all border border-outline-variant/10"
+                    >
+                      Discard
+                    </button>
+                    <button
+                      onClick={handleCreateFeature}
+                      className="flex-1 flex items-center justify-center gap-2 bg-primary text-on-primary py-2 rounded-lg text-xs font-bold hover:brightness-110 transition-all"
+                    >
+                      <Plus size={14} />
+                      Create Feature
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => { setShowTaskModal(false); setGeneratedPlan(null); }}
+                    className="px-6 py-2 bg-surface-container-highest text-on-surface rounded-lg text-xs font-bold hover:bg-surface-variant transition-all border border-outline-variant/10 ml-auto"
+                  >
+                    {isGenerating ? 'Cancel' : 'Close'}
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* API Key Configuration Modal */}
+      <AnimatePresence>
+        {showApiKeyModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowApiKeyModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-md bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl overflow-hidden flex flex-col"
+            >
+              <div className="p-4 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-high/30">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-secondary/10 rounded-lg">
+                    <Key size={20} className="text-secondary" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold uppercase tracking-widest">API Key</h3>
+                    <p className="text-[10px] text-outline">Gemini API Key for AI features</p>
+                  </div>
+                </div>
                 <button
-                  onClick={() => setShowTaskModal(false)}
-                  className="px-6 py-2 bg-surface-container-highest text-on-surface rounded-lg text-xs font-bold hover:bg-surface-variant transition-all border border-outline-variant/10"
+                  onClick={() => setShowApiKeyModal(false)}
+                  className="p-2 hover:bg-surface-container-high rounded-full transition-colors"
                 >
-                  {isGenerating ? 'Cancel' : 'Close'}
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className={cn(
+                  "flex items-center gap-3 p-3 rounded-lg border",
+                  agentChat.apiKeyConfigured
+                    ? "bg-tertiary/10 border-tertiary/20"
+                    : "bg-warning/10 border-warning/20"
+                )}>
+                  {agentChat.apiKeyConfigured ? (
+                    <CheckCircle2 size={16} className="text-tertiary" />
+                  ) : (
+                    <AlertTriangle size={16} className="text-warning" />
+                  )}
+                  <span className="text-xs text-on-surface-variant">
+                    {agentChat.apiKeyConfigured
+                      ? 'API Key is configured and stored securely in your OS Keyring.'
+                      : 'No API Key configured. AI features require a Gemini API key.'}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                    Gemini API Key
+                  </label>
+                  <input
+                    type="password"
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleStoreApiKey()}
+                    placeholder="Enter your Gemini API key..."
+                    className="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-lg p-3 text-xs text-on-surface focus:outline-none focus:border-primary/50 font-mono"
+                  />
+                  <p className="text-[9px] text-outline leading-relaxed">
+                    Your key is stored in the OS Keyring and never sent to the frontend or exposed in network requests.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 bg-surface-container-high/30 border-t border-outline-variant/10 flex gap-3">
+                {agentChat.apiKeyConfigured && (
+                  <button
+                    onClick={() => agentChat.removeApiKey()}
+                    className="px-4 py-2 bg-error/10 text-error rounded-lg text-xs font-bold hover:bg-error/20 transition-all border border-error/20"
+                  >
+                    Delete Key
+                  </button>
+                )}
+                <div className="flex-1" />
+                <button
+                  onClick={() => setShowApiKeyModal(false)}
+                  className="px-4 py-2 bg-surface-container-highest text-on-surface rounded-lg text-xs font-bold hover:bg-surface-variant transition-all border border-outline-variant/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleStoreApiKey}
+                  disabled={!apiKeyInput.trim()}
+                  className="px-4 py-2 bg-primary text-on-primary rounded-lg text-xs font-bold hover:brightness-110 transition-all disabled:opacity-50"
+                >
+                  Save Key
                 </button>
               </div>
             </motion.div>

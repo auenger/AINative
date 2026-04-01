@@ -48,3 +48,33 @@ export interface OpenFileState {
   /** Monaco view state to preserve cursor & scroll on tab switch */
   viewState: unknown | null;
 }
+
+/** Hardware stats payload from sys-hardware-tick event. */
+export interface HardwareStats {
+  cpu_usage: number;
+  memory_total: number;
+  memory_used: number;
+  memory_percent: number;
+  uptime: number;
+}
+
+/** Git statistics from fetch_git_stats command. */
+export interface GitStats {
+  commits_7d: number;
+  changed_files: number;
+  contributors: ContributorInfo[];
+  current_branch: string;
+  recent_commits: RecentCommit[];
+}
+
+export interface ContributorInfo {
+  name: string;
+  commits: number;
+}
+
+export interface RecentCommit {
+  short_hash: string;
+  message: string;
+  author: string;
+  time_ago: string;
+}

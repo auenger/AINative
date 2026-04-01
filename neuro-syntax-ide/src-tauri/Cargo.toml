@@ -26,3 +26,10 @@ uuid = { version = "1", features = ["v4"] }
 anyhow = "1"
 notify = { version = "7", features = ["macos_kqueue"] }
 chrono = { version = "0.4", features = ["serde"] }
+sysinfo = "0.33"
+git2 = "0.20"
+
+# AI Agent Service dependencies
+reqwest = { version = "0.12", features = ["stream", "json"] }
+futures = "0.3"
+keyring = "3"

@@ -4,10 +4,12 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, Write as IoWrite};
 use std::path::PathBuf;
-use std::sync::Mutex;
-use tauri::{AppHandle, Emitter};
+use std::sync::{Arc, Mutex};
+use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, Config as NotifyConfig, Event as NotifyEvent};
+use sysinfo::System;
+use futures::StreamExt;
 
 // ===========================================================================
 // Data types shared with the frontend - File system
@@ -129,6 +131,103 @@ pub struct FsChangeEvent {
     pub paths: Vec<String>,
     pub kind: String,
 }
+
+// ===========================================================================
+// Data types - Hardware monitoring
+// ===========================================================================
+
+#[derive(Debug, Serialize, Clone)]
+pub struct HardwareStats {
+    pub cpu_usage: f32,
+    pub memory_total: u64,
+    pub memory_used: u64,
+    pub memory_percent: f32,
+    pub uptime: u64,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct GitStats {
+    pub commits_7d: u32,
+    pub changed_files: u32,
+    pub contributors: Vec<ContributorInfo>,
+    pub current_branch: String,
+    pub recent_commits: Vec<RecentCommit>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct ContributorInfo {
+    pub name: String,
+    pub commits: u32,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct RecentCommit {
+    pub short_hash: String,
+    pub message: String,
+    pub author: String,
+    pub time_ago: String,
+}
+
+// ===========================================================================
+// Data types - AI Agent Service
+// ===========================================================================
+
+#[derive(Debug, Serialize, Clone)]
+pub struct AgentChunkEvent {
+    pub text: String,
+    pub is_done: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ChatMessage {
+    pub role: String,
+    pub content: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AgentChatRequest {
+    pub messages: Vec<ChatMessage>,
+    #[serde(default = "default_model")]
+    pub model: String,
+    #[serde(default)]
+    pub context: Option<String>,
+}
+
+fn default_model() -> String {
+    "gemini-2.0-flash".to_string()
+}
+
+/// Schema for structured output: a Feature plan returned by the Agent.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FeaturePlanOutput {
+    pub id: String,
+    pub name: String,
+    pub priority: i32,
+    pub size: String,
+    pub dependencies: Vec<String>,
+    pub description: String,
+    pub value_points: Vec<String>,
+    pub tasks: Vec<TaskGroup>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TaskGroup {
+    pub group_name: String,
+    pub items: Vec<String>,
+}
+
+/// Payload for creating a feature from the Agent's structured output.
+#[derive(Debug, Deserialize)]
+pub struct CreateFeatureRequest {
+    pub parent_id: String,
+    pub plan: FeaturePlanOutput,
+}
+
+/// Keyring service name constant.
+const KEYRING_SERVICE: &str = "neuro-syntax-ide";
+const KEYRING_ACCOUNT: &str = "ai-api-key";
 
 // ===========================================================================
 // Constants
@@ -261,6 +360,7 @@ struct AppState {
     pty_manager: Mutex<PtyManager>,
     workspace_path: Mutex<String>,
     fs_watcher: Mutex<Option<RecommendedWatcher>>,
+    hw_monitor_stop: Mutex<Option<std::sync::mpsc::Sender<()>>>,
 }
 
 // ===========================================================================
@@ -696,6 +796,660 @@ async fn set_workspace_path(
 }
 
 // ===========================================================================
+// Tauri commands - Hardware monitoring
+// ===========================================================================
+
+/// Start the hardware monitoring background thread.
+/// Spawns a thread that polls CPU/RAM every 1s and emits "sys-hardware-tick".
+#[tauri::command]
+async fn start_hardware_monitor(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    // Stop any existing monitor
+    stop_hardware_monitor_inner(&state)?;
+
+    let (tx, rx) = std::sync::mpsc::channel::<()>();
+    *state.hw_monitor_stop.lock().map_err(|e| e.to_string())? = Some(tx);
+
+    let app_handle = app.clone();
+    std::thread::spawn(move || {
+        let mut sys = System::new_all();
+        // Initial refresh
+        sys.refresh_cpu_all();
+        sys.refresh_memory();
+
+        loop {
+            // Check if we should stop
+            if rx.try_recv().is_ok() {
+                break;
+            }
+
+            // Refresh data
+            sys.refresh_cpu_all();
+            sys.refresh_memory();
+
+            // Calculate aggregate CPU usage across all cores
+            let cpu_usage: f32 = sys.cpus().iter()
+                .map(|c| c.cpu_usage())
+                .sum::<f32>()
+                / sys.cpus().len().max(1) as f32;
+
+            let memory_total = sys.total_memory();
+            let memory_used = sys.used_memory();
+            let memory_percent = if memory_total > 0 {
+                (memory_used as f32 / memory_total as f32) * 100.0
+            } else {
+                0.0
+            };
+
+            let uptime = System::uptime();
+
+            let stats = HardwareStats {
+                cpu_usage,
+                memory_total,
+                memory_used,
+                memory_percent,
+                uptime,
+            };
+
+            let _ = app_handle.emit("sys-hardware-tick", &stats);
+
+            // Sleep 1 second, checking for stop signal every 100ms
+            for _ in 0..10 {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                if rx.try_recv().is_ok() {
+                    return;
+                }
+            }
+        }
+    });
+
+    Ok(())
+}
+
+/// Stop the hardware monitoring background thread.
+#[tauri::command]
+async fn stop_hardware_monitor(
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    stop_hardware_monitor_inner(&state)
+}
+
+fn stop_hardware_monitor_inner(state: &tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut stop = state.hw_monitor_stop.lock().map_err(|e| e.to_string())?;
+    if let Some(tx) = stop.take() {
+        let _ = tx.send(());
+    }
+    Ok(())
+}
+
+/// Fetch Git statistics for the current workspace.
+#[tauri::command]
+async fn fetch_git_stats(
+    state: tauri::State<'_, AppState>,
+) -> Result<GitStats, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo_path = PathBuf::from(&workspace);
+    let repo = git2::Repository::discover(&repo_path)
+        .map_err(|e| format!("Failed to open git repository: {}", e))?;
+
+    // Current branch
+    let head = repo.head()
+        .map_err(|e| format!("Failed to read HEAD: {}", e))?;
+    let current_branch = head.shorthand()
+        .unwrap_or("unknown")
+        .to_string();
+
+    // Count commits in last 7 days
+    let seven_days_ago = chrono::Utc::now() - chrono::Duration::days(7);
+    let since_time = git2::Time::new(seven_days_ago.timestamp(), 0);
+
+    let mut commits_7d: u32 = 0;
+    let mut revwalk = repo.revwalk()
+        .map_err(|e| format!("Failed to create revwalk: {}", e))?;
+    revwalk.push_head()
+        .map_err(|e| format!("Failed to push HEAD: {}", e))?;
+
+    let mut contributor_map: HashMap<String, u32> = HashMap::new();
+    let mut recent_commits: Vec<RecentCommit> = Vec::new();
+
+    for oid in revwalk {
+        let oid = oid.map_err(|e| format!("Revwalk error: {}", e))?;
+        let commit = repo.find_commit(oid)
+            .map_err(|e| format!("Failed to find commit: {}", e))?;
+
+        let commit_time = commit.time();
+        if commit_time.seconds() < since_time.seconds() {
+            continue;
+        }
+
+        commits_7d += 1;
+
+        // Track contributor
+        let author_name = commit.author().name().unwrap_or("unknown").to_string();
+        *contributor_map.entry(author_name.clone()).or_insert(0) += 1;
+
+        // Collect recent commits (up to 10)
+        if recent_commits.len() < 10 {
+            let short_hash = format!("{}", &oid.to_string()[..7]);
+            let message = commit.message()
+                .unwrap_or("(no message)")
+                .lines()
+                .next()
+                .unwrap_or("")
+                .to_string();
+            let time_ago = format_time_ago(commit_time.seconds());
+            recent_commits.push(RecentCommit {
+                short_hash,
+                message,
+                author: author_name,
+                time_ago,
+            });
+        }
+    }
+
+    // Count changed files (diff HEAD vs index + workdir)
+    let mut changed_files: u32 = 0;
+    if let Ok(head_tree) = repo.head().and_then(|r| r.peel_to_tree()) {
+        if let Ok(diff) = repo.diff_tree_to_workdir_with_index(Some(&head_tree), None) {
+            changed_files = diff.deltas().count() as u32;
+        }
+    }
+
+    // Build contributor list sorted by commit count
+    let mut contributors: Vec<ContributorInfo> = contributor_map
+        .into_iter()
+        .map(|(name, commits)| ContributorInfo { name, commits })
+        .collect();
+    contributors.sort_by(|a, b| b.commits.cmp(&a.commits));
+    contributors.truncate(5);
+
+    Ok(GitStats {
+        commits_7d,
+        changed_files,
+        contributors,
+        current_branch,
+        recent_commits,
+    })
+}
+
+fn format_time_ago(timestamp: i64) -> String {
+    let now = chrono::Utc::now().timestamp();
+    let diff = now - timestamp;
+    if diff < 60 {
+        "just now".to_string()
+    } else if diff < 3600 {
+        format!("{}m ago", diff / 60)
+    } else if diff < 86400 {
+        format!("{}h ago", diff / 3600)
+    } else {
+        format!("{}d ago", diff / 86400)
+    }
+}
+
+// ===========================================================================
+// Tauri commands - AI Agent Service
+// ===========================================================================
+
+/// Send a prompt to the AI and stream the response back via SSE events.
+/// Emits `pm_agent_chunk` events to the frontend.
+#[tauri::command]
+async fn agent_chat_stream(
+    app: AppHandle,
+    _state: tauri::State<'_, AppState>,
+    request: AgentChatRequest,
+) -> Result<(), String> {
+    // Retrieve API key from keyring
+    let api_key = get_api_key_inner()
+        .map_err(|e| format!("API key not configured: {}. Please set your API key in Settings.", e))?;
+
+    let client = reqwest::Client::new();
+
+    // Build the request body for Google Gemini API (OpenAI-compatible endpoint)
+    let mut messages_payload = Vec::new();
+
+    // If context is provided, prepend it as a system instruction
+    if let Some(ctx) = &request.context {
+        messages_payload.push(serde_json::json!({
+            "role": "system",
+            "content": ctx
+        }));
+    }
+
+    for msg in &request.messages {
+        messages_payload.push(serde_json::json!({
+            "role": msg.role,
+            "content": msg.content
+        }));
+    }
+
+    let body = serde_json::json!({
+        "model": request.model,
+        "messages": messages_payload,
+        "stream": true
+    });
+
+    let url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+
+    let response = client
+        .post(url)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to connect to AI API: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let error_body = response.text().await.unwrap_or_else(|_| "Unknown error".into());
+        let err_msg = format!("AI API error ({}): {}", status, error_body);
+        let _ = app.emit("pm_agent_chunk", AgentChunkEvent {
+            text: String::new(),
+            is_done: false,
+            error: Some(err_msg.clone()),
+        });
+        return Err(err_msg);
+    }
+
+    let mut stream = response.bytes_stream();
+    let mut buffer = String::new();
+
+    while let Some(chunk_result) = stream.next().await {
+        match chunk_result {
+            Ok(bytes) => {
+                let text = String::from_utf8_lossy(&bytes);
+                buffer.push_str(&text);
+
+                // Process complete SSE lines
+                while let Some(pos) = buffer.find('\n') {
+                    let line = buffer[..pos].trim().to_string();
+                    buffer = buffer[pos + 1..].to_string();
+
+                    if line.starts_with("data: ") {
+                        let data = &line[6..];
+                        if data == "[DONE]" {
+                            let _ = app.emit("pm_agent_chunk", AgentChunkEvent {
+                                text: String::new(),
+                                is_done: true,
+                                error: None,
+                            });
+                            return Ok(());
+                        }
+
+                        // Parse the SSE data as JSON
+                        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(data) {
+                            if let Some(choices) = parsed.get("choices") {
+                                if let Some(first_choice) = choices.as_array().and_then(|a| a.first()) {
+                                    if let Some(delta) = first_choice.get("delta") {
+                                        if let Some(content) = delta.get("content").and_then(|c| c.as_str()) {
+                                            let _ = app.emit("pm_agent_chunk", AgentChunkEvent {
+                                                text: content.to_string(),
+                                                is_done: false,
+                                                error: None,
+                                            });
+                                        }
+                                    }
+                                    // Check for finish_reason
+                                    if let Some(finish) = first_choice.get("finish_reason") {
+                                        if finish.as_str() == Some("stop") {
+                                            let _ = app.emit("pm_agent_chunk", AgentChunkEvent {
+                                                text: String::new(),
+                                                is_done: true,
+                                                error: None,
+                                            });
+                                            return Ok(());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                let err_msg = format!("Stream error: {}", e);
+                let _ = app.emit("pm_agent_chunk", AgentChunkEvent {
+                    text: String::new(),
+                    is_done: false,
+                    error: Some(err_msg.clone()),
+                });
+                return Err(err_msg);
+            }
+        }
+    }
+
+    // Stream ended without [DONE] marker
+    let _ = app.emit("pm_agent_chunk", AgentChunkEvent {
+        text: String::new(),
+        is_done: true,
+        error: None,
+    });
+
+    Ok(())
+}
+
+/// Store an API key in the OS keyring.
+#[tauri::command]
+fn store_api_key(key: String) -> Result<(), String> {
+    let entry = keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT)
+        .map_err(|e| format!("Failed to create keyring entry: {}", e))?;
+    entry.set_password(&key)
+        .map_err(|e| format!("Failed to store API key: {}", e))?;
+    Ok(())
+}/// Check if an API key is stored in the OS keyring (returns true/false, never the key itself).
+#[tauri::command]
+fn has_api_key() -> Result<bool, String> {
+    match get_api_key_inner() {
+        Ok(_) => Ok(true),
+        Err(_) => Ok(false),
+    }
+}
+
+/// Delete the stored API key from the OS keyring.
+#[tauri::command]
+fn delete_api_key() -> Result<(), String> {
+    let entry = keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT)
+        .map_err(|e| format!("Failed to create keyring entry: {}", e))?;
+    entry.delete_credential()
+        .map_err(|e| format!("Failed to delete API key: {}", e))?;
+    Ok(())
+}
+
+/// Internal helper to retrieve the API key (never exposed to frontend).
+fn get_api_key_inner() -> Result<String, String> {
+    let entry = keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT)
+        .map_err(|e| format!("Failed to create keyring entry: {}", e))?;
+    entry.get_password()
+        .map_err(|e| format!("Key not found: {}", e))
+}
+
+/// Create a new Feature from an Agent's structured output.
+/// Creates the directory, writes spec.md / task.md / checklist.md, and updates queue.yaml.
+#[tauri::command]
+async fn create_feature_from_agent(
+    state: tauri::State<'_, AppState>,
+    app: AppHandle,
+    request: CreateFeatureRequest,
+) -> Result<String, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let plan = &request.plan;
+    let feature_id = &plan.id;
+    let dir_name = format!("pending-{}", feature_id);
+    let features_dir = PathBuf::from(&workspace).join("features");
+    let feat_dir = features_dir.join(&dir_name);
+
+    // Check if the feature directory already exists
+    if feat_dir.exists() {
+        return Err(format!("Feature '{}' already exists", feature_id));
+    }
+
+    // Create the feature directory
+    fs::create_dir_all(&feat_dir)
+        .map_err(|e| format!("Failed to create feature directory: {}", e))?;
+
+    let now = chrono::Utc::now().to_rfc3339();
+    let deps_str = plan.dependencies.join(", ");
+
+    // Generate spec.md
+    let spec_content = format!(
+r#"# Feature: {} {}
+
+## Basic Information
+- **ID**: {}
+- **Name**: {}
+- **Priority**: {}
+- **Size**: {}
+- **Dependencies**: {}
+- **Parent**: {}
+- **Created**: {}
+
+## Description
+{}
+
+## User Value Points
+{}
+
+## Technical Solution
+
+### Architecture
+```rust
+// To be defined during development
+```
+
+## Acceptance Criteria (Gherkin)
+
+```gherkin
+Scenario: Basic functionality
+  Given the feature is implemented
+  When the user interacts with it
+  Then the expected behavior occurs
+```
+"#,
+        feature_id,
+        plan.name,
+        feature_id,
+        plan.name,
+        plan.priority,
+        plan.size,
+        deps_str,
+        request.parent_id,
+        now,
+        plan.description,
+        plan.value_points.iter().enumerate().map(|(i, vp)| format!("{}. {}", i + 1, vp)).collect::<Vec<_>>().join("\n")
+    );
+
+    fs::write(feat_dir.join("spec.md"), &spec_content)
+        .map_err(|e| format!("Failed to write spec.md: {}", e))?;
+
+    // Generate task.md
+    let mut task_content = format!("# Tasks: {}\n\n## Task Breakdown\n\n", feature_id);
+    for (idx, group) in plan.tasks.iter().enumerate() {
+        task_content.push_str(&format!("### {}. {}\n", idx + 1, group.group_name));
+        for item in &group.items {
+            task_content.push_str(&format!("- [ ] {}\n", item));
+        }
+        task_content.push('\n');
+    }
+    task_content.push_str(&format!(
+        "## Progress Log\n| Date | Progress | Notes |\n|------|----------|-------|\n| {} | Created | Feature created by AI Agent |\n",
+        chrono::Utc::now().format("%Y-%m-%d")
+    ));
+
+    fs::write(feat_dir.join("task.md"), &task_content)
+        .map_err(|e| format!("Failed to write task.md: {}", e))?;
+
+    // Generate checklist.md
+    let checklist_content = format!(
+r#"# Checklist: {}
+
+## Completion Checklist
+
+### Development
+- [ ] All tasks in task.md completed
+- [ ] Code has been self-tested
+
+### Code Quality
+- [ ] Code style follows conventions
+- [ ] No obvious code smells
+- [ ] Necessary comments added
+
+### Testing
+- [ ] Unit tests written (if needed)
+- [ ] Tests pass
+
+### Documentation
+- [ ] spec.md technical solution filled in
+- [ ] Related docs updated
+"#,
+        feature_id
+    );
+
+    fs::write(feat_dir.join("checklist.md"), &checklist_content)
+        .map_err(|e| format!("Failed to write checklist.md: {}", e))?;
+
+    // Update queue.yaml: add to pending list
+    let queue_yaml_path = PathBuf::from(&workspace)
+        .join("feature-workflow")
+        .join("queue.yaml");
+
+    let content = fs::read_to_string(&queue_yaml_path)
+        .map_err(|e| format!("Failed to read queue.yaml: {}", e))?;
+
+    let mut queue: QueueYaml = serde_yaml::from_str(&content)
+        .map_err(|e| format!("Failed to parse queue.yaml: {}", e))?;
+
+    // Add the new feature to the pending list
+    queue.pending.push(FeatureNode {
+        id: feature_id.clone(),
+        name: plan.name.clone(),
+        priority: plan.priority,
+        size: plan.size.clone(),
+        dependencies: plan.dependencies.clone(),
+        completed_at: None,
+        tag: None,
+        details: None,
+    });
+
+    // Add the feature ID to the parent's features list
+    for parent in &mut queue.parents {
+        if parent.id == request.parent_id {
+            if !parent.features.contains(&feature_id.clone()) {
+                parent.features.push(feature_id.clone());
+            }
+        }
+    }
+
+    // Update meta timestamp
+    queue.meta.last_updated = chrono::Utc::now().to_rfc3339();
+
+    // Atomic write
+    let temp_path = queue_yaml_path.with_extension("yaml.tmp");
+    let yaml_str = serde_yaml::to_string(&queue)
+        .map_err(|e| format!("Failed to serialize queue.yaml: {}", e))?;
+
+    fs::write(&temp_path, &yaml_str)
+        .map_err(|e| format!("Failed to write temp file: {}", e))?;
+
+    fs::rename(&temp_path, &queue_yaml_path)
+        .map_err(|e| format!("Failed to rename temp to queue.yaml: {}", e))?;
+
+    // Broadcast change so the TaskBoard auto-refreshes
+    let _ = app.emit("fs://workspace-changed", FsChangeEvent {
+        paths: vec![
+            queue_yaml_path.to_string_lossy().to_string(),
+            feat_dir.to_string_lossy().to_string(),
+        ],
+        kind: "agent-feature-created".into(),
+    });
+
+    Ok(feature_id.clone())
+}
+
+/// Ask the AI to generate a Feature plan as structured JSON output.
+/// Returns the parsed plan so the frontend can confirm before creating files.
+#[tauri::command]
+async fn agent_generate_feature_plan(
+    request: AgentChatRequest,
+) -> Result<FeaturePlanOutput, String> {
+    let api_key = get_api_key_inner()
+        .map_err(|e| format!("API key not configured: {}", e))?;
+
+    let client = reqwest::Client::new();
+
+    let system_prompt = r#"You are a PM Agent that plans software features. The user will describe a feature they want to build.
+
+You MUST respond with ONLY a valid JSON object (no markdown, no code fences) with this exact schema:
+{
+  "id": "feat-<short-kebab-case-name>",
+  "name": "<Human-readable feature name>",
+  "priority": <number 1-100>,
+  "size": "<S|M|L|XL>",
+  "dependencies": ["<list of feature IDs this depends on>"],
+  "description": "<detailed description of the feature>",
+  "value_points": ["<value point 1>", "<value point 2>", "<value point 3>"],
+  "tasks": [
+    {
+      "group_name": "<Task group name>",
+      "items": ["<task item 1>", "<task item 2>"]
+    }
+  ]
+}
+
+Rules:
+- id must start with "feat-" and use kebab-case
+- size must be one of: S, M, L, XL
+- priority should be 1-100 (higher = more important)
+- Provide 2-5 task groups, each with 2-5 specific task items
+- Include 3 user value points
+- Respond ONLY with the JSON object, nothing else"#;
+
+    let mut messages_payload = vec![serde_json::json!({
+        "role": "system",
+        "content": system_prompt
+    })];
+
+    for msg in &request.messages {
+        messages_payload.push(serde_json::json!({
+            "role": msg.role,
+            "content": msg.content
+        }));
+    }
+
+    let body = serde_json::json!({
+        "model": request.model,
+        "messages": messages_payload,
+        "temperature": 0.7,
+        "response_format": { "type": "json_object" }
+    });
+
+    let url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+
+    let response = client
+        .post(url)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to connect to AI API: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let error_body = response.text().await.unwrap_or_else(|_| "Unknown error".into());
+        return Err(format!("AI API error ({}): {}", status, error_body));
+    }
+
+    let response_json: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse API response: {}", e))?;
+
+    let content_str = response_json
+        .get("choices")
+        .and_then(|c| c.as_array())
+        .and_then(|a| a.first())
+        .and_then(|c| c.get("message"))
+        .and_then(|m| m.get("content"))
+        .and_then(|c| c.as_str())
+        .ok_or_else(|| "Failed to extract content from API response".to_string())?;
+
+    let plan: FeaturePlanOutput = serde_json::from_str(content_str)
+        .map_err(|e| format!("Failed to parse feature plan JSON: {}. Raw content: {}", e, content_str))?;
+
+    Ok(plan)
+}
+
+// ===========================================================================
 // Misc commands
 // ===========================================================================
 
@@ -772,6 +1526,7 @@ pub fn run() {
             pty_manager: Mutex::new(PtyManager::new()),
             workspace_path: Mutex::new(String::new()),
             fs_watcher: Mutex::new(None),
+            hw_monitor_stop: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
             greet,
@@ -788,6 +1543,16 @@ pub fn run() {
             start_fs_watcher,
             stop_fs_watcher,
             set_workspace_path,
+            start_hardware_monitor,
+            stop_hardware_monitor,
+            fetch_git_stats,
+            // AI Agent Service
+            agent_chat_stream,
+            store_api_key,
+            has_api_key,
+            delete_api_key,
+            create_feature_from_agent,
+            agent_generate_feature_plan,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
