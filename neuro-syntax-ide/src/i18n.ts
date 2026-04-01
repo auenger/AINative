@@ -22,6 +22,9 @@ const resources = {
         title: 'Project Management',
         workspace: 'Workspace',
         selectWorkspace: 'Select Workspace',
+        openProject: 'Open Project',
+        noWorkspace: 'No workspace loaded',
+        loading: 'Loading workspace...',
         gitRemote: 'Git Remote',
         pmAgent: 'PM Agent',
         projectContext: 'Project Context',
@@ -52,7 +55,9 @@ const resources = {
         quickConnect: 'Quick Connect',
         bashTerminal: 'Bash Terminal',
         claudeCode: 'Claude Code',
-        geminiCli: 'Gemini CLI'
+        geminiCli: 'Gemini CLI',
+        noWorkspace: 'Open a project to browse files',
+        openProject: 'Open Project'
       },
       tasks: {
         title: 'Task Board',
@@ -99,6 +104,9 @@ const resources = {
         title: '项目管理',
         workspace: '工作空间',
         selectWorkspace: '选择工作空间',
+        openProject: '打开项目',
+        noWorkspace: '未加载工作区',
+        loading: '正在加载工作区...',
         gitRemote: 'Git 远程仓库',
         pmAgent: 'PM 代理',
         projectContext: '项目上下文',
@@ -129,7 +137,9 @@ const resources = {
         quickConnect: '快速连接',
         bashTerminal: 'Bash 终端',
         claudeCode: 'Claude 代码',
-        geminiCli: 'Gemini 命令行'
+        geminiCli: 'Gemini 命令行',
+        noWorkspace: '打开项目以浏览文件',
+        openProject: '打开项目'
       },
       tasks: {
         title: '任务板',

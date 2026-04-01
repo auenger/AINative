@@ -1,5 +1,18 @@
 export type ViewType = 'project' | 'editor' | 'tasks' | 'workflow' | 'mission-control' | 'settings' | 'person';
 
+export interface FileNode {
+  name: string;
+  path: string;
+  isDir: boolean;
+  children?: FileNode[];
+}
+
+export interface WorkspaceResult {
+  path: string;
+  valid: boolean;
+  error?: string;
+}
+
 export interface Task {
   id: string;
   title: string;

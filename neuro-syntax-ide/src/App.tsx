@@ -10,6 +10,7 @@ import { EditorView } from './components/views/EditorView';
 import { ProjectView } from './components/views/ProjectView';
 import { ViewType, LogEntry } from './types';
 import { cn } from './lib/utils';
+import { useWorkspace } from './lib/useWorkspace';
 
 const INITIAL_LOGS: LogEntry[] = [
   { timestamp: '14:20:01', level: 'INFO', message: 'Neuro Syntax Kernel v1.0.4 initialized.' },
@@ -22,6 +23,7 @@ const INITIAL_LOGS: LogEntry[] = [
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewType>('project');
   const [logs, setLogs] = useState<LogEntry[]>(INITIAL_LOGS);
+  const workspace = useWorkspace();
 
   // Simulate incoming logs
   useEffect(() => {
@@ -39,9 +41,9 @@ const App: React.FC = () => {
   const renderView = () => {
     switch (activeView) {
       case 'project':
-        return <ProjectView />;
+        return <ProjectView workspace={workspace} />;
       case 'editor':
-        return <EditorView />;
+        return <EditorView workspace={workspace} />;
       case 'tasks':
         return <TaskBoard />;
       case 'workflow':
@@ -49,29 +51,29 @@ const App: React.FC = () => {
       case 'mission-control':
         return <MissionControl />;
       default:
-        return <ProjectView />;
+        return <ProjectView workspace={workspace} />;
     }
   };
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[#020617] text-on-surface overflow-hidden selection:bg-primary/30">
       <TopNav />
-      
+
       <div className="flex flex-1 overflow-hidden relative">
         <SideNav activeView={activeView} onViewChange={setActiveView} />
-        
+
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col ml-16 overflow-hidden">
           <div className="flex-1 flex overflow-hidden">
             {/* Dynamic View Content */}
             {renderView()}
           </div>
-          
+
           <BottomPanel logs={logs} />
         </div>
       </div>
-      
-      <StatusBar />
+
+      <StatusBar workspacePath={workspace.workspacePath} />
     </div>
   );
 };

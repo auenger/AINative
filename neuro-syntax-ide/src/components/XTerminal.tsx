@@ -1,0 +1,280 @@
+import React, { useEffect, useRef, useCallback } from 'react';
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+import '@xterm/xterm/css/xterm.css';
+import { cn } from '../lib/utils';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type TerminalKind = 'bash' | 'claude' | 'gemini';
+
+export interface XTerminalProps {
+  /** Unique identifier for this terminal instance (the pty_id). */
+  ptyId: string;
+  /** What kind of terminal this is — determines shell command. */
+  kind: TerminalKind;
+  /** Whether this tab is currently visible. Used to skip fit when hidden. */
+  active: boolean;
+  /** Optional extra className on the wrapper div. */
+  className?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Shell config helper
+// ---------------------------------------------------------------------------
+
+function shellForKind(kind: TerminalKind): { shell: string; args: string[] } {
+  switch (kind) {
+    case 'claude':
+      return { shell: 'claude', args: [] };
+    case 'gemini':
+      return { shell: 'gemini', args: [] };
+    case 'bash':
+    default:
+      // Use the user's default shell on macOS / Linux, or bash as fallback
+      return { shell: '/bin/zsh', args: ['-l'] };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tauri IPC helpers (safe no-ops when running in browser without Tauri)
+// ---------------------------------------------------------------------------
+
+const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  if (!isTauri) return undefined as unknown as T;
+  const { invoke: tauriInvoke } = await import('@tauri-apps/api/core');
+  return tauriInvoke<T>(cmd, args);
+}
+
+async function listen<T>(
+  event: string,
+  handler: (payload: T) => void,
+): Promise<() => void> {
+  if (!isTauri) return () => {};
+  const { listen: tauriListen } = await import('@tauri-apps/api/event');
+  const unlisten = await tauriListen<T>(event, (e) => handler(e.payload));
+  return unlisten;
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export const XTerminal: React.FC<XTerminalProps> = ({
+  ptyId,
+  kind,
+  active,
+  className,
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const termRef = useRef<Terminal | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
+  const unlistenRef = useRef<(() => void) | null>(null);
+  const unlistenClosedRef = useRef<(() => void) | null>(null);
+
+  // -----------------------------------------------------------------------
+  // Initialise xterm + pty (once per mount)
+  // -----------------------------------------------------------------------
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const term = new Terminal({
+      cursorBlink: true,
+      fontSize: 13,
+      fontFamily: '"JetBrains Mono", ui-monospace, SFMono-Regular, monospace',
+      lineHeight: 1.4,
+      theme: {
+        background: '#020617',
+        foreground: '#dfe2eb',
+        cursor: '#a2c9ff',
+        cursorAccent: '#020617',
+        selectionBackground: 'rgba(162, 201, 255, 0.3)',
+        black: '#020617',
+        red: '#ffb4ab',
+        green: '#67df70',
+        yellow: '#ffb4ab',
+        blue: '#a2c9ff',
+        magenta: '#bdf4ff',
+        cyan: '#58a6ff',
+        white: '#dfe2eb',
+        brightBlack: '#414752',
+        brightRed: '#ffb4ab',
+        brightGreen: '#67df70',
+        brightYellow: '#ffb4ab',
+        brightBlue: '#a2c9ff',
+        brightMagenta: '#bdf4ff',
+        brightCyan: '#58a6ff',
+        brightWhite: '#dfe2eb',
+      },
+      allowProposedApi: true,
+      scrollback: 5000,
+    });
+
+    const fitAddon = new FitAddon();
+    const webLinksAddon = new WebLinksAddon();
+
+    term.loadAddon(fitAddon);
+    term.loadAddon(webLinksAddon);
+    term.open(containerRef.current);
+
+    termRef.current = term;
+    fitAddonRef.current = fitAddon;
+
+    // Defer first fit so the container has its final dimensions
+    requestAnimationFrame(() => {
+      try {
+        fitAddon.fit();
+      } catch {
+        // Container may not be visible yet — safe to ignore
+      }
+    });
+
+    // -------------------------------------------------------------------
+    // Create pty on the Rust side
+    // -------------------------------------------------------------------
+    const { shell, args } = shellForKind(kind);
+    const cols = term.cols;
+    const rows = term.rows;
+
+    invoke('create_pty', {
+      config: { shell, args, cols, rows },
+    })
+      .then((returnedId) => {
+        // The returned pty_id should match our prop; we pass ptyId via the
+        // event filter below. The Rust side generates its own UUID.
+        console.log('[XTerminal] pty created, id =', returnedId);
+
+        // --- Listen for pty output ---
+        listen<{ pty_id: string; data: string }>('pty-out', (payload) => {
+          // Filter events for this specific pty instance
+          if (payload.pty_id === returnedId && payload.data) {
+            term.write(payload.data);
+          }
+        }).then((unlisten) => {
+          unlistenRef.current = unlisten;
+        });
+
+        // --- Listen for pty closure ---
+        listen<{ pty_id: string; data: string }>('pty-closed', (payload) => {
+          if (payload.pty_id === returnedId) {
+            term.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n');
+          }
+        }).then((unlisten) => {
+          unlistenClosedRef.current = unlisten;
+        });
+
+        // --- Forward user input to pty stdin ---
+        const dataDisposable = term.onData((data) => {
+          invoke('write_to_pty', {
+            ptyId: returnedId,
+            data,
+          }).catch(console.error);
+        });
+
+        // Store disposable for cleanup
+        (term as unknown as Record<string, unknown>).__dataDisposable = dataDisposable;
+        (term as unknown as Record<string, unknown>).__resolvedPtyId = returnedId;
+      })
+      .catch((err) => {
+        console.error('[XTerminal] failed to create pty:', err);
+        // Fallback: show error in terminal
+        term.writeln('\x1b[31mFailed to create terminal process.\x1b[0m');
+        if (!isTauri) {
+          term.writeln('\x1b[90m(Running in browser — Tauri backend not available)\x1b[0m');
+          // Echo mode for demo
+          term.onData((data) => {
+            if (data === '\r') {
+              term.write('\r\n');
+            } else {
+              term.write(data);
+            }
+          });
+        }
+      });
+
+    // -------------------------------------------------------------------
+    // Cleanup on unmount
+    // -------------------------------------------------------------------
+    return () => {
+      // Kill the pty process on the Rust side
+      const resolvedId = (term as unknown as Record<string, unknown>).__resolvedPtyId;
+      if (typeof resolvedId === 'string') {
+        invoke('kill_pty', { ptyId: resolvedId }).catch(console.error);
+      }
+
+      // Dispose event listener
+      const disposable = (term as unknown as Record<string, unknown>).__dataDisposable;
+      if (disposable && typeof (disposable as { dispose: () => void }).dispose === 'function') {
+        (disposable as { dispose: () => void }).dispose();
+      }
+
+      unlistenRef.current?.();
+      unlistenClosedRef.current?.();
+
+      term.dispose();
+      termRef.current = null;
+      fitAddonRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // -----------------------------------------------------------------------
+  // Re-fit when the tab becomes active
+  // -----------------------------------------------------------------------
+  useEffect(() => {
+    if (!active || !fitAddonRef.current || !termRef.current) return;
+    // Small delay so layout has settled
+    const timer = setTimeout(() => {
+      try {
+        fitAddonRef.current!.fit();
+      } catch {
+        // ignore
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [active]);
+
+  // -----------------------------------------------------------------------
+  // Sync resize to Rust pty when terminal dimensions change
+  // -----------------------------------------------------------------------
+  useEffect(() => {
+    if (!termRef.current) return;
+    const term = termRef.current;
+
+    const handler = () => {
+      const resolvedId = (term as unknown as Record<string, unknown>).__resolvedPtyId;
+      if (typeof resolvedId !== 'string') return;
+      invoke('resize_pty', {
+        ptyId: resolvedId,
+        cols: term.cols,
+        rows: term.rows,
+      }).catch(console.error);
+    };
+
+    // xterm fires 'resize' when the terminal dimensions change after fit
+    const disposable = term.onResize(handler);
+    return () => disposable.dispose();
+  }, []);
+
+  // -----------------------------------------------------------------------
+  // Render
+  // -----------------------------------------------------------------------
+  return (
+    <div
+      ref={containerRef}
+      className={cn(
+        'w-full h-full',
+        // Ensure xterm fills its container
+        '[&_.xterm]:h-full [&_.xterm]:w-full',
+        '[&_.xterm-viewport]:!overflow-y-auto',
+        className,
+      )}
+      style={{ display: active ? 'block' : 'none' }}
+    />
+  );
+};
