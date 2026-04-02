@@ -960,6 +960,17 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
               </div>
             </motion.div>
           )}
+
+          {/* Terminal toggle button — shown when terminal is closed (matches Console icon toggle style) */}
+          {!terminalOpen && (
+            <button
+              onClick={() => setTerminalOpen(true)}
+              className="absolute bottom-3 right-3 z-30 w-8 h-8 flex items-center justify-center rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/60 transition-all duration-200 cursor-pointer"
+              title={t('editor.openTerminal', 'Show Terminal')}
+            >
+              <TerminalIcon size={16} />
+            </button>
+          )}
         </div>
       </main>
     </div>
