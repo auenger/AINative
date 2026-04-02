@@ -29,7 +29,7 @@ export const SideNav: React.FC<SideNavProps> = ({ activeView, onViewChange }) =>
   ];
 
   return (
-    <aside className="fixed left-0 top-0 h-full flex flex-col z-50 bg-[#020617] w-16 items-center py-4 gap-6 pt-14 border-r border-outline-variant/10">
+    <aside className="fixed left-0 top-0 h-full flex flex-col z-50 bg-[#020617] w-16 items-center py-4 gap-6 pt-12 border-r border-outline-variant/10">
       <div className="flex flex-col w-full gap-2">
         {navItems.map((item) => (
           <button
