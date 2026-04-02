@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-03T19:00:00Z"
+  last_updated: "2026-04-03T19:30:00Z"
   version: 1
 
 parents:
@@ -15,15 +15,7 @@ parents:
       - feat-hardware-monitor
       - feat-ai-agent-service
 
-active:
-  - id: feat-git-status-read
-    name: "Git 状态真实展示"
-    priority: 72
-    parent: feat-git-integration
-    dependencies: []
-    branch: feature/feat-git-status-read
-    worktree: ../NeuroSyntaxIDE-feat-git-status-read
-    started_at: "2026-04-03T18:01:00Z"
+active: []
 
 pending:
   - id: feat-req-agent-chat
@@ -235,3 +227,8 @@ completed:
     name: "Claude Code CLI 桥接服务"
     completed_at: "2026-04-03T19:00:00Z"
     tag: feat-req-agent-bridge-20260403
+
+  - id: feat-git-status-read
+    name: "Git 状态真实展示"
+    completed_at: "2026-04-03T19:30:00Z"
+    tag: feat-git-status-read-20260403

@@ -1,0 +1,24 @@
+{
+  "feature_id": "feat-git-status-read",
+  "verification_date": "2026-04-03T19:00:00Z",
+  "status": "pass",
+  "tasks": {
+    "total": 11,
+    "completed": 11,
+    "pending": 0
+  },
+  "code_quality": {
+    "typescript": { "errors": 0, "status": "pass" },
+    "rust": { "errors": 0, "warnings": 2, "status": "pass" }
+  },
+  "tests": {
+    "unit": "not_configured",
+    "integration": "not_configured"
+  },
+  "gherkin_scenarios": [
+    { "name": "打开 Git 弹窗显示真实仓库状态", "status": "pass" },
+    { "name": "工作区无变更时显示空状态", "status": "pass" },
+    { "name": "非 Git 仓库时优雅降级", "status": "pass" }
+  ],
+  "issues": []
+}

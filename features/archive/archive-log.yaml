@@ -1,8 +1,8 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-03T19:00:00Z"
+  last_updated: "2026-04-03T19:30:00Z"
   version: 1
-  total_completed: 24
+  total_completed: 25
 
 records:
   - id: feat-tauri-v2-init
@@ -338,3 +338,26 @@ records:
       duration: "~60m"
       commits: 1
       files_changed: 1
+
+  - id: feat-git-status-read
+    name: "Git 状态真实展示"
+    completed_at: "2026-04-03T19:30:00Z"
+    tag: feat-git-status-read-20260403
+    merge_commit: aa74395
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-git-status-read
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-git-status-read
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-04-03T18:01:00Z"
+      duration: "~1.5h"
+      commits: 1
+      files_changed: 4
