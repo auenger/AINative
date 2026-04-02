@@ -1,8 +1,8 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-03T01:00:00Z"
+  last_updated: "2026-04-02T28:00:00Z"
   version: 1
-  total_completed: 18
+  total_completed: 20
 
 records:
   - id: feat-tauri-v2-init
@@ -222,3 +222,27 @@ records:
       duration: "~3m"
       commits: 1
       files_changed: 1
+
+  - id: feat-view-state-persistence
+    name: "View 状态持久化（Tab 切换保持状态）"
+    completed_at: "2026-04-02T28:00:00Z"
+    tag: feat-view-state-persistence-20260402
+    merged_to: main
+    verification:
+      status: passed
+    stats:
+      duration: "~7m"
+      commits: 1
+      files_changed: 1
+
+  - id: feat-dashboard-polish
+    name: "主控看板改名 & CPU 折线图修复"
+    completed_at: "2026-04-02T28:00:00Z"
+    tag: feat-dashboard-polish-20260402
+    merged_to: main
+    verification:
+      status: passed
+    stats:
+      duration: "~6m"
+      commits: 1
+      files_changed: 3

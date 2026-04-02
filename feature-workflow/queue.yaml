@@ -18,22 +18,12 @@ parents:
 active: []
 
 pending:
-  - id: feat-view-state-persistence
-    name: "View 状态持久化（Tab 切换保持状态）"
-    priority: 75
-    created_at: "2026-04-02T26:00:00Z"
-
   - id: feat-terminal-polish
     name: "终端主题跟随 & 显隐控制"
     priority: 70
     dependencies:
       - feat-view-state-persistence
     created_at: "2026-04-02T26:00:00Z"
-
-  - id: feat-dashboard-polish
-    name: "主控看板改名 & CPU 折线图修复"
-    priority: 65
-    created_at: "2026-04-02T27:00:00Z"
 
   - id: feat-task-modal-bounds
     name: "Task Modal 边界放宽 & 归档内容匹配"
@@ -132,3 +122,13 @@ completed:
     name: "Console 折叠态改为右侧小图标"
     completed_at: "2026-04-03T01:00:00Z"
     tag: feat-console-icon-toggle-20260402
+
+  - id: feat-view-state-persistence
+    name: "View 状态持久化（Tab 切换保持状态）"
+    completed_at: "2026-04-02T28:00:00Z"
+    tag: feat-view-state-persistence-20260402
+
+  - id: feat-dashboard-polish
+    name: "主控看板改名 & CPU 折线图修复"
+    completed_at: "2026-04-02T28:00:00Z"
+    tag: feat-dashboard-polish-20260402
