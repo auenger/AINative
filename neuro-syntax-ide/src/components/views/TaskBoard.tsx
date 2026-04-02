@@ -268,7 +268,7 @@ export const TaskBoard: React.FC = () => {
       const newY = e.clientY - dragOffsetRef.current.y;
       // Keep modal within viewport bounds
       const clampedX = Math.max(-window.innerWidth * 0.3, Math.min(window.innerWidth * 0.5, newX));
-      const clampedY = Math.max(0, Math.min(window.innerHeight - 80, newY));
+      const clampedY = Math.max(-window.innerHeight * 0.4, Math.min(window.innerHeight - 80, newY));
       setModalPos({ x: clampedX, y: clampedY });
     };
 
@@ -576,7 +576,7 @@ export const TaskBoard: React.FC = () => {
                 maxHeight: '85vh',
               }}
               className={cn(
-                "w-full max-w-4xl bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl flex flex-col",
+                "w-full max-w-[66.67vw] bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl flex flex-col",
                 isDraggingModal && "select-none"
               )}
             >
