@@ -1,8 +1,8 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-02T23:30:00Z"
+  last_updated: "2026-04-02T24:30:00Z"
   version: 1
-  total_completed: 14
+  total_completed: 16
 
 records:
   - id: feat-tauri-v2-init
@@ -172,3 +172,27 @@ records:
       duration: "~5m"
       commits: 1
       files_changed: 2
+
+  - id: feat-editor-theme-perf
+    name: "编辑器渲染优化与深色风格适配"
+    completed_at: "2026-04-02T24:30:00Z"
+    tag: feat-editor-theme-perf-20260402
+    merged_to: main
+    verification:
+      status: passed
+    stats:
+      duration: "~8m"
+      commits: 1
+      files_changed: 2
+
+  - id: feat-task-modal-improve
+    name: "Task 详情弹窗改进（尺寸 + 描述渲染）"
+    completed_at: "2026-04-02T24:30:00Z"
+    tag: feat-task-modal-improve-20260402
+    merged_to: main
+    verification:
+      status: passed
+    stats:
+      duration: "~5m"
+      commits: 1
+      files_changed: 1

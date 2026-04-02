@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-02T23:30:00Z"
+  last_updated: "2026-04-02T24:00:00Z"
   version: 1
 
 parents:
@@ -17,7 +17,13 @@ parents:
 
 active: []
 
-pending: []
+pending:
+  - id: feat-app-theme-system
+    name: "全局明暗主题系统"
+    priority: 65
+  - id: feat-console-icon-toggle
+    name: "Console 折叠态改为右侧小图标"
+    priority: 60
 
 blocked: []
 
@@ -86,3 +92,13 @@ completed:
     name: "Task 详情弹窗交互增强（拖拽 + resize + MD 修复）"
     completed_at: "2026-04-02T23:30:00Z"
     tag: feat-detail-modal-interaction-20260402
+
+  - id: feat-editor-theme-perf
+    name: "编辑器渲染优化与深色风格适配"
+    completed_at: "2026-04-02T24:30:00Z"
+    tag: feat-editor-theme-perf-20260402
+
+  - id: feat-task-modal-improve
+    name: "Task 详情弹窗改进（尺寸 + 描述渲染）"
+    completed_at: "2026-04-02T24:30:00Z"
+    tag: feat-task-modal-improve-20260402
