@@ -15,7 +15,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({ logs, visible, onClose
     return (
       <button
         onClick={onOpen}
-        className="absolute bottom-8 right-3 z-30 w-8 h-8 flex items-center justify-center rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/60 transition-all duration-200 cursor-pointer"
+        className="absolute bottom-1 right-3 z-30 w-8 h-8 flex items-center justify-center rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/60 transition-all duration-200 cursor-pointer"
         title="Show Console"
       >
         <Terminal size={16} />
@@ -45,7 +45,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({ logs, visible, onClose
       <div className="flex-1 p-3 overflow-y-auto font-mono text-[11px] leading-relaxed scroll-hide">
         {logs.map((log, i) => (
           <div key={i} className="flex gap-4 mb-1">
-            <span className="text-slate-500 shrink-0">[{log.timestamp}]</span>
+            <span className="text-[color:var(--t-slate-500)] shrink-0">[{log.timestamp}]</span>
             <span className={cn(
               "font-bold shrink-0",
               log.level === 'SUCCESS' && "text-tertiary",
