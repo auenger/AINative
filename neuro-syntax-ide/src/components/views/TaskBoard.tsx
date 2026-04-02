@@ -573,9 +573,10 @@ export const TaskBoard: React.FC = () => {
                 minHeight: 360,
                 resize: 'both',
                 overflow: 'hidden',
+                maxHeight: '85vh',
               }}
               className={cn(
-                "w-full max-w-2xl bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl flex flex-col",
+                "w-full max-w-4xl bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl flex flex-col",
                 isDraggingModal && "select-none"
               )}
             >
@@ -626,9 +627,7 @@ export const TaskBoard: React.FC = () => {
                 {selectedFeature.details?.description && (
                   <div className="space-y-3">
                     <h4 className="text-[10px] font-bold uppercase tracking-widest text-outline">Description</h4>
-                    <p className="text-sm text-on-surface-variant leading-relaxed opacity-80">
-                      {selectedFeature.details.description}
-                    </p>
+                    <MarkdownRenderer content={selectedFeature.details.description} className="opacity-80" />
                   </div>
                 )}
 
