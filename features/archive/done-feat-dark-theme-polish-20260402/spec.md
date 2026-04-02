@@ -152,12 +152,23 @@ And 不出现白色闪烁
 
 ### UI/Interaction Checkpoints
 - [ ] 深色主题下所有边框无蓝色偏移
-- [ ] glass-panel 效果使用中性半透明色
-- [ ] Monaco 编辑器背景在深色主题下为深色
-- [ ] Monaco 编辑器在主题切换时无闪烁
-- [ ] xterm.js 终端背景同步更新
-- [ ] 编辑器加载 spinner 同步使用新色值
+- [x] glass-panel 效果使用中性半透明色
+- [x] Monaco 编辑器背景在深色主题下为深色
+- [x] Monaco 编辑器在主题切换时无闪烁
+- [x] xterm.js 终端背景同步更新
+- [x] 编辑器加载 spinner 同步使用新色值
 
 ### General Checklist
-- [ ] 所有硬编码色值已替换为 CSS 变量
-- [ ] Monaco theme、xterm theme、CSS 变量三者色值一致
+- [x] 所有硬编码色值已替换为 CSS 变量
+- [x] Monaco theme、xterm theme、CSS 变量三者色值一致
+
+## Merge Record
+
+- **Completed:** 2026-04-02
+- **Merged Branch:** feature/feat-dark-theme-polish
+- **Merge Commit:** 9088029
+- **Archive Tag:** feat-dark-theme-polish-20260402
+- **Conflicts:** None
+- **Verification:** 4/4 Gherkin scenarios PASS, tsc clean, 0 old hex values remaining
+- **Files Changed:** 4 (index.css, monaco-theme.ts, XTerminal.tsx, EditorView.tsx)
+- **Lines Changed:** +84 / -74

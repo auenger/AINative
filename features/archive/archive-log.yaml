@@ -1,8 +1,8 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-02T32:00:00Z"
+  last_updated: "2026-04-02T37:00:00Z"
   version: 1
-  total_completed: 21
+  total_completed: 23
 
 records:
   - id: feat-tauri-v2-init
@@ -269,3 +269,49 @@ records:
       duration: "~60m"
       commits: 2
       files_changed: 13
+
+  - id: feat-terminal-theme-fix
+    name: "编辑器终端主题一致性修复 & 显隐按钮位置优化"
+    completed_at: "2026-04-02T36:00:00Z"
+    tag: feat-terminal-theme-fix-20260402
+    merge_commit: 4a386f7
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-terminal-theme-fix
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-terminal-theme-fix
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-02T35:00:00Z"
+      duration: "~30m"
+      commits: 1
+      files_changed: 2
+
+  - id: feat-dark-theme-polish
+    name: "深色主题边框配色优化 & Monaco 编辑器主题跟随"
+    completed_at: "2026-04-02T37:00:00Z"
+    tag: feat-dark-theme-polish-20260402
+    merge_commit: 9088029
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-dark-theme-polish
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-dark-theme-polish
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-02T35:00:00Z"
+      duration: "~20m"
+      commits: 1
+      files_changed: 4
