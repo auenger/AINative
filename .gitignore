@@ -1,12 +1,29 @@
+# Dependencies
 node_modules/
+
+# Build output
 build/
 dist/
 coverage/
+bundle/
+release/
+
+# Tauri / Rust
+**/src-tauri/target/
+**/src-tauri/gen/
+
+# Dot folders
+.claude/
+.neuro/
+
+# System files
 .DS_Store
 *.log
+
+# Environment
 .env*
 !.env.example
+
+# Misc
 .collaborator
-**/src-tauri/target/
-**/src-tauri/gen/schemas/
 company-ai-marketplace/
