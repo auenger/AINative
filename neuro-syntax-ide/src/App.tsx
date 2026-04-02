@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Terminal } from 'lucide-react';
 import { TopNav } from './components/TopNav';
 import { SideNav } from './components/SideNav';
 import { BottomPanel } from './components/BottomPanel';
@@ -75,18 +74,8 @@ const App: React.FC = () => {
             logs={logs}
             visible={consoleVisible}
             onClose={() => setConsoleVisible(false)}
+            onOpen={() => setConsoleVisible(true)}
           />
-
-          {/* Floating Terminal toggle button */}
-          {!consoleVisible && (
-            <button
-              onClick={() => setConsoleVisible(true)}
-              className="absolute bottom-2 right-2 z-30 bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-slate-700 p-2 rounded-md border border-outline-variant/20 transition-colors"
-              title="Show Console"
-            >
-              <Terminal size={16} />
-            </button>
-          )}
         </div>
       </div>
 
