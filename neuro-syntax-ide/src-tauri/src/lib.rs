@@ -1513,6 +1513,22 @@ fn scan_dir(dir: &PathBuf, depth: u32) -> std::io::Result<Vec<FileNode>> {
 }
 
 // ===========================================================================
+// File read / write commands (used by EditorView.tsx)
+// ===========================================================================
+
+#[tauri::command]
+async fn read_file(path: String) -> Result<String, String> {
+    fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read file '{}': {}", path, e))
+}
+
+#[tauri::command]
+async fn write_file(path: String, content: String) -> Result<(), String> {
+    fs::write(&path, content)
+        .map_err(|e| format!("Failed to write file '{}': {}", path, e))
+}
+
+// ===========================================================================
 // Application entry point
 // ===========================================================================
 
@@ -1553,6 +1569,8 @@ pub fn run() {
             delete_api_key,
             create_feature_from_agent,
             agent_generate_feature_plan,
+            read_file,
+            write_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
