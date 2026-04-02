@@ -92,6 +92,17 @@ Then 浏览器标签页显示新 logo 作为 favicon
 - [ ] 浏览器标签页 favicon 正确
 
 ### General Checklist
-- [ ] 旧图标文件已替换
-- [ ] tauri.conf.json 配置正确
-- [ ] 构建成功无报错
+- [x] 旧图标文件已替换
+- [x] tauri.conf.json 配置正确
+- [x] 构建成功无报错
+
+## Merge Record
+
+- **Completed**: 2026-04-02
+- **Merged Branch**: feature/feat-logo-update
+- **Merge Commit**: 04293b2c7b35ba11aca8fe73b7b7415268360f48
+- **Archive Tag**: feat-logo-update-20260402
+- **Conflicts**: none
+- **Verification**: PASSED (tsc clean, vite build 6.91s, icon dimensions correct, favicon in dist)
+- **Commits**: 2 (implementation + verification update)
+- **Files Changed**: 13

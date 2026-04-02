@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-02T27:00:00Z"
+  last_updated: "2026-04-02T32:00:00Z"
   version: 1
 
 parents:
@@ -29,11 +29,6 @@ pending:
     name: "Task Modal 边界放宽 & 归档内容匹配"
     priority: 60
     created_at: "2026-04-02T25:00:00Z"
-
-  - id: feat-logo-update
-    name: "全局 Logo 更新 — 替换所有旧图标为新 Logo"
-    priority: 55
-    created_at: "2026-04-02T28:00:00Z"
 
 blocked: []
 
@@ -132,3 +127,8 @@ completed:
     name: "主控看板改名 & CPU 折线图修复"
     completed_at: "2026-04-02T28:00:00Z"
     tag: feat-dashboard-polish-20260402
+
+  - id: feat-logo-update
+    name: "全局 Logo 更新 — 替换所有旧图标为新 Logo"
+    completed_at: "2026-04-02T32:00:00Z"
+    tag: feat-logo-update-20260402

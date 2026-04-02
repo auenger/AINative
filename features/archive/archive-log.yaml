@@ -1,8 +1,8 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-02T28:00:00Z"
+  last_updated: "2026-04-02T32:00:00Z"
   version: 1
-  total_completed: 20
+  total_completed: 21
 
 records:
   - id: feat-tauri-v2-init
@@ -246,3 +246,26 @@ records:
       duration: "~6m"
       commits: 1
       files_changed: 3
+
+  - id: feat-logo-update
+    name: "全局 Logo 更新 — 替换所有旧图标为新 Logo"
+    completed_at: "2026-04-02T32:00:00Z"
+    tag: feat-logo-update-20260402
+    merge_commit: 04293b2c7b35ba11aca8fe73b7b7415268360f48
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-logo-update
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-logo-update
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 2
+      scenarios_passed: 2
+    stats:
+      started: "2026-04-02T31:00:00Z"
+      duration: "~60m"
+      commits: 2
+      files_changed: 13
