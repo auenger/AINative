@@ -5,6 +5,12 @@ import { cn } from '../../lib/utils';
 import { HardwareStats, GitStats, RecentCommit } from '../../types';
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const HISTORY_LENGTH = 60; // keep 60 data points (60 seconds)
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -35,10 +41,22 @@ function getHealthStatus(cpu: number): { label: string; color: string; dotClass:
 /** Render a tiny SVG sparkline from an array of 0-100 values. */
 function Sparkline({ data, width = 100, height = 30, strokeClass = 'stroke-secondary' }: { data: number[]; width?: number; height?: number; strokeClass?: string }) {
   if (data.length < 2) return null;
-  const step = width / (data.length - 1);
-  const points = data.map((v, i) => `${i * step},${height - (v / 100) * height}`).join(' ');
+  // Pad data to HISTORY_LENGTH so the viewBox always spans 60 logical slots,
+  // preventing "jumpy" visuals when fewer points are available.
+  const padded = [...Array(HISTORY_LENGTH - data.length).fill(null), ...data];
+  const validPoints = padded.filter((v): v is number => v !== null);
+  if (validPoints.length < 2) return null;
+  const step = width / (HISTORY_LENGTH - 1);
+  const points = padded
+    .map((v, i) => (v !== null ? `${i * step},${height - (v / 100) * height}` : ''))
+    .filter(Boolean)
+    .join(' ');
   return (
-    <svg className={`${strokeClass} fill-none stroke-2`} viewBox={`0 0 ${width} ${height}`}>
+    <svg
+      className={`w-full h-full ${strokeClass} fill-none stroke-2`}
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+    >
       <polyline points={points} />
     </svg>
   );
@@ -66,8 +84,6 @@ async function listen<T>(event: string, cb: (payload: T) => void): Promise<(() =
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
-
-const HISTORY_LENGTH = 60; // keep 60 data points (60 seconds)
 
 export const MissionControl: React.FC = () => {
   const { t } = useTranslation();

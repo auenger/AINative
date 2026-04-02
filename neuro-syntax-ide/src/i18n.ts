@@ -105,7 +105,7 @@ const resources = {
         search: '搜索',
         tasks: '任务',
         workflow: '工作流',
-        missionControl: '任务控制',
+        missionControl: '主控看板',
         settings: '设置',
         person: '个人资料',
         runAi: '运行 AI',
@@ -177,7 +177,7 @@ const resources = {
         stepConfirm: '确认'
       },
       missionControl: {
-        title: '任务控制',
+        title: '主控看板',
         systemHealth: '系统健康度',
         manageAgents: '管理代理'
       },

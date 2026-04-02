@@ -39,23 +39,6 @@ const App: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const renderView = () => {
-    switch (activeView) {
-      case 'project':
-        return <ProjectView workspace={workspace} />;
-      case 'editor':
-        return <EditorView workspace={workspace} />;
-      case 'tasks':
-        return <TaskBoard />;
-      case 'workflow':
-        return <WorkflowEditor />;
-      case 'mission-control':
-        return <MissionControl />;
-      default:
-        return <ProjectView workspace={workspace} />;
-    }
-  };
-
   return (
     <div className="flex flex-col h-screen w-screen bg-app text-on-surface overflow-hidden selection:bg-primary/30">
       <TopNav />
@@ -65,9 +48,23 @@ const App: React.FC = () => {
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col ml-16 overflow-hidden relative">
-          <div className="flex-1 flex overflow-hidden">
-            {/* Dynamic View Content */}
-            {renderView()}
+          <div className="flex-1 flex overflow-hidden relative">
+            {/* All views always mounted — CSS controls visibility to preserve state */}
+            <div className={cn("absolute inset-0 overflow-hidden", activeView === 'project' ? 'flex' : 'hidden')}>
+              <ProjectView workspace={workspace} />
+            </div>
+            <div className={cn("absolute inset-0 overflow-hidden", activeView === 'editor' ? 'flex' : 'hidden')}>
+              <EditorView workspace={workspace} />
+            </div>
+            <div className={cn("absolute inset-0 overflow-hidden", activeView === 'tasks' ? 'flex' : 'hidden')}>
+              <TaskBoard />
+            </div>
+            <div className={cn("absolute inset-0 overflow-hidden", activeView === 'workflow' ? 'flex' : 'hidden')}>
+              <WorkflowEditor />
+            </div>
+            <div className={cn("absolute inset-0 overflow-hidden", activeView === 'mission-control' ? 'flex' : 'hidden')}>
+              <MissionControl />
+            </div>
           </div>
 
           <BottomPanel
