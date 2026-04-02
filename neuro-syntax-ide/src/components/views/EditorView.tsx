@@ -489,7 +489,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
       case 'claude':
         return 'text-secondary border-b-2 border-secondary';
       case 'gemini':
-        return 'text-blue-400 border-b-2 border-blue-400';
+        return 'text-[color:var(--t-blue-400)] border-b-2 border-[color:var(--t-blue-400)]';
     }
   };
 
@@ -916,7 +916,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                         onClick={() => addTab('gemini')}
                         className="flex items-center gap-2 w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-highest transition-colors"
                       >
-                        <Sparkles size={12} className="text-blue-400" />
+                        <Sparkles size={12} className="text-[color:var(--t-blue-400)]" />
                         Gemini CLI
                       </button>
                     </div>
@@ -935,7 +935,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                     </button>
                     <button
                       onClick={() => addTab('gemini')}
-                      className="p-1 hover:bg-surface-container-high rounded text-blue-400"
+                      className="p-1 hover:bg-surface-container-high rounded text-[color:var(--t-blue-400)]"
                       title={t('editor.geminiCli')}
                     >
                       <Bot size={12} />
