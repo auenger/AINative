@@ -18,12 +18,16 @@ import {
   RefreshCw,
   Zap,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  FileText,
+  ListChecks,
+  ClipboardCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useQueueData, FeatureNode, QueueName } from '../../lib/useQueueData';
+import { MarkdownRenderer } from '../common/MarkdownRenderer';
 
 // ---------------------------------------------------------------------------
 // Board column config
@@ -234,6 +238,7 @@ export const TaskBoard: React.FC = () => {
   const [selectedFeature, setSelectedFeature] = useState<FeatureNode | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<Record<string, string> | null>(null);
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
+  const [detailTab, setDetailTab] = useState<'spec' | 'tasks' | 'checklist'>('spec');
 
   // Drag state
   const draggedIdRef = useRef<string | null>(null);
@@ -505,14 +510,14 @@ export const TaskBoard: React.FC = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => { setSelectedFeature(null); setSelectedDetail(null); }}
+              onClick={() => { setSelectedFeature(null); setSelectedDetail(null); setDetailTab('spec'); }}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             />
             <motion.div
               initial={{ scale: 0.9, opacity: 0, x: 50 }}
               animate={{ scale: 1, opacity: 1, x: 0 }}
               exit={{ scale: 0.9, opacity: 0, x: 50 }}
-              className="relative w-full max-w-xl bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl overflow-hidden flex flex-col"
+              className="relative w-full max-w-2xl bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl overflow-hidden flex flex-col"
             >
               {/* Modal header */}
               <div className="p-6 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-high/30">
@@ -528,7 +533,7 @@ export const TaskBoard: React.FC = () => {
                   </div>
                 </div>
                 <button
-                  onClick={() => { setSelectedFeature(null); setSelectedDetail(null); }}
+                  onClick={() => { setSelectedFeature(null); setSelectedDetail(null); setDetailTab('spec'); }}
                   className="p-2 hover:bg-surface-container-high rounded-full transition-colors"
                 >
                   <X size={18} />
@@ -606,22 +611,80 @@ export const TaskBoard: React.FC = () => {
                   </div>
                 )}
 
-                {/* Spec content preview */}
-                {selectedDetail?.['spec.md'] && (
-                  <div className="space-y-3">
-                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-outline">Spec</h4>
-                    <pre className="text-[10px] text-on-surface-variant leading-relaxed bg-surface-container-highest p-4 rounded-lg overflow-x-auto max-h-48 overflow-y-auto scroll-hide font-mono">
-                      {selectedDetail['spec.md'].slice(0, 1000)}
-                      {selectedDetail['spec.md'].length > 1000 ? '...' : ''}
-                    </pre>
+                {/* Markdown detail tabs: Spec / Tasks / Checklist */}
+                <div className="space-y-3">
+                  {/* Tab bar */}
+                  <div className="flex items-center gap-1 bg-surface-container-lowest p-1 rounded-lg border border-outline-variant/10">
+                    {([
+                      { key: 'spec' as const, label: 'Spec', icon: FileText, file: 'spec.md' },
+                      { key: 'tasks' as const, label: 'Tasks', icon: ListChecks, file: 'task.md' },
+                      { key: 'checklist' as const, label: 'Checklist', icon: ClipboardCheck, file: 'checklist.md' },
+                    ]).map(tab => {
+                      const hasContent = !!selectedDetail?.[tab.file];
+                      const TabIcon = tab.icon;
+                      return (
+                        <button
+                          key={tab.key}
+                          onClick={() => setDetailTab(tab.key)}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded transition-all",
+                            detailTab === tab.key
+                              ? "bg-primary/20 text-primary shadow-sm"
+                              : hasContent
+                                ? "text-on-surface-variant hover:text-on-surface"
+                                : "text-outline/50 cursor-default"
+                          )}
+                        >
+                          <TabIcon size={12} />
+                          {tab.label}
+                          {hasContent && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-tertiary" />
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
+
+                  {/* Tab content */}
+                  <div className="min-h-[120px] max-h-[50vh] overflow-y-auto scroll-hide rounded-lg bg-surface-container-highest/30 p-4 border border-outline-variant/5">
+                    {detailTab === 'spec' && (
+                      selectedDetail?.['spec.md'] ? (
+                        <MarkdownRenderer content={selectedDetail['spec.md']} />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-8 text-outline opacity-50">
+                          <FileText size={24} className="mb-2" />
+                          <span className="text-[10px] font-bold uppercase tracking-widest">No spec available</span>
+                        </div>
+                      )
+                    )}
+                    {detailTab === 'tasks' && (
+                      selectedDetail?.['task.md'] ? (
+                        <MarkdownRenderer content={selectedDetail['task.md']} />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-8 text-outline opacity-50">
+                          <ListChecks size={24} className="mb-2" />
+                          <span className="text-[10px] font-bold uppercase tracking-widest">No tasks available</span>
+                        </div>
+                      )
+                    )}
+                    {detailTab === 'checklist' && (
+                      selectedDetail?.['checklist.md'] ? (
+                        <MarkdownRenderer content={selectedDetail['checklist.md']} />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-8 text-outline opacity-50">
+                          <ClipboardCheck size={24} className="mb-2" />
+                          <span className="text-[10px] font-bold uppercase tracking-widest">No checklist available</span>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Modal footer */}
               <div className="p-6 bg-surface-container-high/30 border-t border-outline-variant/10 flex justify-end gap-3">
                 <button
-                  onClick={() => { setSelectedFeature(null); setSelectedDetail(null); }}
+                  onClick={() => { setSelectedFeature(null); setSelectedDetail(null); setDetailTab('spec'); }}
                   className="px-6 py-2 bg-surface-container-highest text-on-surface rounded-lg text-xs font-bold hover:bg-surface-variant transition-all border border-outline-variant/10"
                 >
                   Close
