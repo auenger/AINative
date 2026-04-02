@@ -1,8 +1,8 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-02T37:00:00Z"
+  last_updated: "2026-04-03T19:00:00Z"
   version: 1
-  total_completed: 23
+  total_completed: 24
 
 records:
   - id: feat-tauri-v2-init
@@ -315,3 +315,26 @@ records:
       duration: "~20m"
       commits: 1
       files_changed: 4
+
+  - id: feat-req-agent-bridge
+    name: "Claude Code CLI 桥接服务"
+    completed_at: "2026-04-03T19:00:00Z"
+    tag: feat-req-agent-bridge-20260403
+    merge_commit: e7a40e2
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-req-agent-bridge
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-req-agent-bridge
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 5
+      scenarios_passed: 5
+    stats:
+      started: "2026-04-03T18:00:00Z"
+      duration: "~60m"
+      commits: 1
+      files_changed: 1

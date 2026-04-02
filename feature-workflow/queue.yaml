@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-02T37:00:00Z"
+  last_updated: "2026-04-03T19:00:00Z"
   version: 1
 
 parents:
@@ -15,9 +15,98 @@ parents:
       - feat-hardware-monitor
       - feat-ai-agent-service
 
-active: []
+active:
+  - id: feat-git-status-read
+    name: "Git 状态真实展示"
+    priority: 72
+    parent: feat-git-integration
+    dependencies: []
+    branch: feature/feat-git-status-read
+    worktree: ../NeuroSyntaxIDE-feat-git-status-read
+    started_at: "2026-04-03T18:01:00Z"
 
-pending: []
+pending:
+  - id: feat-req-agent-chat
+    name: "需求分析 Agent 聊天 UI"
+    priority: 70
+    dependencies:
+      - feat-req-agent-bridge
+
+  - id: feat-req-agent-workflow
+    name: "需求分析输出工作流"
+    priority: 65
+    dependencies:
+      - feat-req-agent-chat
+
+  - id: feat-git-integration
+    name: "Git 集成功能（状态展示 + Stage/Commit + Push/Pull）"
+    priority: 70
+    split: true
+    children:
+      - feat-git-status-read
+      - feat-git-stage-commit
+      - feat-git-push-pull
+
+  - id: feat-git-stage-commit
+    name: "Git 暂存与提交"
+    priority: 70
+    parent: feat-git-integration
+    dependencies:
+      - feat-git-status-read
+
+  - id: feat-git-push-pull
+    name: "Git 远程同步（Push & Pull）"
+    priority: 68
+    parent: feat-git-integration
+    dependencies:
+      - feat-git-stage-commit
+
+  - id: feat-terminal-enhance
+    name: "编辑器终端能力增强（可用性 + hover 样式 + 新建终端）"
+    priority: 65
+    dependencies: []
+
+  - id: feat-dock-icon
+    name: "App Dock 图标替换为 Logo"
+    priority: 70
+    dependencies: []
+
+  - id: feat-file-type-display
+    name: "文件类型差异化展示系统"
+    priority: 60
+    split: true
+    children:
+      - feat-file-type-router
+      - feat-markdown-split-preview
+      - feat-image-config-preview
+      - feat-syntax-highlight-lang
+
+  - id: feat-file-type-router
+    name: "文件类型路由 + 代码语言风格差异化"
+    priority: 60
+    parent: feat-file-type-display
+    dependencies: []
+
+  - id: feat-markdown-split-preview
+    name: "Markdown 分栏预览（左代码右渲染）"
+    priority: 55
+    parent: feat-file-type-display
+    dependencies:
+      - feat-file-type-router
+
+  - id: feat-image-config-preview
+    name: "图片可视化预览 + 配置文件结构化视图"
+    priority: 50
+    parent: feat-file-type-display
+    dependencies:
+      - feat-file-type-router
+
+  - id: feat-syntax-highlight-lang
+    name: "多语言语法配色渲染增强"
+    priority: 58
+    parent: feat-file-type-display
+    dependencies:
+      - feat-file-type-router
 
 blocked: []
 
@@ -141,3 +230,8 @@ completed:
     name: "深色主题边框配色优化 & Monaco 编辑器主题跟随"
     completed_at: "2026-04-02T37:00:00Z"
     tag: feat-dark-theme-polish-20260402
+
+  - id: feat-req-agent-bridge
+    name: "Claude Code CLI 桥接服务"
+    completed_at: "2026-04-03T19:00:00Z"
+    tag: feat-req-agent-bridge-20260403
