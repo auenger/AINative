@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Plus,
   MoreHorizontal,
@@ -243,6 +243,54 @@ export const TaskBoard: React.FC = () => {
   // Drag state
   const draggedIdRef = useRef<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<QueueName | null>(null);
+
+  // Modal drag state
+  const [modalPos, setModalPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDraggingModal, setIsDraggingModal] = useState(false);
+  const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const handleModalHeaderMouseDown = useCallback((e: React.MouseEvent) => {
+    // Only respond to primary mouse button on the header area itself
+    if (e.button !== 0) return;
+    e.preventDefault();
+    setIsDraggingModal(true);
+    dragOffsetRef.current = {
+      x: e.clientX - modalPos.x,
+      y: e.clientY - modalPos.y,
+    };
+  }, [modalPos]);
+
+  useEffect(() => {
+    if (!isDraggingModal) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newX = e.clientX - dragOffsetRef.current.x;
+      const newY = e.clientY - dragOffsetRef.current.y;
+      // Keep modal within viewport bounds
+      const clampedX = Math.max(-window.innerWidth * 0.3, Math.min(window.innerWidth * 0.5, newX));
+      const clampedY = Math.max(0, Math.min(window.innerHeight - 80, newY));
+      setModalPos({ x: clampedX, y: clampedY });
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingModal(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingModal]);
+
+  // Close modal helper: resets modal position
+  const closeModal = useCallback(() => {
+    setSelectedFeature(null);
+    setSelectedDetail(null);
+    setDetailTab('spec');
+    setModalPos({ x: 0, y: 0 });
+  }, []);
 
   const handleDragStart = useCallback((e: React.DragEvent, id: string) => {
     draggedIdRef.current = id;
@@ -510,17 +558,35 @@ export const TaskBoard: React.FC = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => { setSelectedFeature(null); setSelectedDetail(null); setDetailTab('spec'); }}
+              onClick={closeModal}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             />
             <motion.div
               initial={{ scale: 0.9, opacity: 0, x: 50 }}
-              animate={{ scale: 1, opacity: 1, x: 0 }}
+              animate={{ scale: 1, opacity: 1, x: modalPos.x, y: modalPos.y }}
               exit={{ scale: 0.9, opacity: 0, x: 50 }}
-              className="relative w-full max-w-2xl bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl overflow-hidden flex flex-col"
+              style={{
+                position: 'relative',
+                top: 0,
+                left: 0,
+                minWidth: 480,
+                minHeight: 360,
+                resize: 'both',
+                overflow: 'hidden',
+              }}
+              className={cn(
+                "w-full max-w-2xl bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl flex flex-col",
+                isDraggingModal && "select-none"
+              )}
             >
-              {/* Modal header */}
-              <div className="p-6 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-high/30">
+              {/* Modal header - draggable area */}
+              <div
+                onMouseDown={handleModalHeaderMouseDown}
+                className={cn(
+                  "p-6 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-high/30 shrink-0",
+                  isDraggingModal ? "cursor-grabbing" : "cursor-grab"
+                )}
+              >
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-primary/10 text-primary">
                     <Code2 size={20} />
@@ -533,7 +599,8 @@ export const TaskBoard: React.FC = () => {
                   </div>
                 </div>
                 <button
-                  onClick={() => { setSelectedFeature(null); setSelectedDetail(null); setDetailTab('spec'); }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={closeModal}
                   className="p-2 hover:bg-surface-container-high rounded-full transition-colors"
                 >
                   <X size={18} />
@@ -541,7 +608,7 @@ export const TaskBoard: React.FC = () => {
               </div>
 
               {/* Modal body */}
-              <div className="p-8 space-y-8 overflow-y-auto max-h-[70vh]">
+              <div className="p-8 space-y-8 overflow-y-auto flex-1">
                 <div className="space-y-2">
                   <h2 className="text-2xl font-bold text-on-surface leading-tight">
                     {selectedFeature.name}
@@ -682,9 +749,9 @@ export const TaskBoard: React.FC = () => {
               </div>
 
               {/* Modal footer */}
-              <div className="p-6 bg-surface-container-high/30 border-t border-outline-variant/10 flex justify-end gap-3">
+              <div className="p-6 bg-surface-container-high/30 border-t border-outline-variant/10 flex justify-end gap-3 shrink-0">
                 <button
-                  onClick={() => { setSelectedFeature(null); setSelectedDetail(null); setDetailTab('spec'); }}
+                  onClick={closeModal}
                   className="px-6 py-2 bg-surface-container-highest text-on-surface rounded-lg text-xs font-bold hover:bg-surface-variant transition-all border border-outline-variant/10"
                 >
                   Close
