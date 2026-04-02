@@ -5,12 +5,19 @@ import { cn } from '../lib/utils';
 
 interface BottomPanelProps {
   logs: LogEntry[];
+  visible: boolean;
+  onClose: () => void;
 }
 
-export const BottomPanel: React.FC<BottomPanelProps> = ({ logs }) => {
+export const BottomPanel: React.FC<BottomPanelProps> = ({ logs, visible, onClose }) => {
   return (
-    <footer className="h-48 bg-surface-container-lowest border-t border-outline-variant/20 flex flex-col z-20">
-      <div className="h-7 bg-surface-container-low flex items-center px-4 justify-between border-b border-outline-variant/10">
+    <footer
+      className={cn(
+        "bg-surface-container-lowest border-t border-outline-variant/20 flex flex-col z-20 transition-all duration-300 ease-in-out overflow-hidden",
+        visible ? "max-h-48" : "max-h-0 border-t-0"
+      )}
+    >
+      <div className="h-7 bg-surface-container-low flex items-center px-4 justify-between border-b border-outline-variant/10 shrink-0">
         <div className="flex items-center gap-4 h-full">
           <div className="flex items-center gap-2 text-primary border-b border-primary h-full px-2">
             <Terminal size={12} />
@@ -22,7 +29,9 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({ logs }) => {
         </div>
         <div className="flex items-center gap-3">
           <Ban size={12} className="text-on-surface-variant cursor-pointer hover:text-on-surface" />
-          <X size={12} className="text-on-surface-variant cursor-pointer hover:text-on-surface" />
+          <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface cursor-pointer">
+            <X size={12} />
+          </button>
         </div>
       </div>
       <div className="flex-1 p-3 overflow-y-auto font-mono text-[11px] leading-relaxed scroll-hide">

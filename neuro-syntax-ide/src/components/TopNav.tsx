@@ -12,16 +12,10 @@ export const TopNav: React.FC = () => {
 
   return (
     <header
-      className="flex items-center w-full px-2 gap-4 h-10 bg-[#0f172a] z-50 border-b border-outline-variant/10"
+      className="flex items-center w-full px-2 gap-4 h-10 bg-[#0f172a] z-40 border-b border-outline-variant/10 pl-16"
     >
       <div className="flex items-center gap-3">
         <span className="font-black text-blue-500 tracking-widest font-headline text-sm px-2">NEURO SYNTAX</span>
-        <div className="h-4 w-px bg-outline-variant/30"></div>
-        <div className="flex items-center gap-1 h-full">
-          <div className="px-3 h-full flex items-center text-slate-400 bg-slate-950/50 hover:bg-slate-800 transition-colors cursor-pointer text-[11px] font-headline tracking-tight">Main.ts</div>
-          <div className="px-3 h-full flex items-center text-slate-400 bg-slate-950/50 hover:bg-slate-800 transition-colors cursor-pointer text-[11px] font-headline tracking-tight">System.py</div>
-          <div className="px-3 h-full flex items-center text-blue-400 border-t-2 border-blue-500 bg-slate-900 text-[11px] font-headline tracking-tight brightness-125">Workflow.node</div>
-        </div>
       </div>
       <div className="flex-grow"></div>
       <div className="flex items-center gap-4 px-2">

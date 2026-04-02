@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Terminal } from 'lucide-react';
 import { TopNav } from './components/TopNav';
 import { SideNav } from './components/SideNav';
 import { BottomPanel } from './components/BottomPanel';
@@ -23,6 +24,7 @@ const INITIAL_LOGS: LogEntry[] = [
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewType>('project');
   const [logs, setLogs] = useState<LogEntry[]>(INITIAL_LOGS);
+  const [consoleVisible, setConsoleVisible] = useState(true);
   const workspace = useWorkspace();
 
   // Simulate incoming logs
@@ -63,13 +65,28 @@ const App: React.FC = () => {
         <SideNav activeView={activeView} onViewChange={setActiveView} />
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col ml-16 overflow-hidden">
+        <div className="flex-1 flex flex-col ml-16 overflow-hidden relative">
           <div className="flex-1 flex overflow-hidden">
             {/* Dynamic View Content */}
             {renderView()}
           </div>
 
-          <BottomPanel logs={logs} />
+          <BottomPanel
+            logs={logs}
+            visible={consoleVisible}
+            onClose={() => setConsoleVisible(false)}
+          />
+
+          {/* Floating Terminal toggle button */}
+          {!consoleVisible && (
+            <button
+              onClick={() => setConsoleVisible(true)}
+              className="absolute bottom-2 right-2 z-30 bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-slate-700 p-2 rounded-md border border-outline-variant/20 transition-colors"
+              title="Show Console"
+            >
+              <Terminal size={16} />
+            </button>
+          )}
         </div>
       </div>
 
