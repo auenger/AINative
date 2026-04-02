@@ -78,3 +78,17 @@ export interface RecentCommit {
   author: string;
   time_ago: string;
 }
+
+/** Detailed Git status from fetch_git_status command (feat-git-status-read). */
+export interface FileDiffInfo {
+  path: string;
+  status: 'staged' | 'unstaged' | 'untracked';
+  additions: number;
+  deletions: number;
+}
+
+export interface GitStatusResult {
+  current_branch: string;
+  remote_url: string | null;
+  files: FileDiffInfo[];
+}

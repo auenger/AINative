@@ -23,6 +23,7 @@ import { cn } from '../../lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { useAgentChat } from '../../lib/useAgentChat';
 import type { FeaturePlanOutput } from '../../lib/useAgentChat';
+import { useGitStatus } from '../../lib/useGitStatus';
 
 interface WorkspaceHook {
   workspacePath: string;
@@ -40,8 +41,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ workspace }) => {
   const { workspacePath, loading: workspaceLoading, error: workspaceError, selectWorkspace } = workspace;
 
   const agentChat = useAgentChat();
+  const gitStatus = useGitStatus(workspacePath);
 
-  const [gitRemote] = useState('https://github.com/neuro/syntax-ide.git');
   const [chatInput, setChatInput] = useState('');
   const [showGitModal, setShowGitModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -85,6 +86,13 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [agentChat.messages]);
+
+  // Refresh git status when the Git modal opens
+  useEffect(() => {
+    if (showGitModal) {
+      gitStatus.refresh();
+    }
+  }, [showGitModal]);
 
   const handleSync = () => {
     setIsSyncing(true);
@@ -402,64 +410,126 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                   </div>
                   <div>
                     <h3 className="text-sm font-bold uppercase tracking-widest">{t('project.gitStatus')}</h3>
-                    <p className="text-[10px] text-outline font-mono">{gitRemote}</p>
+                    <p className="text-[10px] text-outline font-mono">
+                      {gitStatus.data?.remote_url || 'No remote configured'}
+                    </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setShowGitModal(false)}
-                  className="p-2 hover:bg-surface-container-high rounded-full transition-colors"
-                >
-                  <X size={18} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => gitStatus.refresh()}
+                    disabled={gitStatus.loading}
+                    className="p-2 hover:bg-surface-container-high rounded-full transition-colors"
+                    title="Refresh"
+                  >
+                    <RefreshCw size={14} className={cn(gitStatus.loading && "animate-spin")} />
+                  </button>
+                  <button
+                    onClick={() => setShowGitModal(false)}
+                    className="p-2 hover:bg-surface-container-high rounded-full transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
               </div>
 
               <div className="p-6 space-y-6">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-outline">{t('project.branch')}</span>
-                    <span className="text-[10px] font-mono bg-secondary/10 text-secondary px-2 py-0.5 rounded">feature/pm-agent</span>
+                {gitStatus.error ? (
+                  <div className="flex items-center gap-3 p-4 bg-error/10 rounded-lg border border-error/20">
+                    <AlertTriangle size={16} className="text-error shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-error">{gitStatus.error}</p>
+                      <p className="text-[10px] text-on-surface-variant mt-1">Make sure the workspace is a Git repository.</p>
+                    </div>
                   </div>
-                  <div className="relative h-20 bg-surface-container-lowest rounded-lg border border-outline-variant/5 p-4 flex items-center">
-                    <div className="absolute left-4 right-4 h-0.5 bg-outline-variant/20 top-1/2 -translate-y-1/2"></div>
-                    <div className="flex justify-between w-full relative z-10">
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="w-3 h-3 rounded-full bg-outline-variant border-2 border-surface"></div>
-                        <span className="text-[8px] font-mono text-outline">main</span>
+                ) : gitStatus.loading && !gitStatus.data ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 size={24} className="animate-spin text-primary" />
+                  </div>
+                ) : gitStatus.data ? (
+                  <>
+                    {/* Branch info */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-outline">{t('project.branch')}</span>
+                        <span className="text-[10px] font-mono bg-secondary/10 text-secondary px-2 py-0.5 rounded">
+                          {gitStatus.data.current_branch}
+                        </span>
                       </div>
-                      <div className="flex flex-col items-center gap-1 -mt-8">
-                        <div className="w-3 h-3 rounded-full bg-secondary border-2 border-surface"></div>
-                        <span className="text-[8px] font-mono text-secondary">current</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="w-3 h-3 rounded-full bg-outline-variant border-2 border-surface"></div>
-                        <span className="text-[8px] font-mono text-outline">origin/main</span>
+                      <div className="relative h-20 bg-surface-container-lowest rounded-lg border border-outline-variant/5 p-4 flex items-center">
+                        <div className="absolute left-4 right-4 h-0.5 bg-outline-variant/20 top-1/2 -translate-y-1/2"></div>
+                        <div className="flex justify-between w-full relative z-10">
+                          <div className="flex flex-col items-center gap-1">
+                            <div className="w-3 h-3 rounded-full bg-outline-variant border-2 border-surface"></div>
+                            <span className="text-[8px] font-mono text-outline">main</span>
+                          </div>
+                          <div className="flex flex-col items-center gap-1 -mt-8">
+                            <div className="w-3 h-3 rounded-full bg-secondary border-2 border-surface"></div>
+                            <span className="text-[8px] font-mono text-secondary">{gitStatus.data.current_branch}</span>
+                          </div>
+                          <div className="flex flex-col items-center gap-1">
+                            <div className="w-3 h-3 rounded-full bg-outline-variant border-2 border-surface"></div>
+                            <span className="text-[8px] font-mono text-outline">origin/main</span>
+                          </div>
+                        </div>
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30">
+                          <path d="M 40 40 Q 100 10 200 40" fill="none" stroke="currentColor" strokeWidth="1" className="text-secondary" strokeDasharray="4 2" />
+                        </svg>
                       </div>
                     </div>
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30">
-                      <path d="M 40 40 Q 100 10 200 40" fill="none" stroke="currentColor" strokeWidth="1" className="text-secondary" strokeDasharray="4 2" />
-                    </svg>
-                  </div>
-                </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-outline">{t('project.changesDetected')}</span>
-                    <span className="text-[10px] font-bold text-tertiary">1 File Modified</span>
-                  </div>
-                  <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden">
-                    <div className="flex items-center gap-3 p-3 bg-surface-container-high/20">
-                      <FileText size={16} className="text-primary" />
-                      <div className="flex-1">
-                        <p className="text-xs font-bold">project-context.md</p>
-                        <p className="text-[10px] text-outline">Updated roadmap and core features</p>
+                    {/* Changed files */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-outline">{t('project.changesDetected')}</span>
+                        <span className="text-[10px] font-bold text-tertiary">
+                          {gitStatus.data.files.length === 0
+                            ? 'No changes'
+                            : `${gitStatus.data.files.length} File${gitStatus.data.files.length > 1 ? 's' : ''} Changed`}
+                        </span>
                       </div>
-                      <div className="flex items-center gap-1 text-[10px] font-mono text-tertiary">
-                        <span className="text-emerald-400">+12</span>
-                        <span className="text-error">-4</span>
-                      </div>
+                      {gitStatus.data.files.length === 0 ? (
+                        <div className="flex items-center justify-center py-6 text-xs text-on-surface-variant opacity-60">
+                          No changes detected
+                        </div>
+                      ) : (
+                        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden divide-y divide-outline-variant/5">
+                          {gitStatus.data.files.map((file) => {
+                            const fileName = file.path.split('/').pop() || file.path;
+                            const statusColor = file.status === 'staged'
+                              ? 'text-tertiary'
+                              : file.status === 'untracked'
+                                ? 'text-warning'
+                                : 'text-primary';
+                            const statusLabel = file.status === 'staged'
+                              ? 'Staged'
+                              : file.status === 'untracked'
+                                ? 'Untracked'
+                                : 'Modified';
+                            return (
+                              <div key={file.path} className="flex items-center gap-3 p-3 bg-surface-container-high/20">
+                                <FileText size={16} className="text-primary shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-bold truncate">{fileName}</p>
+                                  <p className="text-[10px] text-outline truncate">{file.path}</p>
+                                </div>
+                                <span className={cn("text-[9px] font-bold uppercase shrink-0", statusColor)}>
+                                  {statusLabel}
+                                </span>
+                                {(file.additions > 0 || file.deletions > 0) && (
+                                  <div className="flex items-center gap-1 text-[10px] font-mono shrink-0">
+                                    {file.additions > 0 && <span className="text-emerald-400">+{file.additions}</span>}
+                                    {file.deletions > 0 && <span className="text-error">-{file.deletions}</span>}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </div>
+                  </>
+                ) : null}
               </div>
 
               <div className="p-4 bg-surface-container-high/30 border-t border-outline-variant/10 flex gap-3">
