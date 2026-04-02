@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-02T24:00:00Z"
+  last_updated: "2026-04-02T27:00:00Z"
   version: 1
 
 parents:
@@ -17,7 +17,33 @@ parents:
 
 active: []
 
-pending: []
+pending:
+  - id: feat-view-state-persistence
+    name: "View 状态持久化（Tab 切换保持状态）"
+    priority: 75
+    created_at: "2026-04-02T26:00:00Z"
+
+  - id: feat-terminal-polish
+    name: "终端主题跟随 & 显隐控制"
+    priority: 70
+    dependencies:
+      - feat-view-state-persistence
+    created_at: "2026-04-02T26:00:00Z"
+
+  - id: feat-dashboard-polish
+    name: "主控看板改名 & CPU 折线图修复"
+    priority: 65
+    created_at: "2026-04-02T27:00:00Z"
+
+  - id: feat-task-modal-bounds
+    name: "Task Modal 边界放宽 & 归档内容匹配"
+    priority: 60
+    created_at: "2026-04-02T25:00:00Z"
+
+  - id: feat-logo-update
+    name: "全局 Logo 更新 — 替换所有旧图标为新 Logo"
+    priority: 55
+    created_at: "2026-04-02T28:00:00Z"
 
 blocked: []
 

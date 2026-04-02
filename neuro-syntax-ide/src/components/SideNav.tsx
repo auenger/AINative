@@ -29,8 +29,11 @@ export const SideNav: React.FC<SideNavProps> = ({ activeView, onViewChange }) =>
   ];
 
   return (
-    <aside className="fixed left-0 top-0 h-full flex flex-col z-50 bg-app w-16 items-center py-4 gap-6 pt-12 border-r border-outline-variant/10">
-      <div className="flex flex-col w-full gap-2">
+    <aside className="fixed left-0 top-0 h-full flex flex-col z-50 bg-app w-16 items-center border-r border-outline-variant/10">
+      <div className="flex items-center justify-center h-10 shrink-0">
+        <img src="/logo.png" alt="Neuro Syntax" className="w-7 h-7 rounded-md" />
+      </div>
+      <div className="flex flex-col w-full gap-2 pt-2">
         {navItems.map((item) => (
           <button
             key={item.id}
