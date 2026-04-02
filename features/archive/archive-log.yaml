@@ -1,8 +1,8 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-02T19:45:00Z"
+  last_updated: "2026-04-02T20:30:00Z"
   version: 1
-  total_completed: 9
+  total_completed: 12
 
 records:
   - id: feat-tauri-v2-init
@@ -68,3 +68,71 @@ records:
       duration: "~30m"
       commits: 3
       files_changed: 5
+
+  - id: feat-ui-cleanup
+    name: "UI 清理与布局优化"
+    completed_at: "2026-04-02T04:10:00Z"
+    tag: feat-ui-cleanup-20260402
+    merge_commit: 391fb8c
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/ui-cleanup
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-ui-cleanup
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-02T03:58:48Z"
+      duration: "~12m"
+      commits: 1
+      files_changed: 4
+
+  - id: feat-fix-read-file
+    name: "修复编辑器 read_file / write_file Command 缺失"
+    completed_at: "2026-04-02T19:45:00Z"
+    tag: feat-fix-read-file-20260402
+    merge_commit: 0eab03f
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-fix-read-file
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-fix-read-file
+    conflicts:
+      had_conflict: false
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-04-02T19:00:00Z"
+      duration: "~45m"
+      commits: 1
+      files_changed: 1
+
+  - id: feat-md-render-task-detail
+    name: "Task 详情弹窗 Markdown 富渲染"
+    completed_at: "2026-04-02T20:30:00Z"
+    tag: feat-md-render-task-detail-20260402
+    merge_commit: 46a536f
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-md-render-task-detail
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-md-render-task-detail
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-04-02T20:00:00Z"
+      duration: "~30m"
+      commits: 1
+      files_changed: 2

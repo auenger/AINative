@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-02T19:30:00Z"
+  last_updated: "2026-04-02T20:30:00Z"
   version: 1
 
 parents:
@@ -15,22 +15,9 @@ parents:
       - feat-hardware-monitor
       - feat-ai-agent-service
 
-active:
-  - id: feat-fix-read-file
-    name: "修复编辑器 read_file / write_file Command 缺失"
-    priority: 90
-    branch: feature/feat-fix-read-file
-    worktree: ../NeuroSyntaxIDE-feat-fix-read-file
-    started_at: "2026-04-02T19:00:00Z"
+active: []
 
 pending:
-  - id: feat-md-render-task-detail
-    name: "Task 详情弹窗 Markdown 富渲染"
-    priority: 75
-
-  - id: feat-ui-cleanup
-    name: "UI 清理与布局优化"
-    priority: 70
 
 blocked: []
 
@@ -74,3 +61,18 @@ completed:
     name: "恢复系统默认窗口标题栏"
     completed_at: "2026-04-02T19:30:00Z"
     tag: feat-native-titlebar-20260402
+
+  - id: feat-fix-read-file
+    name: "修复编辑器 read_file / write_file Command 缺失"
+    completed_at: "2026-04-02T19:45:00Z"
+    tag: feat-fix-read-file-20260402
+
+  - id: feat-ui-cleanup
+    name: "UI 清理与布局优化"
+    completed_at: "2026-04-02T04:10:00Z"
+    tag: feat-ui-cleanup-20260402
+
+  - id: feat-md-render-task-detail
+    name: "Task 详情弹窗 Markdown 富渲染"
+    completed_at: "2026-04-02T20:30:00Z"
+    tag: feat-md-render-task-detail-20260402
