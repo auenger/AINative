@@ -1,8 +1,8 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-02T24:30:00Z"
+  last_updated: "2026-04-03T01:00:00Z"
   version: 1
-  total_completed: 16
+  total_completed: 18
 
 records:
   - id: feat-tauri-v2-init
@@ -194,5 +194,31 @@ records:
       status: passed
     stats:
       duration: "~5m"
+      commits: 1
+      files_changed: 1
+
+  - id: feat-app-theme-system
+    name: "全局明暗主题系统"
+    completed_at: "2026-04-03T01:00:00Z"
+    tag: feat-app-theme-system-20260402
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/app-theme-system
+    verification:
+      status: passed
+    stats:
+      duration: "~27m"
+      commits: 1
+      files_changed: 10
+
+  - id: feat-console-icon-toggle
+    name: "Console 折叠态改为右侧小图标"
+    completed_at: "2026-04-03T01:00:00Z"
+    tag: feat-console-icon-toggle-20260402
+    merged_to: main
+    verification:
+      status: passed
+    stats:
+      duration: "~3m"
       commits: 1
       files_changed: 1

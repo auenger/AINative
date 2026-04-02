@@ -17,13 +17,7 @@ parents:
 
 active: []
 
-pending:
-  - id: feat-app-theme-system
-    name: "全局明暗主题系统"
-    priority: 65
-  - id: feat-console-icon-toggle
-    name: "Console 折叠态改为右侧小图标"
-    priority: 60
+pending: []
 
 blocked: []
 
@@ -102,3 +96,13 @@ completed:
     name: "Task 详情弹窗改进（尺寸 + 描述渲染）"
     completed_at: "2026-04-02T24:30:00Z"
     tag: feat-task-modal-improve-20260402
+
+  - id: feat-app-theme-system
+    name: "全局明暗主题系统"
+    completed_at: "2026-04-03T01:00:00Z"
+    tag: feat-app-theme-system-20260402
+
+  - id: feat-console-icon-toggle
+    name: "Console 折叠态改为右侧小图标"
+    completed_at: "2026-04-03T01:00:00Z"
+    tag: feat-console-icon-toggle-20260402
