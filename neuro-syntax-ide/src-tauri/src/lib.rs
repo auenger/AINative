@@ -170,6 +170,25 @@ pub struct RecentCommit {
 }
 
 // ===========================================================================
+// Data types - Git status (feat-git-status-read)
+// ===========================================================================
+
+#[derive(Debug, Serialize, Clone)]
+pub struct FileDiffInfo {
+    pub path: String,
+    pub status: String, // "staged" | "unstaged" | "untracked"
+    pub additions: usize,
+    pub deletions: usize,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct GitStatusResult {
+    pub current_branch: String,
+    pub remote_url: Option<String>,
+    pub files: Vec<FileDiffInfo>,
+}
+
+// ===========================================================================
 // Data types - AI Agent Service
 // ===========================================================================
 
@@ -1055,6 +1074,166 @@ fn format_time_ago(timestamp: i64) -> String {
     } else {
         format!("{}d ago", diff / 86400)
     }
+}
+
+/// Fetch detailed Git status for the current workspace (branch, remote, changed files with diff stats).
+#[tauri::command]
+async fn fetch_git_status(
+    state: tauri::State<'_, AppState>,
+) -> Result<GitStatusResult, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo_path = PathBuf::from(&workspace);
+    let repo = git2::Repository::discover(&repo_path)
+        .map_err(|e| format!("Not a git repository: {}", e))?;
+
+    // Current branch
+    let head = repo.head()
+        .map_err(|e| format!("Failed to read HEAD: {}", e))?;
+    let current_branch = head.shorthand()
+        .unwrap_or("unknown")
+        .to_string();
+
+    // Remote URL
+    let remote_url = repo.find_remote("origin")
+        .ok()
+        .and_then(|r| r.url().map(|u| u.to_string()));
+
+    // Collect changed files
+    let mut files: Vec<FileDiffInfo> = Vec::new();
+
+    // Helper: extract file list with per-file diff stats from a diff
+    let extract_files_from_diff = |diff: &git2::Diff, status_label: &str, skip_paths: &[String]| -> Vec<FileDiffInfo> {
+        let mut result: Vec<FileDiffInfo> = Vec::new();
+        let mut current_idx: Option<usize> = None;
+        let mut current_adds: usize = 0;
+        let mut current_dels: usize = 0;
+
+        // First pass: collect delta paths
+        let deltas: Vec<String> = diff.deltas()
+            .filter_map(|d| {
+                let p = d.new_file().path()
+                    .or_else(|| d.old_file().path())
+                    .map(|pp| pp.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                if p.is_empty() || skip_paths.contains(&p) { None } else { Some(p) }
+            })
+            .collect();
+
+        // Second pass: count lines per delta using print callback
+        let deltas_ref = &deltas;
+        let _ = diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
+            let origin = line.origin();
+            // Determine which file this line belongs to
+            let path = _delta.new_file().path()
+                .or_else(|| _delta.old_file().path())
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default();
+            if let Some(pos) = deltas_ref.iter().position(|p| *p == path) {
+                if current_idx != Some(pos) {
+                    // Flush previous
+                    if let Some(idx) = current_idx {
+                        if idx < result.len() {
+                            result[idx].additions += current_adds;
+                            result[idx].deletions += current_dels;
+                        }
+                    }
+                    // Start new file tracking
+                    if result.len() <= pos {
+                        result.resize_with(pos + 1, || FileDiffInfo {
+                            path: String::new(),
+                            status: status_label.to_string(),
+                            additions: 0,
+                            deletions: 0,
+                        });
+                    }
+                    result[pos].path = path.clone();
+                    current_idx = Some(pos);
+                    current_adds = 0;
+                    current_dels = 0;
+                }
+                if origin == '+' {
+                    current_adds += 1;
+                } else if origin == '-' {
+                    current_dels += 1;
+                }
+            }
+            true
+        });
+
+        // Flush last
+        if let Some(idx) = current_idx {
+            if idx < result.len() {
+                result[idx].additions += current_adds;
+                result[idx].deletions += current_dels;
+            }
+        }
+
+        // Fill in any deltas that had no line-level changes (binary, etc.)
+        for (i, path) in deltas_ref.iter().enumerate() {
+            if i >= result.len() {
+                result.push(FileDiffInfo {
+                    path: path.clone(),
+                    status: status_label.to_string(),
+                    additions: 0,
+                    deletions: 0,
+                });
+            } else if result[i].path.is_empty() {
+                result[i].path = path.clone();
+            }
+        }
+
+        result
+    };
+
+    let staged_paths: Vec<String> = Vec::new();
+
+    // --- Staged changes (index vs HEAD) ---
+    if let Ok(head_tree) = repo.head().and_then(|r| r.peel_to_tree()) {
+        if let Ok(diff) = repo.diff_tree_to_index(Some(&head_tree), None, None) {
+            files = extract_files_from_diff(&diff, "staged", &staged_paths);
+        }
+    }
+
+    // --- Unstaged changes (workdir vs index) ---
+    let staged_file_paths: Vec<String> = files.iter().map(|f| f.path.clone()).collect();
+    if let Ok(diff) = repo.diff_index_to_workdir(None, None) {
+        let unstaged = extract_files_from_diff(&diff, "unstaged", &staged_file_paths);
+        files.extend(unstaged);
+    }
+
+    // --- Untracked files ---
+    let mut status_opts = git2::StatusOptions::new();
+    status_opts.include_untracked(true);
+    status_opts.exclude_submodules(true);
+    status_opts.recurse_untracked_dirs(true);
+
+    if let Ok(statuses) = repo.statuses(Some(&mut status_opts)) {
+        for entry in statuses.iter() {
+            let s = entry.status();
+            if s.is_wt_new() {
+                if let Some(path) = entry.path() {
+                    // Skip if already listed
+                    if files.iter().any(|f| f.path == path) { continue; }
+                    files.push(FileDiffInfo {
+                        path: path.to_string(),
+                        status: "untracked".to_string(),
+                        additions: 0,
+                        deletions: 0,
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(GitStatusResult {
+        current_branch,
+        remote_url,
+        files,
+    })
 }
 
 // ===========================================================================
@@ -1948,6 +2127,7 @@ pub fn run() {
             start_hardware_monitor,
             stop_hardware_monitor,
             fetch_git_stats,
+            fetch_git_status,
             // AI Agent Service
             agent_chat_stream,
             store_api_key,
