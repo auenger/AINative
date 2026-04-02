@@ -1,19 +1,14 @@
 /**
- * neuro-dark — Monaco theme aligned with the Neuro Syntax IDE design system.
+ * Neuro Syntax IDE — Monaco themes (dark + light).
  *
- * Colour source: neuro-syntax-ide/src/index.css @theme variables
- *   --color-surface-container-lowest: #0a0e14
- *   --color-surface-container:        #1c2026
- *   --color-surface-container-high:   #262a31
- *   --color-primary:                  #a2c9ff
- *   --color-primary-container:        #58a6ff
- *   --color-tertiary:                 #67df70
- *   --color-error:                    #ffb4ab
- *   --color-outline:                  #8b919d
- *   --color-outline-variant:          #414752
+ * Colour source: neuro-syntax-ide/src/index.css CSS custom properties
  */
 
 import type { editor } from 'monaco-editor';
+
+// ===========================================================================
+// Dark theme
+// ===========================================================================
 
 export const NEURO_DARK_THEME: editor.IStandaloneThemeData = {
   base: 'vs-dark',
@@ -86,99 +81,181 @@ export const NEURO_DARK_THEME: editor.IStandaloneThemeData = {
     { token: 'string.yaml', foreground: '67df70' },
   ],
   colors: {
-    // --- Editor background & foreground ---
     'editor.background': '#0a0e14',
     'editor.foreground': '#dfe2eb',
-
-    // --- Line highlighting ---
     'editor.lineHighlightBackground': '#1c2026',
-    'editor.lineHighlightBorder': '#262a3100', // transparent border
-
-    // --- Line numbers ---
+    'editor.lineHighlightBorder': '#262a3100',
     'editorLineNumber.foreground': '#414752',
     'editorLineNumber.activeForeground': '#8b919d',
-
-    // --- Selection ---
     'editor.selectionBackground': '#58a6ff30',
     'editor.inactiveSelectionBackground': '#58a6ff15',
     'editor.selectionHighlightBackground': '#58a6ff18',
-
-    // --- Cursor ---
     'editorCursor.foreground': '#a2c9ff',
     'editorCursor.background': '#0a0e14',
-
-    // --- Word highlight ---
     'editor.wordHighlightBackground': '#58a6ff20',
     'editor.wordHighlightStrongBackground': '#58a6ff35',
-
-    // --- Find / replace ---
     'editor.findMatchBackground': '#58a6ff35',
     'editor.findMatchHighlightBackground': '#58a6ff18',
     'editor.findRangeHighlightBackground': '#262a3150',
-
-    // --- Bracket matching ---
     'editorBracketMatch.background': '#58a6ff20',
     'editorBracketMatch.border': '#a2c9ff60',
-
-    // --- Overview ruler (right gutter) ---
     'editorOverviewRuler.background': '#0a0e14',
     'editorOverviewRuler.border': '#1c202600',
-
-    // --- Scrollbar ---
     'scrollbarSlider.background': '#41475240',
     'scrollbarSlider.hoverBackground': '#41475270',
     'scrollbarSlider.activeBackground': '#41475290',
-
-    // --- Minimap ---
     'minimap.background': '#0a0e14',
     'minimapSlider.background': '#41475240',
     'minimapSlider.hoverBackground': '#41475270',
-
-    // --- Indent guides ---
     'editorIndentGuide.background': '#262a31',
     'editorIndentGuide.activeBackground': '#414752',
-
-    // --- Folding ---
     'editorGutter.foldingControlForeground': '#8b919d',
-
-    // --- Code lens ---
     'editorCodeLens.foreground': '#8b919d',
-
-    // --- Suggestions / IntelliSense ---
     'editorSuggestWidget.background': '#1c2026',
     'editorSuggestWidget.border': '#262a31',
     'editorSuggestWidget.foreground': '#dfe2eb',
     'editorSuggestWidget.selectedBackground': '#262a31',
     'editorSuggestWidget.highlightForeground': '#a2c9ff',
-
-    // --- Peek view ---
     'peekViewEditor.background': '#0a0e14',
     'peekViewResult.background': '#1c2026',
     'peekViewResult.selectionBackground': '#262a31',
-
-    // --- Breadcrumbs ---
     'breadcrumbPickerWidget.background': '#1c2026',
-
-    // --- Widget (hover) ---
     'editorWidget.background': '#1c2026',
     'editorWidget.border': '#262a31',
-
-    // --- Error / warning squiggles ---
     'editorError.foreground': '#ffb4ab',
     'editorWarning.foreground': '#ffd666',
-
-    // --- Diff editor ---
     'editorGutter.modifiedBackground': '#58a6ff20',
     'editorGutter.addedBackground': '#67df7020',
     'editorGutter.deletedBackground': '#ffb4ab20',
-
-    // --- Git decorations in gutter ---
     'editorGutter.commentRangeForeground': '#414752',
-
-    // --- Current search match ---
     'editor.findMatchBorder': '#a2c9ff50',
-
-    // --- Range highlight ---
     'editor.rangeHighlightBackground': '#58a6ff12',
+  },
+};
+
+// ===========================================================================
+// Light theme
+// ===========================================================================
+
+export const NEURO_LIGHT_THEME: editor.IStandaloneThemeData = {
+  base: 'vs',
+  inherit: true,
+  rules: [
+    // --- Comments ---
+    { token: 'comment', foreground: '6b7280', fontStyle: 'italic' },
+    { token: 'comment.doc', foreground: '5f6368', fontStyle: 'italic' },
+
+    // --- Keywords ---
+    { token: 'keyword', foreground: '0b57d0' },
+    { token: 'keyword.control', foreground: '1a73e8' },
+    { token: 'keyword.operator', foreground: '0b57d0' },
+    { token: 'keyword.operator.new', foreground: '0b57d0' },
+
+    // --- Strings ---
+    { token: 'string', foreground: '1b7d34' },
+    { token: 'string.escape', foreground: '2e8b47' },
+    { token: 'string.regex', foreground: '1b7d34' },
+
+    // --- Numbers ---
+    { token: 'number', foreground: 'ba1a1a' },
+    { token: 'number.float', foreground: 'ba1a1a' },
+
+    // --- Types & identifiers ---
+    { token: 'type', foreground: '0b57d0' },
+    { token: 'type.identifier', foreground: '0b57d0' },
+    { token: 'type.alias', foreground: '1a73e8' },
+    { token: 'identifier', foreground: '1a1c1e' },
+    { token: 'identifier.alias', foreground: '0b57d0' },
+
+    // --- Functions & methods ---
+    { token: 'function', foreground: '3c4043' },
+    { token: 'function.call', foreground: '1a1c1e' },
+
+    // --- Variables ---
+    { token: 'variable', foreground: '1a1c1e' },
+    { token: 'variable.predefined', foreground: '0b57d0' },
+    { token: 'variable.other.constant', foreground: 'ba1a1a', fontStyle: 'bold' },
+
+    // --- Operators & punctuation ---
+    { token: 'operator', foreground: '5f6368' },
+    { token: 'delimiter', foreground: '5f6368' },
+    { token: 'delimiter.bracket', foreground: '0b57d0' },
+
+    // --- Tags (HTML/JSX) ---
+    { token: 'tag', foreground: '0b57d0' },
+    { token: 'tag.delimiter', foreground: '5f6368' },
+    { token: 'attribute.name', foreground: '3c4043' },
+    { token: 'attribute.value', foreground: '1b7d34' },
+
+    // --- Meta / decorators ---
+    { token: 'meta', foreground: '5f6368' },
+    { token: 'meta.decorator', foreground: 'ba1a1a' },
+    { token: 'annotation', foreground: 'ba1a1a' },
+
+    // --- Literals ---
+    { token: 'string.literal', foreground: '1b7d34' },
+    { token: 'constant', foreground: 'ba1a1a' },
+    { token: 'constant.language', foreground: '0b57d0' },
+    { token: 'constant.escape', foreground: '2e8b47' },
+
+    // --- Markdown ---
+    { token: 'keyword.md', foreground: '0b57d0' },
+    { token: 'string.md', foreground: '1b7d34' },
+    { token: 'variable.md', foreground: 'ba1a1a' },
+
+    // --- YAML / TOML ---
+    { token: 'type.yaml', foreground: '0b57d0' },
+    { token: 'string.yaml', foreground: '1b7d34' },
+  ],
+  colors: {
+    'editor.background': '#ffffff',
+    'editor.foreground': '#1a1c1e',
+    'editor.lineHighlightBackground': '#f1f3f5',
+    'editor.lineHighlightBorder': '#e9ecef00',
+    'editorLineNumber.foreground': '#9ca3af',
+    'editorLineNumber.activeForeground': '#5f6368',
+    'editor.selectionBackground': '#0b57d025',
+    'editor.inactiveSelectionBackground': '#0b57d010',
+    'editor.selectionHighlightBackground': '#0b57d012',
+    'editorCursor.foreground': '#0b57d0',
+    'editorCursor.background': '#ffffff',
+    'editor.wordHighlightBackground': '#0b57d015',
+    'editor.wordHighlightStrongBackground': '#0b57d025',
+    'editor.findMatchBackground': '#0b57d025',
+    'editor.findMatchHighlightBackground': '#0b57d012',
+    'editor.findRangeHighlightBackground': '#dee2e650',
+    'editorBracketMatch.background': '#0b57d015',
+    'editorBracketMatch.border': '#0b57d040',
+    'editorOverviewRuler.background': '#ffffff',
+    'editorOverviewRuler.border': '#e9ecef00',
+    'scrollbarSlider.background': '#c4c6d040',
+    'scrollbarSlider.hoverBackground': '#c4c6d070',
+    'scrollbarSlider.activeBackground': '#c4c6d090',
+    'minimap.background': '#ffffff',
+    'minimapSlider.background': '#c4c6d040',
+    'minimapSlider.hoverBackground': '#c4c6d070',
+    'editorIndentGuide.background': '#e9ecef',
+    'editorIndentGuide.activeBackground': '#c4c6d0',
+    'editorGutter.foldingControlForeground': '#5f6368',
+    'editorCodeLens.foreground': '#5f6368',
+    'editorSuggestWidget.background': '#ffffff',
+    'editorSuggestWidget.border': '#dee2e6',
+    'editorSuggestWidget.foreground': '#1a1c1e',
+    'editorSuggestWidget.selectedBackground': '#f1f3f5',
+    'editorSuggestWidget.highlightForeground': '#0b57d0',
+    'peekViewEditor.background': '#ffffff',
+    'peekViewResult.background': '#f8f9fa',
+    'peekViewResult.selectionBackground': '#e9ecef',
+    'breadcrumbPickerWidget.background': '#f8f9fa',
+    'editorWidget.background': '#ffffff',
+    'editorWidget.border': '#dee2e6',
+    'editorError.foreground': '#ba1a1a',
+    'editorWarning.foreground': '#b45309',
+    'editorGutter.modifiedBackground': '#0b57d018',
+    'editorGutter.addedBackground': '#1b7d3418',
+    'editorGutter.deletedBackground': '#ba1a1a18',
+    'editorGutter.commentRangeForeground': '#c4c6d0',
+    'editor.findMatchBorder': '#0b57d040',
+    'editor.rangeHighlightBackground': '#0b57d010',
   },
 };

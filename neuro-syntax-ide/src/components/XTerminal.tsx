@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import { cn } from '../lib/utils';
+import { useTheme } from '../context/ThemeContext';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -62,6 +63,58 @@ async function listen<T>(
 }
 
 // ---------------------------------------------------------------------------
+// Terminal theme definitions
+// ---------------------------------------------------------------------------
+
+const DARK_TERMINAL_THEME = {
+  background: '#020617',
+  foreground: '#dfe2eb',
+  cursor: '#a2c9ff',
+  cursorAccent: '#020617',
+  selectionBackground: 'rgba(162, 201, 255, 0.3)',
+  black: '#020617',
+  red: '#ffb4ab',
+  green: '#67df70',
+  yellow: '#fbbf24',
+  blue: '#a2c9ff',
+  magenta: '#bdf4ff',
+  cyan: '#58a6ff',
+  white: '#dfe2eb',
+  brightBlack: '#414752',
+  brightRed: '#ffb4ab',
+  brightGreen: '#67df70',
+  brightYellow: '#fbbf24',
+  brightBlue: '#a2c9ff',
+  brightMagenta: '#bdf4ff',
+  brightCyan: '#58a6ff',
+  brightWhite: '#dfe2eb',
+};
+
+const LIGHT_TERMINAL_THEME = {
+  background: '#ffffff',
+  foreground: '#1a1c1e',
+  cursor: '#0b57d0',
+  cursorAccent: '#ffffff',
+  selectionBackground: 'rgba(11, 87, 208, 0.2)',
+  black: '#ffffff',
+  red: '#ba1a1a',
+  green: '#1b7d34',
+  yellow: '#b45309',
+  blue: '#0b57d0',
+  magenta: '#00639e',
+  cyan: '#1a73e8',
+  white: '#1a1c1e',
+  brightBlack: '#74777f',
+  brightRed: '#ba1a1a',
+  brightGreen: '#1b7d34',
+  brightYellow: '#b45309',
+  brightBlue: '#0b57d0',
+  brightMagenta: '#00639e',
+  brightCyan: '#1a73e8',
+  brightWhite: '#1a1c1e',
+};
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -76,6 +129,7 @@ export const XTerminal: React.FC<XTerminalProps> = ({
   const fitAddonRef = useRef<FitAddon | null>(null);
   const unlistenRef = useRef<(() => void) | null>(null);
   const unlistenClosedRef = useRef<(() => void) | null>(null);
+  const { theme: appTheme } = useTheme();
 
   // -----------------------------------------------------------------------
   // Initialise xterm + pty (once per mount)
@@ -83,34 +137,13 @@ export const XTerminal: React.FC<XTerminalProps> = ({
   useEffect(() => {
     if (!containerRef.current) return;
 
+    const isDark = appTheme === 'dark';
     const term = new Terminal({
       cursorBlink: true,
       fontSize: 13,
       fontFamily: '"JetBrains Mono", ui-monospace, SFMono-Regular, monospace',
       lineHeight: 1.4,
-      theme: {
-        background: '#020617',
-        foreground: '#dfe2eb',
-        cursor: '#a2c9ff',
-        cursorAccent: '#020617',
-        selectionBackground: 'rgba(162, 201, 255, 0.3)',
-        black: '#020617',
-        red: '#ffb4ab',
-        green: '#67df70',
-        yellow: '#ffb4ab',
-        blue: '#a2c9ff',
-        magenta: '#bdf4ff',
-        cyan: '#58a6ff',
-        white: '#dfe2eb',
-        brightBlack: '#414752',
-        brightRed: '#ffb4ab',
-        brightGreen: '#67df70',
-        brightYellow: '#ffb4ab',
-        brightBlue: '#a2c9ff',
-        brightMagenta: '#bdf4ff',
-        brightCyan: '#58a6ff',
-        brightWhite: '#dfe2eb',
-      },
+      theme: isDark ? DARK_TERMINAL_THEME : LIGHT_TERMINAL_THEME,
       allowProposedApi: true,
       scrollback: 5000,
     });
@@ -222,6 +255,15 @@ export const XTerminal: React.FC<XTerminalProps> = ({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // -----------------------------------------------------------------------
+  // Sync terminal theme with app theme
+  // -----------------------------------------------------------------------
+  useEffect(() => {
+    if (!termRef.current) return;
+    const isDark = appTheme === 'dark';
+    termRef.current.options.theme = isDark ? DARK_TERMINAL_THEME : LIGHT_TERMINAL_THEME;
+  }, [appTheme]);
 
   // -----------------------------------------------------------------------
   // Re-fit when the tab becomes active

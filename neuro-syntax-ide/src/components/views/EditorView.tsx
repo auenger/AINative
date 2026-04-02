@@ -26,23 +26,25 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { XTerminal, TerminalKind } from '../XTerminal';
 import { FileNode as WSFileNode, OpenFileState } from '../../types';
-import { NEURO_DARK_THEME } from '../../lib/monaco-theme';
+import { NEURO_DARK_THEME, NEURO_LIGHT_THEME } from '../../lib/monaco-theme';
+import { useTheme } from '../../context/ThemeContext';
 
 // Lazy-load Monaco Editor for performance
 const Editor = lazy(() => import('@monaco-editor/react'));
 import type { editor as MonacoEditor } from 'monaco-editor';
 
 // ---------------------------------------------------------------------------
-// Monaco validator — ensure neuro-dark theme is registered exactly once
+// Monaco validator — register both themes exactly once
 // ---------------------------------------------------------------------------
 let _themeRegistered = false;
 
-/** Called in `beforeMount` so the theme is available before the first render. */
-function ensureThemeRegistered(monaco: Parameters<
+/** Called in `beforeMount` so themes are available before the first render. */
+function ensureThemesRegistered(monaco: Parameters<
   NonNullable<Parameters<typeof Editor>[0]['beforeMount']>
 >[0]): void {
   if (_themeRegistered) return;
   monaco.editor.defineTheme('neuro-dark', NEURO_DARK_THEME);
+  monaco.editor.defineTheme('neuro-light', NEURO_LIGHT_THEME);
   _themeRegistered = true;
 }
 
@@ -155,6 +157,7 @@ export interface EditorViewProps {
 
 export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
   const { t } = useTranslation();
+  const { theme: appTheme } = useTheme();
 
   // Destructure workspace — provide safe defaults when not supplied
   const workspacePath = workspace?.workspacePath ?? '';
@@ -360,7 +363,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
   const handleBeforeMount = useCallback((monaco: Parameters<
     NonNullable<Parameters<typeof Editor>[0]['beforeMount']>
   >[0]) => {
-    ensureThemeRegistered(monaco);
+    ensureThemesRegistered(monaco);
   }, []);
 
   // -----------------------------------------------------------------------
@@ -582,8 +585,8 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
       verticalScrollbarSize: 8,
       horizontalScrollbarSize: 8,
     },
-    theme: 'neuro-dark',
-  }), []);
+    theme: appTheme === 'dark' ? 'neuro-dark' : 'neuro-light',
+  }), [appTheme]);
 
   // -----------------------------------------------------------------------
   // Render
@@ -855,7 +858,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
             <motion.div
               initial={{ height: 0 }}
               animate={{ height: 240 }}
-              className="bg-[#020617] border-t border-outline-variant/20 flex flex-col shrink-0"
+              className="bg-app border-t border-outline-variant/20 flex flex-col shrink-0"
             >
               {/* Tab bar */}
               <div className="h-9 bg-surface-container-low flex items-center px-2 justify-between border-b border-outline-variant/10">

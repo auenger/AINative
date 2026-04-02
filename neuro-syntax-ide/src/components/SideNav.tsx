@@ -29,7 +29,7 @@ export const SideNav: React.FC<SideNavProps> = ({ activeView, onViewChange }) =>
   ];
 
   return (
-    <aside className="fixed left-0 top-0 h-full flex flex-col z-50 bg-[#020617] w-16 items-center py-4 gap-6 pt-12 border-r border-outline-variant/10">
+    <aside className="fixed left-0 top-0 h-full flex flex-col z-50 bg-app w-16 items-center py-4 gap-6 pt-12 border-r border-outline-variant/10">
       <div className="flex flex-col w-full gap-2">
         {navItems.map((item) => (
           <button
@@ -37,9 +37,9 @@ export const SideNav: React.FC<SideNavProps> = ({ activeView, onViewChange }) =>
             onClick={() => onViewChange(item.id)}
             className={cn(
               "w-full flex flex-col items-center py-3 transition-all relative group",
-              activeView === item.id 
-                ? "text-blue-400 bg-slate-800/50 border-l-2 border-blue-500" 
-                : "text-slate-500 opacity-70 hover:bg-slate-800 hover:text-blue-300"
+              activeView === item.id
+                ? "text-primary bg-surface-container-high/50 border-l-2 border-primary"
+                : "text-on-surface-variant opacity-70 hover:bg-surface-container-high hover:text-primary"
             )}
           >
             <item.icon size={20} strokeWidth={activeView === item.id ? 2.5 : 2} />
