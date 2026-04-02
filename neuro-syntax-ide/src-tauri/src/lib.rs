@@ -699,14 +699,14 @@ async fn read_feature_detail(
         }
     }
 
-    // Fallback: search archive directory for done-{id}-* pattern
+    // Fallback: search archive directory for done-{id}-* pattern or exact {id} match
     if feat_dir.is_none() {
         let archive_dir = features_dir.join("archive");
         if archive_dir.is_dir() {
             if let Ok(entries) = fs::read_dir(&archive_dir) {
                 for entry in entries.flatten() {
                     let name = entry.file_name().to_string_lossy().to_string();
-                    if name.starts_with(&format!("done-{}", feature_id)) {
+                    if name.starts_with(&format!("done-{}", feature_id)) || name == *feature_id {
                         feat_dir = Some(entry.path());
                         break;
                     }
