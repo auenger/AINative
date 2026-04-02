@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-02T20:30:00Z"
+  last_updated: "2026-04-02T23:30:00Z"
   version: 1
 
 parents:
@@ -17,7 +17,7 @@ parents:
 
 active: []
 
-pending:
+pending: []
 
 blocked: []
 
@@ -76,3 +76,13 @@ completed:
     name: "Task 详情弹窗 Markdown 富渲染"
     completed_at: "2026-04-02T20:30:00Z"
     tag: feat-md-render-task-detail-20260402
+
+  - id: feat-console-collapse-strip
+    name: "Console 折叠条优化"
+    completed_at: "2026-04-02T23:30:00Z"
+    tag: feat-console-collapse-strip-20260402
+
+  - id: feat-detail-modal-interaction
+    name: "Task 详情弹窗交互增强（拖拽 + resize + MD 修复）"
+    completed_at: "2026-04-02T23:30:00Z"
+    tag: feat-detail-modal-interaction-20260402

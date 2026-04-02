@@ -1,8 +1,8 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-02T20:30:00Z"
+  last_updated: "2026-04-02T23:30:00Z"
   version: 1
-  total_completed: 12
+  total_completed: 14
 
 records:
   - id: feat-tauri-v2-init
@@ -134,5 +134,41 @@ records:
     stats:
       started: "2026-04-02T20:00:00Z"
       duration: "~30m"
+      commits: 1
+      files_changed: 2
+
+  - id: feat-console-collapse-strip
+    name: "Console 折叠条优化"
+    completed_at: "2026-04-02T23:30:00Z"
+    tag: feat-console-collapse-strip-20260402
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/console-collapse-strip
+    conflicts:
+      had_conflict: false
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      duration: "~4m"
+      commits: 1
+      files_changed: 2
+
+  - id: feat-detail-modal-interaction
+    name: "Task 详情弹窗交互增强（拖拽 + resize + MD 修复）"
+    completed_at: "2026-04-02T23:30:00Z"
+    tag: feat-detail-modal-interaction-20260402
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/detail-modal-interaction
+    conflicts:
+      had_conflict: false
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      duration: "~5m"
       commits: 1
       files_changed: 2
