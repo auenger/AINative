@@ -1,60 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { History, Bell, Share2, Languages, Minus, Square, X } from 'lucide-react';
+import React from 'react';
+import { History, Bell, Share2, Languages } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '../lib/utils';
-
-const WindowControls: React.FC = () => {
-  const [appWindow, setAppWindow] = useState<any>(null);
-
-  useEffect(() => {
-    // Dynamically import Tauri window API to avoid errors in browser-only mode
-    import('@tauri-apps/api/window').then((mod) => {
-      setAppWindow(mod.getCurrentWindow());
-    }).catch(() => {
-      // Running in browser without Tauri - window controls not needed
-    });
-  }, []);
-
-  const handleMinimize = () => {
-    if (appWindow) appWindow.minimize();
-  };
-
-  const handleToggleMaximize = () => {
-    if (appWindow) appWindow.toggleMaximize();
-  };
-
-  const handleClose = () => {
-    if (appWindow) appWindow.close();
-  };
-
-  if (!appWindow) return null;
-
-  return (
-    <div className="flex items-center h-full">
-      <button
-        onClick={handleMinimize}
-        className="h-full w-10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 transition-colors"
-        title="Minimize"
-      >
-        <Minus size={14} />
-      </button>
-      <button
-        onClick={handleToggleMaximize}
-        className="h-full w-10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700/50 transition-colors"
-        title="Maximize"
-      >
-        <Square size={12} />
-      </button>
-      <button
-        onClick={handleClose}
-        className="h-full w-10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-red-500/80 transition-colors"
-        title="Close"
-      >
-        <X size={14} />
-      </button>
-    </div>
-  );
-};
 
 export const TopNav: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -67,9 +13,8 @@ export const TopNav: React.FC = () => {
   return (
     <header
       className="flex items-center w-full px-2 gap-4 h-10 bg-[#0f172a] z-50 border-b border-outline-variant/10"
-      data-tauri-drag-region
     >
-      <div className="flex items-center gap-3" data-tauri-drag-region>
+      <div className="flex items-center gap-3">
         <span className="font-black text-blue-500 tracking-widest font-headline text-sm px-2">NEURO SYNTAX</span>
         <div className="h-4 w-px bg-outline-variant/30"></div>
         <div className="flex items-center gap-1 h-full">
@@ -78,7 +23,7 @@ export const TopNav: React.FC = () => {
           <div className="px-3 h-full flex items-center text-blue-400 border-t-2 border-blue-500 bg-slate-900 text-[11px] font-headline tracking-tight brightness-125">Workflow.node</div>
         </div>
       </div>
-      <div className="flex-grow" data-tauri-drag-region></div>
+      <div className="flex-grow"></div>
       <div className="flex items-center gap-4 px-2">
         <div className="flex items-center gap-3 text-slate-400">
           <button
@@ -108,7 +53,6 @@ export const TopNav: React.FC = () => {
           referrerPolicy="no-referrer"
         />
       </div>
-      <WindowControls />
     </header>
   );
 };
