@@ -23,7 +23,7 @@ const INITIAL_LOGS: LogEntry[] = [
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewType>('project');
   const [logs, setLogs] = useState<LogEntry[]>(INITIAL_LOGS);
-  const [consoleVisible, setConsoleVisible] = useState(true);
+  const [consoleVisible, setConsoleVisible] = useState(false);
   const workspace = useWorkspace();
 
   // Simulate incoming logs
