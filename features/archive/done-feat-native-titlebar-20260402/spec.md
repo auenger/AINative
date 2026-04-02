@@ -112,3 +112,15 @@ And 无残留的自定义窗口控制按钮
 - [ ] 两种平台（macOS / Windows）均需验证
 - [ ] 窗口尺寸、最小尺寸约束保持不变
 - [ ] 不引入新的依赖
+
+## Merge Record
+
+- **Completed**: 2026-04-02T19:30:00Z
+- **Merged Branch**: feature/native-titlebar
+- **Archive Tag**: feat-native-titlebar-20260402
+- **Conflicts**: none
+- **Verification**: All 4 Gherkin scenarios passed (code analysis)
+- **Commits**: 3
+- **Files Changed**: 5
+- **Duration**: ~30 minutes
+- **Verification Evidence**: evidence/verification-report.md

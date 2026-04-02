@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-02T19:00:00Z"
+  last_updated: "2026-04-02T19:30:00Z"
   version: 1
 
 parents:
@@ -16,13 +16,6 @@ parents:
       - feat-ai-agent-service
 
 active:
-  - id: feat-native-titlebar
-    name: "恢复系统默认窗口标题栏"
-    priority: 80
-    branch: feature/native-titlebar
-    worktree: ../NeuroSyntaxIDE-native-titlebar
-    started_at: "2026-04-02T19:00:00Z"
-
   - id: feat-fix-read-file
     name: "修复编辑器 read_file / write_file Command 缺失"
     priority: 90
@@ -76,3 +69,8 @@ completed:
     name: "AI Agent 服务化接口"
     completed_at: "2026-04-01T12:00:00Z"
     tag: feat-ai-agent-service-20260401
+
+  - id: feat-native-titlebar
+    name: "恢复系统默认窗口标题栏"
+    completed_at: "2026-04-02T19:30:00Z"
+    tag: feat-native-titlebar-20260402
