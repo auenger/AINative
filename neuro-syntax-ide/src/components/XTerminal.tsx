@@ -67,12 +67,12 @@ async function listen<T>(
 // ---------------------------------------------------------------------------
 
 const DARK_TERMINAL_THEME = {
-  background: '#020617',
+  background: '#050505',
   foreground: '#dfe2eb',
   cursor: '#a2c9ff',
-  cursorAccent: '#020617',
+  cursorAccent: '#050505',
   selectionBackground: 'rgba(162, 201, 255, 0.3)',
-  black: '#020617',
+  black: '#050505',
   red: '#ffb4ab',
   green: '#67df70',
   yellow: '#fbbf24',
@@ -80,7 +80,7 @@ const DARK_TERMINAL_THEME = {
   magenta: '#bdf4ff',
   cyan: '#58a6ff',
   white: '#dfe2eb',
-  brightBlack: '#414752',
+  brightBlack: '#333333',
   brightRed: '#ffb4ab',
   brightGreen: '#67df70',
   brightYellow: '#fbbf24',
