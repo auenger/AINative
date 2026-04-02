@@ -9,3 +9,4 @@ coverage/
 .collaborator
 **/src-tauri/target/
 **/src-tauri/gen/schemas/
+company-ai-marketplace/
