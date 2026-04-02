@@ -589,6 +589,15 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
   }), [appTheme]);
 
   // -----------------------------------------------------------------------
+  // Reactively sync Monaco theme on app theme change
+  // -----------------------------------------------------------------------
+  useEffect(() => {
+    import('monaco-editor').then((monaco) => {
+      monaco.editor.setTheme(appTheme === 'dark' ? 'neuro-dark' : 'neuro-light');
+    });
+  }, [appTheme]);
+
+  // -----------------------------------------------------------------------
   // Render
   // -----------------------------------------------------------------------
 
@@ -763,26 +772,26 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
           )}
         </AnimatePresence>
 
-        {/* Monaco Editor Content — bg-[#0a0e14] prevents white flash before theme loads */}
+        {/* Monaco Editor Content — bg uses CSS variable to prevent white flash before theme loads */}
         <div className="flex-1 overflow-hidden flex flex-col">
-          <div className="flex-1 overflow-hidden bg-[#0a0e14]">
+          <div className="flex-1 overflow-hidden bg-[var(--t-editor-bg)]">
             {fileLoading ? (
-              <div className="flex flex-col items-center justify-center h-full bg-[#0a0e14] gap-4">
+              <div className="flex flex-col items-center justify-center h-full bg-[var(--t-editor-bg)] gap-4">
                 <div className="relative w-8 h-8">
-                  <div className="absolute inset-0 rounded-full border-2 border-[#262a31] border-t-[#a2c9ff] animate-spin" />
+                  <div className="absolute inset-0 rounded-full border-2 border-[var(--t-editor-spinner-track)] border-t-[var(--t-editor-spinner-bar)] animate-spin" />
                 </div>
                 <div className="flex flex-col gap-2 w-48">
-                  <div className="h-3 bg-[#1c2026] rounded-full overflow-hidden">
-                    <div className="h-full w-2/3 bg-[#262a31] rounded-full animate-shimmer" />
+                  <div className="h-3 bg-[var(--t-editor-bg-alt)] rounded-full overflow-hidden">
+                    <div className="h-full w-2/3 bg-[var(--t-editor-spinner-track)] rounded-full animate-shimmer" />
                   </div>
-                  <div className="h-3 bg-[#1c2026] rounded-full overflow-hidden">
-                    <div className="h-full w-1/3 bg-[#262a31] rounded-full animate-shimmer" />
+                  <div className="h-3 bg-[var(--t-editor-bg-alt)] rounded-full overflow-hidden">
+                    <div className="h-full w-1/3 bg-[var(--t-editor-spinner-track)] rounded-full animate-shimmer" />
                   </div>
-                  <div className="h-3 bg-[#1c2026] rounded-full overflow-hidden">
-                    <div className="h-full w-4/5 bg-[#262a31] rounded-full animate-shimmer" />
+                  <div className="h-3 bg-[var(--t-editor-bg-alt)] rounded-full overflow-hidden">
+                    <div className="h-full w-4/5 bg-[var(--t-editor-spinner-track)] rounded-full animate-shimmer" />
                   </div>
                 </div>
-                <p className="text-[10px] text-[#414752] uppercase tracking-widest">Loading file...</p>
+                <p className="text-[10px] text-[var(--t-editor-loading-text)] uppercase tracking-widest">Loading file...</p>
               </div>
             ) : fileError ? (
               <div className="flex items-center justify-center h-full">
@@ -799,19 +808,19 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
             ) : activeFile ? (
               <Suspense
                 fallback={
-                  <div className="flex flex-col items-center justify-center h-full bg-[#0a0e14] gap-4">
+                  <div className="flex flex-col items-center justify-center h-full bg-[var(--t-editor-bg)] gap-4">
                     <div className="relative w-8 h-8">
-                      <div className="absolute inset-0 rounded-full border-2 border-[#262a31] border-t-[#a2c9ff] animate-spin" />
+                      <div className="absolute inset-0 rounded-full border-2 border-[var(--t-editor-spinner-track)] border-t-[var(--t-editor-spinner-bar)] animate-spin" />
                     </div>
                     <div className="flex flex-col gap-2 w-48">
-                      <div className="h-3 bg-[#1c2026] rounded-full overflow-hidden">
-                        <div className="h-full w-2/3 bg-[#262a31] rounded-full animate-shimmer" />
+                      <div className="h-3 bg-[var(--t-editor-bg-alt)] rounded-full overflow-hidden">
+                        <div className="h-full w-2/3 bg-[var(--t-editor-spinner-track)] rounded-full animate-shimmer" />
                       </div>
-                      <div className="h-3 bg-[#1c2026] rounded-full overflow-hidden">
-                        <div className="h-full w-1/3 bg-[#262a31] rounded-full animate-shimmer" />
+                      <div className="h-3 bg-[var(--t-editor-bg-alt)] rounded-full overflow-hidden">
+                        <div className="h-full w-1/3 bg-[var(--t-editor-spinner-track)] rounded-full animate-shimmer" />
                       </div>
-                      <div className="h-3 bg-[#1c2026] rounded-full overflow-hidden">
-                        <div className="h-full w-4/5 bg-[#262a31] rounded-full animate-shimmer" />
+                      <div className="h-3 bg-[var(--t-editor-bg-alt)] rounded-full overflow-hidden">
+                        <div className="h-full w-4/5 bg-[var(--t-editor-spinner-track)] rounded-full animate-shimmer" />
                       </div>
                     </div>
                   </div>
@@ -825,21 +834,22 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                   onChange={handleEditorChange}
                   onMount={handleEditorMount}
                   beforeMount={handleBeforeMount}
+                  theme={appTheme === 'dark' ? 'neuro-dark' : 'neuro-light'}
                   options={editorOptions}
                   loading={
-                    <div className="flex flex-col items-center justify-center h-full bg-[#0a0e14] gap-4">
+                    <div className="flex flex-col items-center justify-center h-full bg-[var(--t-editor-bg)] gap-4">
                       <div className="relative w-8 h-8">
-                        <div className="absolute inset-0 rounded-full border-2 border-[#262a31] border-t-[#a2c9ff] animate-spin" />
+                        <div className="absolute inset-0 rounded-full border-2 border-[var(--t-editor-spinner-track)] border-t-[var(--t-editor-spinner-bar)] animate-spin" />
                       </div>
                       <div className="flex flex-col gap-2 w-48">
-                        <div className="h-3 bg-[#1c2026] rounded-full overflow-hidden">
-                          <div className="h-full w-2/3 bg-[#262a31] rounded-full animate-shimmer" />
+                        <div className="h-3 bg-[var(--t-editor-bg-alt)] rounded-full overflow-hidden">
+                          <div className="h-full w-2/3 bg-[var(--t-editor-spinner-track)] rounded-full animate-shimmer" />
                         </div>
-                        <div className="h-3 bg-[#1c2026] rounded-full overflow-hidden">
-                          <div className="h-full w-1/3 bg-[#262a31] rounded-full animate-shimmer" />
+                        <div className="h-3 bg-[var(--t-editor-bg-alt)] rounded-full overflow-hidden">
+                          <div className="h-full w-1/3 bg-[var(--t-editor-spinner-track)] rounded-full animate-shimmer" />
                         </div>
-                        <div className="h-3 bg-[#1c2026] rounded-full overflow-hidden">
-                          <div className="h-full w-4/5 bg-[#262a31] rounded-full animate-shimmer" />
+                        <div className="h-3 bg-[var(--t-editor-bg-alt)] rounded-full overflow-hidden">
+                          <div className="h-full w-4/5 bg-[var(--t-editor-spinner-track)] rounded-full animate-shimmer" />
                         </div>
                       </div>
                     </div>

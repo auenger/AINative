@@ -68,12 +68,12 @@
 /* Dark theme values                                                        */
 /* ======================================================================== */
 :root[data-theme="dark"] {
-  --t-surface: #10141a;
-  --t-surface-container: #1c2026;
-  --t-surface-container-low: #181c22;
-  --t-surface-container-high: #262a31;
-  --t-surface-container-highest: #31353c;
-  --t-surface-container-lowest: #0a0e14;
+  --t-surface: #111111;
+  --t-surface-container: #1a1a1a;
+  --t-surface-container-low: #161616;
+  --t-surface-container-high: #252525;
+  --t-surface-container-highest: #303030;
+  --t-surface-container-lowest: #0a0a0a;
 
   --t-primary: #a2c9ff;
   --t-primary-container: #58a6ff;
@@ -87,10 +87,10 @@
   --t-on-surface-variant: #8b919d;
   --t-on-primary: #ffffff;
 
-  --t-outline: #8b919d;
-  --t-outline-variant: #414752;
+  --t-outline: #888888;
+  --t-outline-variant: #333333;
 
-  --t-app-bg: #020617;
+  --t-app-bg: #050505;
   --t-app-text: #dfe2eb;
   --t-slate-400: #8b919d;
   --t-slate-500: #6b7280;
@@ -104,18 +104,18 @@
   --t-yellow-400: #fbbf24;
   --t-warning: #fbbf24;
 
-  --t-glass-bg: rgba(88, 166, 255, 0.05);
-  --t-glass-border: rgba(162, 201, 255, 0.1);
+  --t-glass-bg: rgba(255, 255, 255, 0.03);
+  --t-glass-border: rgba(255, 255, 255, 0.06);
   --t-glass-blur: 20px;
 
-  --t-node-dot: #31353c;
+  --t-node-dot: #303030;
 
-  --t-editor-bg: #0a0e14;
-  --t-editor-bg-alt: #1c2026;
-  --t-editor-spinner-track: #262a31;
+  --t-editor-bg: #0a0a0a;
+  --t-editor-bg-alt: #1a1a1a;
+  --t-editor-spinner-track: #252525;
   --t-editor-spinner-bar: #a2c9ff;
-  --t-editor-shimmer: #262a31;
-  --t-editor-loading-text: #414752;
+  --t-editor-shimmer: #252525;
+  --t-editor-loading-text: #333333;
 }
 
 /* ======================================================================== */
