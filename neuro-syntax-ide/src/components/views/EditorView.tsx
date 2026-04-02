@@ -26,10 +26,25 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { XTerminal, TerminalKind } from '../XTerminal';
 import { FileNode as WSFileNode, OpenFileState } from '../../types';
+import { NEURO_DARK_THEME } from '../../lib/monaco-theme';
 
 // Lazy-load Monaco Editor for performance
 const Editor = lazy(() => import('@monaco-editor/react'));
 import type { editor as MonacoEditor } from 'monaco-editor';
+
+// ---------------------------------------------------------------------------
+// Monaco validator — ensure neuro-dark theme is registered exactly once
+// ---------------------------------------------------------------------------
+let _themeRegistered = false;
+
+/** Called in `beforeMount` so the theme is available before the first render. */
+function ensureThemeRegistered(monaco: Parameters<
+  NonNullable<Parameters<typeof Editor>[0]['beforeMount']>
+>[0]): void {
+  if (_themeRegistered) return;
+  monaco.editor.defineTheme('neuro-dark', NEURO_DARK_THEME);
+  _themeRegistered = true;
+}
 
 // ---------------------------------------------------------------------------
 // File-icon helper — maps filename extensions to lucide icons + colours
@@ -224,8 +239,15 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
   // Open file in tab
   // -----------------------------------------------------------------------
   const openFile = useCallback(async (filePath: string) => {
-    // Already open? Just switch to it
-    if (openFiles.has(filePath)) {
+    // Already open? Just switch to it — use functional setState to read latest
+    let alreadyOpen = false;
+    setOpenFiles(prev => {
+      if (prev.has(filePath)) {
+        alreadyOpen = true;
+      }
+      return prev; // no mutation
+    });
+    if (alreadyOpen) {
       setActiveFilePath(filePath);
       return;
     }
@@ -265,7 +287,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
     } finally {
       setFileLoading(false);
     }
-  }, [openFiles, readFileContent, t]);
+  }, [readFileContent, t]);
 
   // -----------------------------------------------------------------------
   // Close file tab
@@ -330,6 +352,15 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
   const handleEditorMount = useCallback((editor: MonacoEditor.IStandaloneCodeEditor) => {
     editorRef.current = editor;
     editor.focus();
+  }, []);
+
+  // -----------------------------------------------------------------------
+  // Monaco beforeMount — register custom theme before first render
+  // -----------------------------------------------------------------------
+  const handleBeforeMount = useCallback((monaco: Parameters<
+    NonNullable<Parameters<typeof Editor>[0]['beforeMount']>
+  >[0]) => {
+    ensureThemeRegistered(monaco);
   }, []);
 
   // -----------------------------------------------------------------------
@@ -551,7 +582,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
       verticalScrollbarSize: 8,
       horizontalScrollbarSize: 8,
     },
-    theme: 'vs-dark',
+    theme: 'neuro-dark',
   }), []);
 
   // -----------------------------------------------------------------------
@@ -729,15 +760,26 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
           )}
         </AnimatePresence>
 
-        {/* Monaco Editor Content */}
+        {/* Monaco Editor Content — bg-[#0a0e14] prevents white flash before theme loads */}
         <div className="flex-1 overflow-hidden flex flex-col">
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden bg-[#0a0e14]">
             {fileLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="flex flex-col items-center gap-3">
-                  <RefreshCw size={20} className="text-primary animate-spin" />
-                  <p className="text-[10px] text-outline uppercase tracking-widest">Loading file...</p>
+              <div className="flex flex-col items-center justify-center h-full bg-[#0a0e14] gap-4">
+                <div className="relative w-8 h-8">
+                  <div className="absolute inset-0 rounded-full border-2 border-[#262a31] border-t-[#a2c9ff] animate-spin" />
                 </div>
+                <div className="flex flex-col gap-2 w-48">
+                  <div className="h-3 bg-[#1c2026] rounded-full overflow-hidden">
+                    <div className="h-full w-2/3 bg-[#262a31] rounded-full animate-shimmer" />
+                  </div>
+                  <div className="h-3 bg-[#1c2026] rounded-full overflow-hidden">
+                    <div className="h-full w-1/3 bg-[#262a31] rounded-full animate-shimmer" />
+                  </div>
+                  <div className="h-3 bg-[#1c2026] rounded-full overflow-hidden">
+                    <div className="h-full w-4/5 bg-[#262a31] rounded-full animate-shimmer" />
+                  </div>
+                </div>
+                <p className="text-[10px] text-[#414752] uppercase tracking-widest">Loading file...</p>
               </div>
             ) : fileError ? (
               <div className="flex items-center justify-center h-full">
@@ -754,8 +796,21 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
             ) : activeFile ? (
               <Suspense
                 fallback={
-                  <div className="flex items-center justify-center h-full">
-                    <RefreshCw size={20} className="text-primary animate-spin" />
+                  <div className="flex flex-col items-center justify-center h-full bg-[#0a0e14] gap-4">
+                    <div className="relative w-8 h-8">
+                      <div className="absolute inset-0 rounded-full border-2 border-[#262a31] border-t-[#a2c9ff] animate-spin" />
+                    </div>
+                    <div className="flex flex-col gap-2 w-48">
+                      <div className="h-3 bg-[#1c2026] rounded-full overflow-hidden">
+                        <div className="h-full w-2/3 bg-[#262a31] rounded-full animate-shimmer" />
+                      </div>
+                      <div className="h-3 bg-[#1c2026] rounded-full overflow-hidden">
+                        <div className="h-full w-1/3 bg-[#262a31] rounded-full animate-shimmer" />
+                      </div>
+                      <div className="h-3 bg-[#1c2026] rounded-full overflow-hidden">
+                        <div className="h-full w-4/5 bg-[#262a31] rounded-full animate-shimmer" />
+                      </div>
+                    </div>
                   </div>
                 }
               >
@@ -766,10 +821,24 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                   value={activeFile.content}
                   onChange={handleEditorChange}
                   onMount={handleEditorMount}
+                  beforeMount={handleBeforeMount}
                   options={editorOptions}
                   loading={
-                    <div className="flex items-center justify-center h-full bg-surface-container-lowest">
-                      <RefreshCw size={20} className="text-primary animate-spin" />
+                    <div className="flex flex-col items-center justify-center h-full bg-[#0a0e14] gap-4">
+                      <div className="relative w-8 h-8">
+                        <div className="absolute inset-0 rounded-full border-2 border-[#262a31] border-t-[#a2c9ff] animate-spin" />
+                      </div>
+                      <div className="flex flex-col gap-2 w-48">
+                        <div className="h-3 bg-[#1c2026] rounded-full overflow-hidden">
+                          <div className="h-full w-2/3 bg-[#262a31] rounded-full animate-shimmer" />
+                        </div>
+                        <div className="h-3 bg-[#1c2026] rounded-full overflow-hidden">
+                          <div className="h-full w-1/3 bg-[#262a31] rounded-full animate-shimmer" />
+                        </div>
+                        <div className="h-3 bg-[#1c2026] rounded-full overflow-hidden">
+                          <div className="h-full w-4/5 bg-[#262a31] rounded-full animate-shimmer" />
+                        </div>
+                      </div>
                     </div>
                   }
                 />
