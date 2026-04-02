@@ -2,10 +2,11 @@ use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::io::{BufRead, BufReader, Write as IoWrite};
+use std::io::{BufRead, BufReader, BufWriter, Write as IoWrite};
 use std::path::PathBuf;
+use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, Config as NotifyConfig, Event as NotifyEvent};
 use sysinfo::System;
@@ -225,6 +226,53 @@ pub struct CreateFeatureRequest {
     pub plan: FeaturePlanOutput,
 }
 
+// ===========================================================================
+// Data types - ReqAgent (Claude Code CLI Bridge)
+// ===========================================================================
+
+/// Chunk event emitted to the frontend via Tauri event system.
+/// Reuses the same shape as AgentChunkEvent for frontend compatibility.
+#[derive(Debug, Serialize, Clone)]
+pub struct ReqAgentChunkEvent {
+    pub text: String,
+    pub is_done: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    /// The stream-json message type from Claude CLI (e.g. "assistant", "result", "system")
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub msg_type: Option<String>,
+    /// Session ID from the CLI
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
+/// Status response for req_agent_status command.
+#[derive(Debug, Serialize, Clone)]
+pub struct ReqAgentStatus {
+    pub running: bool,
+    pub session_id: Option<String>,
+}
+
+/// Internal state for the ReqAgent subprocess manager.
+struct ReqAgentState {
+    /// The Claude CLI child process
+    process: Option<Child>,
+    /// Current session ID (UUID)
+    session_id: Option<String>,
+    /// Writer to the child's stdin (BufWriter for efficient writes)
+    stdin: Option<BufWriter<std::process::ChildStdin>>,
+}
+
+impl ReqAgentState {
+    fn new() -> Self {
+        Self {
+            process: None,
+            session_id: None,
+            stdin: None,
+        }
+    }
+}
+
 /// Keyring service name constant.
 const KEYRING_SERVICE: &str = "neuro-syntax-ide";
 const KEYRING_ACCOUNT: &str = "ai-api-key";
@@ -361,6 +409,7 @@ struct AppState {
     workspace_path: Mutex<String>,
     fs_watcher: Mutex<Option<RecommendedWatcher>>,
     hw_monitor_stop: Mutex<Option<std::sync::mpsc::Sender<()>>>,
+    req_agent: Mutex<ReqAgentState>,
 }
 
 // ===========================================================================
@@ -1466,6 +1515,326 @@ Rules:
 }
 
 // ===========================================================================
+// Tauri commands - ReqAgent (Claude Code CLI Bridge)
+// ===========================================================================
+
+/// Check if Claude CLI is available on the system PATH.
+fn check_claude_cli() -> Result<(), String> {
+    let output = Command::new("which")
+        .arg("claude")
+        .output()
+        .map_err(|_| "Failed to check for Claude CLI".to_string())?;
+
+    if !output.status.success() {
+        return Err(
+            "Claude Code CLI not found. Please install it: npm install -g @anthropic-ai/claude-code".to_string()
+        );
+    }
+    Ok(())
+}
+
+/// Start a Claude Code CLI subprocess in stream-json mode.
+/// If session_id is provided, resumes an existing session with --resume.
+#[tauri::command]
+async fn req_agent_start(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+    session_id: Option<String>,
+) -> Result<String, String> {
+    // Pre-flight: check CLI exists
+    check_claude_cli()?;
+
+    // Stop any existing session first
+    {
+        let mut agent = state.req_agent.lock().map_err(|e| e.to_string())?;
+        if let Some(ref mut child) = agent.process {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        agent.process = None;
+        agent.stdin = None;
+        agent.session_id = None;
+    }
+
+    // Generate or reuse session ID
+    let sid = session_id.clone().unwrap_or_else(|| Uuid::new_v4().to_string());
+
+    // Build CLI arguments
+    let mut args = vec![
+        "--print".to_string(),
+        "--output-format".to_string(),
+        "stream-json".to_string(),
+        "--input-format".to_string(),
+        "stream-json".to_string(),
+        "--permission-mode".to_string(),
+        "acceptEdits".to_string(),
+        "--session-id".to_string(),
+        sid.clone(),
+    ];
+
+    // If session_id was provided, add --resume flag
+    if session_id.is_some() {
+        args.push("--resume".to_string());
+    }
+
+    // Spawn the Claude CLI process
+    let mut child = Command::new("claude")
+        .args(&args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to spawn Claude CLI: {}", e))?;
+
+    // Take stdin and stdout handles
+    let stdin_handle = child.stdin.take()
+        .ok_or_else(|| "Failed to get stdin handle".to_string())?;
+    let stdout_handle = child.stdout.take()
+        .ok_or_else(|| "Failed to get stdout handle".to_string())?;
+    let stderr_handle = child.stderr.take()
+        .ok_or_else(|| "Failed to get stderr handle".to_string())?;
+
+    let stdin_writer = BufWriter::new(stdin_handle);
+
+    // Store process state
+    {
+        let mut agent = state.req_agent.lock().map_err(|e| e.to_string())?;
+        agent.process = Some(child);
+        agent.session_id = Some(sid.clone());
+        agent.stdin = Some(stdin_writer);
+    }
+
+    // Spawn background thread to read stdout and emit events
+    let app_handle = app.clone();
+    let emit_sid = sid.clone();
+    std::thread::spawn(move || {
+        let reader = BufReader::new(stdout_handle);
+        for line in reader.lines() {
+            match line {
+                Ok(text) => {
+                    let trimmed = text.trim();
+                    if trimmed.is_empty() {
+                        continue;
+                    }
+
+                    // Try to parse as JSON
+                    match serde_json::from_str::<serde_json::Value>(trimmed) {
+                        Ok(json_obj) => {
+                            let msg_type = json_obj.get("type")
+                                .and_then(|t| t.as_str())
+                                .unwrap_or("unknown")
+                                .to_string();
+
+                            let response_session_id = json_obj.get("session_id")
+                                .and_then(|s| s.as_str())
+                                .map(|s| s.to_string());
+
+                            // Check if this is a result (completion) message
+                            let is_result = msg_type == "result";
+
+                            // Extract text content from assistant messages
+                            let text = if msg_type == "assistant" {
+                                json_obj.get("content")
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("")
+                                    .to_string()
+                            } else if is_result {
+                                // Result messages signal completion; text is empty
+                                String::new()
+                            } else if msg_type == "system" {
+                                // System messages (e.g. init, tool use)
+                                json_obj.get("content")
+                                    .and_then(|c| c.as_str())
+                                    .unwrap_or("")
+                                    .to_string()
+                            } else {
+                                // For other message types, forward the whole JSON as text
+                                // so the frontend can handle tool_use, tool_result, etc.
+                                trimmed.to_string()
+                            };
+
+                            // Check for error in result
+                            let error = if is_result {
+                                let subtype = json_obj.get("subtype")
+                                    .and_then(|s| s.as_str())
+                                    .unwrap_or("");
+                                if subtype == "error" {
+                                    json_obj.get("error")
+                                        .and_then(|e| e.as_str())
+                                        .map(|s| s.to_string())
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            };
+
+                            let event = ReqAgentChunkEvent {
+                                text,
+                                is_done: is_result,
+                                error,
+                                msg_type: Some(msg_type),
+                                session_id: response_session_id,
+                            };
+
+                            let _ = app_handle.emit("req_agent_chunk", &event);
+
+                            if is_result {
+                                break;
+                            }
+                        }
+                        Err(_) => {
+                            // Non-JSON line, emit as raw text
+                            let event = ReqAgentChunkEvent {
+                                text: trimmed.to_string(),
+                                is_done: false,
+                                error: None,
+                                msg_type: Some("raw".to_string()),
+                                session_id: None,
+                            };
+                            let _ = app_handle.emit("req_agent_chunk", &event);
+                        }
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+
+        // Process exited - emit a done event if not already sent
+        let event = ReqAgentChunkEvent {
+            text: String::new(),
+            is_done: true,
+            error: Some("Agent session disconnected".to_string()),
+            msg_type: Some("disconnect".to_string()),
+            session_id: Some(emit_sid),
+        };
+        let _ = app_handle.emit("req_agent_chunk", &event);
+    });
+
+    // Spawn background thread to read stderr (for error diagnostics)
+    let app_handle_stderr = app.clone();
+    std::thread::spawn(move || {
+        let reader = BufReader::new(stderr_handle);
+        for line in reader.lines() {
+            match line {
+                Ok(text) => {
+                    if !text.trim().is_empty() {
+                        // Emit stderr as error chunks
+                        let event = ReqAgentChunkEvent {
+                            text: String::new(),
+                            is_done: false,
+                            error: Some(format!("CLI stderr: {}", text)),
+                            msg_type: Some("stderr".to_string()),
+                            session_id: None,
+                        };
+                        let _ = app_handle_stderr.emit("req_agent_chunk", &event);
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+    });
+
+    Ok(sid)
+}
+
+/// Send a user message to the Claude CLI subprocess via stdin.
+/// The message is sent as a stream-json formatted JSON object.
+#[tauri::command]
+fn req_agent_send(
+    state: tauri::State<'_, AppState>,
+    message: String,
+) -> Result<(), String> {
+    let mut agent = state.req_agent.lock().map_err(|e| e.to_string())?;
+
+    // Verify process is still running
+    if let Some(ref mut child) = agent.process {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                // Clean up dead process
+                agent.process = None;
+                agent.stdin = None;
+                return Err(format!(
+                    "Agent process has exited with status: {}. Please restart the session.",
+                    status
+                ));
+            }
+            Ok(None) => {
+                // Process is still running, good
+            }
+            Err(e) => {
+                return Err(format!("Failed to check process status: {}", e));
+            }
+        }
+    } else {
+        return Err("No active agent session. Call req_agent_start first.".to_string());
+    }
+
+    let stdin_writer = agent.stdin.as_mut()
+        .ok_or_else(|| "No stdin handle available. Call req_agent_start first.".to_string())?;
+
+    // Build the stream-json input message
+    let input_msg = serde_json::json!({
+        "type": "user",
+        "content": message
+    });
+
+    let json_str = serde_json::to_string(&input_msg)
+        .map_err(|e| format!("Failed to serialize message: {}", e))?;
+
+    // Write JSON + newline to stdin and flush
+    stdin_writer.write_all(format!("{}\n", json_str).as_bytes())
+        .map_err(|e| format!("Failed to write to stdin: {}", e))?;
+    stdin_writer.flush()
+        .map_err(|e| format!("Failed to flush stdin: {}", e))?;
+
+    Ok(())
+}
+
+/// Stop the Claude CLI subprocess gracefully.
+#[tauri::command]
+fn req_agent_stop(
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut agent = state.req_agent.lock().map_err(|e| e.to_string())?;
+
+    if let Some(ref mut child) = agent.process {
+        // Try graceful kill first
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+
+    agent.process = None;
+    agent.stdin = None;
+    agent.session_id = None;
+
+    Ok(())
+}
+
+/// Query the current status of the ReqAgent session.
+#[tauri::command]
+fn req_agent_status(
+    state: tauri::State<'_, AppState>,
+) -> Result<ReqAgentStatus, String> {
+    let mut agent = state.req_agent.lock().map_err(|e| e.to_string())?;
+
+    let running = if let Some(ref mut child) = agent.process {
+        match child.try_wait() {
+            Ok(None) => true,   // still running
+            Ok(Some(_)) => false, // exited
+            Err(_) => false,
+        }
+    } else {
+        false
+    };
+
+    Ok(ReqAgentStatus {
+        running,
+        session_id: agent.session_id.clone(),
+    })
+}
+
+// ===========================================================================
 // Misc commands
 // ===========================================================================
 
@@ -1559,6 +1928,7 @@ pub fn run() {
             workspace_path: Mutex::new(String::new()),
             fs_watcher: Mutex::new(None),
             hw_monitor_stop: Mutex::new(None),
+            req_agent: Mutex::new(ReqAgentState::new()),
         })
         .invoke_handler(tauri::generate_handler![
             greet,
@@ -1585,6 +1955,11 @@ pub fn run() {
             delete_api_key,
             create_feature_from_agent,
             agent_generate_feature_plan,
+            // ReqAgent (Claude Code CLI Bridge)
+            req_agent_start,
+            req_agent_send,
+            req_agent_stop,
+            req_agent_status,
             read_file,
             write_file,
         ])
