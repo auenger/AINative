@@ -1,28 +1,152 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
+/* ======================================================================== */
+/* Light theme values (default)                                             */
+/* ======================================================================== */
+:root {
+  /* Surface */
+  --t-surface: #f8f9fa;
+  --t-surface-container: #ffffff;
+  --t-surface-container-low: #f1f3f5;
+  --t-surface-container-high: #e9ecef;
+  --t-surface-container-highest: #dee2e6;
+  --t-surface-container-lowest: #e4e7eb;
+
+  /* Primary */
+  --t-primary: #0b57d0;
+  --t-primary-container: #d3e3fd;
+  --t-on-primary-container: #041e49;
+
+  /* Accent */
+  --t-secondary: #00639e;
+  --t-tertiary: #1b7d34;
+  --t-error: #ba1a1a;
+
+  /* Text / On-surface */
+  --t-on-surface: #1a1c1e;
+  --t-on-surface-variant: #44474e;
+  --t-on-primary: #ffffff;
+
+  /* Outline */
+  --t-outline: #74777f;
+  --t-outline-variant: #c4c6d0;
+
+  /* App-level overrides for hardcoded colors */
+  --t-app-bg: #f0f2f5;
+  --t-app-text: #1a1c1e;
+  --t-slate-400: #74777f;
+  --t-slate-500: #5f6368;
+  --t-slate-800: #3c4043;
+  --t-blue-400: #0b57d0;
+  --t-blue-500: #1a73e8;
+  --t-emerald-400: #1b7d34;
+  --t-orange-400: #c45000;
+  --t-orange-500: #bf360c;
+  --t-red-400: #ba1a1a;
+  --t-yellow-400: #b45309;
+  --t-warning: #b45309;
+
+  /* Glass effect */
+  --t-glass-bg: rgba(11, 87, 208, 0.04);
+  --t-glass-border: rgba(11, 87, 208, 0.10);
+  --t-glass-blur: 20px;
+
+  /* Node grid */
+  --t-node-dot: #c4c6d0;
+
+  /* Editor background */
+  --t-editor-bg: #ffffff;
+  --t-editor-bg-alt: #f1f3f5;
+  --t-editor-spinner-track: #dee2e6;
+  --t-editor-spinner-bar: #0b57d0;
+  --t-editor-shimmer: #e9ecef;
+  --t-editor-loading-text: #74777f;
+}
+
+/* ======================================================================== */
+/* Dark theme values                                                        */
+/* ======================================================================== */
+:root[data-theme="dark"] {
+  --t-surface: #10141a;
+  --t-surface-container: #1c2026;
+  --t-surface-container-low: #181c22;
+  --t-surface-container-high: #262a31;
+  --t-surface-container-highest: #31353c;
+  --t-surface-container-lowest: #0a0e14;
+
+  --t-primary: #a2c9ff;
+  --t-primary-container: #58a6ff;
+  --t-on-primary-container: #003a6b;
+
+  --t-secondary: #bdf4ff;
+  --t-tertiary: #67df70;
+  --t-error: #ffb4ab;
+
+  --t-on-surface: #dfe2eb;
+  --t-on-surface-variant: #8b919d;
+  --t-on-primary: #ffffff;
+
+  --t-outline: #8b919d;
+  --t-outline-variant: #414752;
+
+  --t-app-bg: #020617;
+  --t-app-text: #dfe2eb;
+  --t-slate-400: #8b919d;
+  --t-slate-500: #6b7280;
+  --t-slate-800: #1e293b;
+  --t-blue-400: #a2c9ff;
+  --t-blue-500: #58a6ff;
+  --t-emerald-400: #67df70;
+  --t-orange-400: #ffb4ab;
+  --t-orange-500: #f87171;
+  --t-red-400: #ffb4ab;
+  --t-yellow-400: #fbbf24;
+  --t-warning: #fbbf24;
+
+  --t-glass-bg: rgba(88, 166, 255, 0.05);
+  --t-glass-border: rgba(162, 201, 255, 0.1);
+  --t-glass-blur: 20px;
+
+  --t-node-dot: #31353c;
+
+  --t-editor-bg: #0a0e14;
+  --t-editor-bg-alt: #1c2026;
+  --t-editor-spinner-track: #262a31;
+  --t-editor-spinner-bar: #a2c9ff;
+  --t-editor-shimmer: #262a31;
+  --t-editor-loading-text: #414752;
+}
+
+/* ======================================================================== */
+/* Tailwind v4 theme block — map TW tokens to our CSS custom properties     */
+/* ======================================================================== */
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-headline: "Space Grotesk", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-  --color-surface: #10141a;
-  --color-surface-container: #1c2026;
-  --color-surface-container-low: #181c22;
-  --color-surface-container-high: #262a31;
-  --color-surface-container-highest: #31353c;
-  --color-surface-container-lowest: #0a0e14;
-  
-  --color-primary: #a2c9ff;
-  --color-primary-container: #58a6ff;
-  --color-on-primary-container: #003a6b;
-  
-  --color-secondary: #bdf4ff;
-  --color-tertiary: #67df70;
-  --color-error: #ffb4ab;
-  
-  --color-outline: #8b919d;
-  --color-outline-variant: #414752;
+  --color-surface: var(--t-surface);
+  --color-surface-container: var(--t-surface-container);
+  --color-surface-container-low: var(--t-surface-container-low);
+  --color-surface-container-high: var(--t-surface-container-high);
+  --color-surface-container-highest: var(--t-surface-container-highest);
+  --color-surface-container-lowest: var(--t-surface-container-lowest);
+
+  --color-primary: var(--t-primary);
+  --color-primary-container: var(--t-primary-container);
+  --color-on-primary-container: var(--t-on-primary-container);
+
+  --color-secondary: var(--t-secondary);
+  --color-tertiary: var(--t-tertiary);
+  --color-error: var(--t-error);
+
+  --color-on-surface: var(--t-on-surface);
+  --color-on-surface-variant: var(--t-on-surface-variant);
+  --color-on-primary: var(--t-on-primary);
+
+  --color-outline: var(--t-outline);
+  --color-outline-variant: var(--t-outline-variant);
 
   @keyframes shimmer {
     0% { transform: translateX(-100%); }
@@ -36,21 +160,36 @@
 
 @layer base {
   body {
-    @apply bg-surface text-[#dfe2eb] font-sans overflow-hidden;
+    background-color: var(--t-app-bg);
+    color: var(--t-app-text);
+    font-family: var(--font-sans);
+    overflow: hidden;
   }
 }
 
+/* ======================================================================== */
+/* Theme-aware utility classes                                              */
+/* ======================================================================== */
+
 .glass-panel {
-  background: rgba(88, 166, 255, 0.05);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(162, 201, 255, 0.1);
+  background: var(--t-glass-bg);
+  backdrop-filter: blur(var(--t-glass-blur));
+  border: 1px solid var(--t-glass-border);
 }
 
 .node-grid {
-  background-image: radial-gradient(circle, #31353c 1px, transparent 1px);
+  background-image: radial-gradient(circle, var(--t-node-dot) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
 .scroll-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* Smooth theme transition (scoped to a class to avoid perf issues) */
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
 }

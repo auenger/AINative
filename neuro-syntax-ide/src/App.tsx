@@ -57,7 +57,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#020617] text-on-surface overflow-hidden selection:bg-primary/30">
+    <div className="flex flex-col h-screen w-screen bg-app text-on-surface overflow-hidden selection:bg-primary/30">
       <TopNav />
 
       <div className="flex flex-1 overflow-hidden relative">
