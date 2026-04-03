@@ -128,3 +128,25 @@ export interface AppSettings {
   llm: LlmConfig;
   app: AppConfig;
 }
+
+// ---------------------------------------------------------------------------
+// Agent Runtime types (feat-agent-runtime-core)
+// ---------------------------------------------------------------------------
+
+/** Status of an agent runtime. */
+export type AgentRuntimeStatusType = 'available' | 'not-installed' | 'unhealthy' | 'busy';
+
+/** Capabilities that an agent runtime supports. */
+export type AgentCapabilityType = 'streaming' | 'sessions' | 'tool-use' | 'structured-output';
+
+/** Info about a detected agent runtime. */
+export interface AgentRuntimeInfo {
+  id: string;
+  name: string;
+  type: string;
+  status: AgentRuntimeStatusType;
+  version: string | null;
+  install_path: string | null;
+  capabilities: AgentCapabilityType[];
+  install_hint: string;
+}
