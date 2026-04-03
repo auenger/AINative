@@ -253,6 +253,19 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
   const [activeTabId, setActiveTabId] = useState('term-0');
   const [showAddMenu, setShowAddMenu] = useState(false);
 
+  // Close add-terminal dropdown when clicking outside
+  useEffect(() => {
+    if (!showAddMenu) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-add-menu]')) {
+        setShowAddMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showAddMenu]);
+
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0];
 
   // Currently active open file
@@ -992,17 +1005,16 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                     </button>
                   ))}
 
-                  {/* "+" button to add new terminals — state-controlled dropdown */}
-                  <div
-                    className="relative"
-                    onMouseEnter={() => setShowAddMenu(true)}
-                    onMouseLeave={() => setShowAddMenu(false)}
-                  >
-                    <button className="flex items-center justify-center h-full px-2 text-outline opacity-50 hover:opacity-100 transition-opacity">
+                  {/* "+" button to add new terminals — click-toggled dropdown */}
+                  <div className="relative" data-add-menu>
+                    <button
+                      onClick={() => setShowAddMenu((prev) => !prev)}
+                      className="flex items-center justify-center h-full px-2 text-outline opacity-50 hover:opacity-100 transition-opacity"
+                    >
                       <Plus size={14} />
                     </button>
                     {showAddMenu && (
-                      <div className="absolute left-0 top-full bg-surface-container-high border border-outline-variant/20 rounded shadow-lg py-1 z-50 min-w-[140px] opacity-100">
+                      <div className="absolute left-0 top-full bg-surface-container-high border border-outline-variant/20 rounded shadow-lg py-1 z-50 min-w-[140px]">
                         <button
                           onClick={() => { addTab('bash'); setShowAddMenu(false); }}
                           className="flex items-center gap-2 w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface transition-colors"
