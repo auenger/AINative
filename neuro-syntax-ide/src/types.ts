@@ -150,3 +150,51 @@ export interface AgentRuntimeInfo {
   capabilities: AgentCapabilityType[];
   install_hint: string;
 }
+
+// ---------------------------------------------------------------------------
+// Smart Router types (feat-agent-runtime-router)
+// ---------------------------------------------------------------------------
+
+/** Task categories the router can classify. */
+export type TaskCategoryType =
+  | 'code_generation'
+  | 'code_review'
+  | 'requirements'
+  | 'testing'
+  | 'general';
+
+/** A single routing rule mapping a category to a runtime. */
+export interface RoutingRule {
+  category: TaskCategoryType;
+  runtime_id: string;
+  priority: number;
+  fallback_chain: string[];
+}
+
+/** Result of a routing decision. */
+export interface RoutingDecision {
+  decision_id: string;
+  category: TaskCategoryType;
+  category_label: string;
+  selected_runtime: string;
+  fallback_used: boolean;
+  original_preference: string | null;
+  reason: string;
+  timestamp: string;
+}
+
+/** Routing configuration. */
+export interface RoutingConfig {
+  rules: RoutingRule[];
+  default_runtime: string;
+  default_fallback_chain: string[];
+}
+
+/** Fallback log entry. */
+export interface FallbackLogEntry {
+  task_summary: string;
+  from_runtime: string;
+  to_runtime: string;
+  reason: string;
+  timestamp: string;
+}

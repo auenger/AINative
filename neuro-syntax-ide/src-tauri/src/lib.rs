@@ -831,6 +831,429 @@ fn create_default_registry() -> RuntimeRegistry {
 }
 
 // ===========================================================================
+// Smart Routing Engine (feat-agent-runtime-router)
+// ===========================================================================
+
+/// Categories of tasks the router can classify.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskCategory {
+    CodeGeneration,
+    CodeReview,
+    Requirements,
+    Testing,
+    General,
+}
+
+impl TaskCategory {
+    fn label(&self) -> &str {
+        match self {
+            TaskCategory::CodeGeneration => "代码生成",
+            TaskCategory::CodeReview => "代码审查",
+            TaskCategory::Requirements => "需求分析",
+            TaskCategory::Testing => "测试编写",
+            TaskCategory::General => "通用",
+        }
+    }
+}
+
+/// A single routing rule mapping a task category to a preferred runtime.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RoutingRule {
+    /// The task category this rule applies to.
+    pub category: TaskCategory,
+    /// Preferred runtime id (e.g. "claude-code", "codex").
+    pub runtime_id: String,
+    /// Priority for this rule (lower = higher priority within same category).
+    #[serde(default)]
+    pub priority: u32,
+    /// Ordered list of fallback runtime ids.
+    #[serde(default)]
+    pub fallback_chain: Vec<String>,
+}
+
+/// Result of a routing decision for a submitted task.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RoutingDecision {
+    /// Unique id for this routing decision.
+    pub decision_id: String,
+    /// The classified task category.
+    pub category: TaskCategory,
+    /// Category label in Chinese.
+    pub category_label: String,
+    /// The selected runtime id.
+    pub selected_runtime: String,
+    /// Whether a fallback was applied.
+    pub fallback_used: bool,
+    /// If fallback was used, the original preferred runtime.
+    pub original_preference: Option<String>,
+    /// Reason for the routing choice.
+    pub reason: String,
+    /// Timestamp of the decision.
+    pub timestamp: String,
+}
+
+/// Configuration file for routing rules (stored as YAML).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RoutingConfig {
+    /// List of routing rules.
+    pub rules: Vec<RoutingRule>,
+    /// Default runtime id when no rule matches.
+    pub default_runtime: String,
+    /// Default fallback chain when no rule-specific fallback is defined.
+    #[serde(default)]
+    pub default_fallback_chain: Vec<String>,
+}
+
+/// Log entry for fallback events.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FallbackLogEntry {
+    /// Task description (truncated).
+    pub task_summary: String,
+    /// Original preferred runtime.
+    pub from_runtime: String,
+    /// Fallback target runtime.
+    pub to_runtime: String,
+    /// Reason for fallback.
+    pub reason: String,
+    /// Timestamp.
+    pub timestamp: String,
+}
+
+// ---------------------------------------------------------------------------
+// Task Classifier
+// ---------------------------------------------------------------------------
+
+/// Classifies a task description into a TaskCategory using keyword matching.
+struct TaskClassifier;
+
+impl TaskClassifier {
+    /// Classify a task description into a category.
+    fn classify(task_description: &str) -> TaskCategory {
+        let lower = task_description.to_lowercase();
+
+        // Code generation patterns
+        let code_gen_patterns = [
+            "写", "实现", "生成", "创建", "添加", "编写", "开发",
+            "build", "write", "create", "implement", "generate", "add",
+            "code", "function", "class", "module", "component",
+            "排序", "算法", "帮我写", "帮我做",
+        ];
+        if code_gen_patterns.iter().any(|p| lower.contains(p)) {
+            // Distinguish testing tasks
+            let test_patterns = ["测试", "test", "spec", "unit test", "集成测试"];
+            if test_patterns.iter().any(|p| lower.contains(p)) {
+                return TaskCategory::Testing;
+            }
+            return TaskCategory::CodeGeneration;
+        }
+
+        // Code review patterns
+        let review_patterns = [
+            "审查", "review", "检查", "优化", "重构", "改进", "改善",
+            "refactor", "optimize", "improve", "check", "inspect",
+            "代码质量", "performance",
+        ];
+        if review_patterns.iter().any(|p| lower.contains(p)) {
+            return TaskCategory::CodeReview;
+        }
+
+        // Requirements analysis patterns
+        let req_patterns = [
+            "需求", "requirement", "分析", "analyze", "规划", "plan",
+            "设计", "design", "架构", "architecture", "方案", "方案",
+        ];
+        if req_patterns.iter().any(|p| lower.contains(p)) {
+            return TaskCategory::Requirements;
+        }
+
+        // Testing patterns
+        let test_patterns = [
+            "测试", "test", "spec", "单元测试", "e2e", "集成测试",
+            "覆盖率", "coverage", "mock", "stub",
+        ];
+        if test_patterns.iter().any(|p| lower.contains(p)) {
+            return TaskCategory::Testing;
+        }
+
+        TaskCategory::General
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Router Engine
+// ---------------------------------------------------------------------------
+
+/// The smart routing engine that classifies tasks and selects the best runtime.
+struct RouterEngine {
+    /// The loaded routing configuration.
+    config: RoutingConfig,
+    /// History of routing decisions.
+    decision_history: Vec<RoutingDecision>,
+    /// Fallback event log.
+    fallback_log: Vec<FallbackLogEntry>,
+}
+
+impl RouterEngine {
+    fn new(config: RoutingConfig) -> Self {
+        Self {
+            config,
+            decision_history: Vec::new(),
+            fallback_log: Vec::new(),
+        }
+    }
+
+    /// Create with sensible default routing rules.
+    fn with_defaults() -> Self {
+        Self::new(Self::default_config())
+    }
+
+    /// Generate the default routing configuration.
+    fn default_config() -> RoutingConfig {
+        RoutingConfig {
+            rules: vec![
+                RoutingRule {
+                    category: TaskCategory::CodeGeneration,
+                    runtime_id: "codex".to_string(),
+                    priority: 1,
+                    fallback_chain: vec!["claude-code".to_string()],
+                },
+                RoutingRule {
+                    category: TaskCategory::CodeReview,
+                    runtime_id: "claude-code".to_string(),
+                    priority: 1,
+                    fallback_chain: vec!["codex".to_string()],
+                },
+                RoutingRule {
+                    category: TaskCategory::Requirements,
+                    runtime_id: "claude-code".to_string(),
+                    priority: 1,
+                    fallback_chain: vec!["codex".to_string()],
+                },
+                RoutingRule {
+                    category: TaskCategory::Testing,
+                    runtime_id: "codex".to_string(),
+                    priority: 1,
+                    fallback_chain: vec!["claude-code".to_string()],
+                },
+                RoutingRule {
+                    category: TaskCategory::General,
+                    runtime_id: "claude-code".to_string(),
+                    priority: 1,
+                    fallback_chain: vec!["codex".to_string()],
+                },
+            ],
+            default_runtime: "claude-code".to_string(),
+            default_fallback_chain: vec!["codex".to_string()],
+        }
+    }
+
+    /// Route a task: classify it and select the best available runtime.
+    /// Returns a RoutingDecision with the chosen runtime.
+    fn route(
+        &mut self,
+        task_description: &str,
+        available_runtimes: &[AgentRuntimeInfo],
+    ) -> RoutingDecision {
+        let category = TaskClassifier::classify(task_description);
+        let timestamp = chrono::Utc::now().to_rfc3339();
+
+        // Build a set of available runtime ids for quick lookup
+        let available_ids: std::collections::HashSet<&str> = available_runtimes
+            .iter()
+            .filter(|r| r.status == AgentRuntimeStatus::Available)
+            .map(|r| r.id.as_str())
+            .collect();
+
+        // Find the matching rule
+        let rule = self.config.rules.iter()
+            .filter(|r| r.category == category)
+            .min_by_key(|r| r.priority);
+
+        let (selected, fallback_used, original_pref, reason) = if let Some(rule) = rule {
+            // Try the primary runtime first
+            if available_ids.contains(rule.runtime_id.as_str()) {
+                (rule.runtime_id.clone(), false, None,
+                 format!("任务分类为「{}」，按规则首选 {}", category.label(), rule.runtime_id))
+            } else {
+                // Try fallback chain
+                let mut found = None;
+                for fb_id in &rule.fallback_chain {
+                    if available_ids.contains(fb_id.as_str()) {
+                        found = Some(fb_id.clone());
+                        break;
+                    }
+                }
+                if let Some(fb) = found {
+                    // Log fallback
+                    self.fallback_log.push(FallbackLogEntry {
+                        task_summary: Self::truncate_task(task_description),
+                        from_runtime: rule.runtime_id.clone(),
+                        to_runtime: fb.clone(),
+                        reason: format!("{} 不可用", rule.runtime_id),
+                        timestamp: timestamp.clone(),
+                    });
+                    (fb.clone(), true, Some(rule.runtime_id.clone()),
+                     format!("任务分类为「{}」，首选 {} 不可用，fallback 到 {}",
+                             category.label(), rule.runtime_id, fb))
+                } else {
+                    // Last resort: try any available runtime
+                    if let Some(any) = available_ids.iter().next() {
+                        (any.to_string(), true, Some(rule.runtime_id.clone()),
+                         format!("任务分类为「{}」，首选和备选均不可用，随机选择可用 runtime {}",
+                                 category.label(), any))
+                    } else {
+                        (rule.runtime_id.clone(), false, None,
+                         format!("任务分类为「{}」，无可用 runtime，返回首选 {}（将失败）",
+                                 category.label(), rule.runtime_id))
+                    }
+                }
+            }
+        } else {
+            // No matching rule, use default runtime
+            if available_ids.contains(self.config.default_runtime.as_str()) {
+                (self.config.default_runtime.clone(), false, None,
+                 format!("任务分类为「{}」，无匹配规则，使用默认 runtime {}",
+                         category.label(), self.config.default_runtime))
+            } else {
+                // Try default fallback chain
+                let mut found = None;
+                for fb_id in &self.config.default_fallback_chain {
+                    if available_ids.contains(fb_id.as_str()) {
+                        found = Some(fb_id.clone());
+                        break;
+                    }
+                }
+                if let Some(fb) = found {
+                    (fb.clone(), true, Some(self.config.default_runtime.clone()),
+                     format!("任务分类为「{}」，默认 runtime 不可用，fallback 到 {}",
+                             category.label(), fb))
+                } else {
+                    (self.config.default_runtime.clone(), false, None,
+                     format!("任务分类为「{}」，无可用 runtime", category.label()))
+                }
+            }
+        };
+
+        let decision = RoutingDecision {
+            decision_id: Uuid::new_v4().to_string(),
+            category: category.clone(),
+            category_label: category.label().to_string(),
+            selected_runtime: selected,
+            fallback_used,
+            original_preference: original_pref,
+            reason,
+            timestamp,
+        };
+
+        self.decision_history.push(decision.clone());
+        decision
+    }
+
+    /// Validate routing config against registered runtimes.
+    /// Returns a list of warnings for rules referencing unknown runtimes.
+    fn validate_config(&self, config: &RoutingConfig, known_runtime_ids: &[String]) -> Vec<String> {
+        let known: std::collections::HashSet<&str> = known_runtime_ids.iter()
+            .map(|s| s.as_str())
+            .collect();
+        let mut warnings = Vec::new();
+
+        for rule in &config.rules {
+            if !known.contains(rule.runtime_id.as_str()) {
+                warnings.push(format!(
+                    "规则「{:?}」引用了未注册的 runtime: {}",
+                    rule.category, rule.runtime_id
+                ));
+            }
+            for fb in &rule.fallback_chain {
+                if !known.contains(fb.as_str()) {
+                    warnings.push(format!(
+                        "规则「{:?}」的 fallback 链引用了未注册的 runtime: {}",
+                        rule.category, fb
+                    ));
+                }
+            }
+        }
+        if !known.contains(config.default_runtime.as_str()) {
+            warnings.push(format!(
+                "默认 runtime 未注册: {}", config.default_runtime
+            ));
+        }
+
+        warnings
+    }
+
+    /// Update the routing configuration.
+    fn update_config(&mut self, config: RoutingConfig) {
+        self.config = config;
+    }
+
+    /// Get the current routing config.
+    fn get_config(&self) -> &RoutingConfig {
+        &self.config
+    }
+
+    /// Get recent routing decisions.
+    fn get_decisions(&self, limit: usize) -> &[RoutingDecision] {
+        let start = self.decision_history.len().saturating_sub(limit);
+        &self.decision_history[start..]
+    }
+
+    /// Get fallback log entries.
+    fn get_fallback_log(&self, limit: usize) -> &[FallbackLogEntry] {
+        let start = self.fallback_log.len().saturating_sub(limit);
+        &self.fallback_log[start..]
+    }
+
+    /// Truncate task description for logging.
+    fn truncate_task(task: &str) -> String {
+        if task.len() > 80 {
+            format!("{}...", &task[..80])
+        } else {
+            task.to_string()
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Routing config persistence (YAML)
+// ---------------------------------------------------------------------------
+
+/// File name for routing config.
+const ROUTING_CONFIG_FILENAME: &str = "routing-config.yaml";
+
+/// Load routing config from the workspace directory, or return defaults.
+fn load_routing_config(workspace_path: &str) -> RoutingConfig {
+    let config_path = PathBuf::from(workspace_path).join(".neuro").join(ROUTING_CONFIG_FILENAME);
+    if config_path.exists() {
+        match fs::read_to_string(&config_path) {
+            Ok(content) => {
+                match serde_yaml::from_str::<RoutingConfig>(&content) {
+                    Ok(config) => return config,
+                    Err(e) => {
+                        eprintln!("Failed to parse routing config: {}, using defaults", e);
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to read routing config: {}, using defaults", e);
+            }
+        }
+    }
+    RouterEngine::default_config()
+}
+
+/// Save routing config to the workspace directory.
+fn save_routing_config(workspace_path: &str, config: &RoutingConfig) -> Result<(), String> {
+    let neuro_dir = PathBuf::from(workspace_path).join(".neuro");
+    fs::create_dir_all(&neuro_dir).map_err(|e| format!("Failed to create .neuro dir: {}", e))?;
+    let config_path = neuro_dir.join(ROUTING_CONFIG_FILENAME);
+    let yaml = serde_yaml::to_string(config).map_err(|e| format!("Failed to serialize config: {}", e))?;
+    fs::write(&config_path, yaml).map_err(|e| format!("Failed to write config: {}", e))?;
+    Ok(())
+}
+
+// ===========================================================================
 // Pty management
 // ===========================================================================
 
@@ -958,6 +1381,8 @@ struct AppState {
     req_agent: Mutex<ReqAgentState>,
     /// Agent runtime registry (feat-agent-runtime-core)
     agent_runtime_registry: Mutex<RuntimeRegistry>,
+    /// Smart routing engine (feat-agent-runtime-router)
+    router_engine: Mutex<RouterEngine>,
 }
 
 // ===========================================================================
@@ -1404,7 +1829,13 @@ async fn set_workspace_path(
     state: tauri::State<'_, AppState>,
     path: String,
 ) -> Result<(), String> {
-    *state.workspace_path.lock().map_err(|e| e.to_string())? = path;
+    *state.workspace_path.lock().map_err(|e| e.to_string())? = path.clone();
+
+    // Reload routing config from workspace if available (feat-agent-runtime-router)
+    let config = load_routing_config(&path);
+    let mut router = state.router_engine.lock().map_err(|e| e.to_string())?;
+    router.update_config(config);
+
     Ok(())
 }
 
@@ -3068,6 +3499,116 @@ fn get_runtime_status(
 }
 
 // ===========================================================================
+// Tauri commands - Smart Router (feat-agent-runtime-router)
+// ===========================================================================
+
+/// Submit a task for automatic routing.
+/// Classifies the task, selects the best available runtime, returns the routing decision.
+/// Emits `router://task-routed` and optionally `router://fallback` events.
+#[tauri::command]
+async fn submit_task(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+    task_description: String,
+) -> Result<RoutingDecision, String> {
+    // Get available runtimes
+    let runtimes = {
+        let registry = state.agent_runtime_registry.lock().map_err(|e| e.to_string())?;
+        registry.list_all()
+    };
+
+    // Route the task
+    let decision = {
+        let mut router = state.router_engine.lock().map_err(|e| e.to_string())?;
+        router.route(&task_description, &runtimes)
+    };
+
+    // Emit routing event
+    let _ = app.emit("router://task-routed", &decision);
+
+    // If fallback was used, emit fallback event
+    if decision.fallback_used {
+        if let Some(original) = &decision.original_preference {
+            let _ = app.emit("router://fallback", serde_json::json!({
+                "task_summary": RouterEngine::truncate_task(&task_description),
+                "from_runtime": original,
+                "to_runtime": decision.selected_runtime,
+                "reason": decision.reason,
+                "timestamp": decision.timestamp,
+            }));
+        }
+    }
+
+    Ok(decision)
+}
+
+/// Get the current routing rules configuration.
+#[tauri::command]
+fn get_routing_rules(
+    state: tauri::State<'_, AppState>,
+) -> Result<RoutingConfig, String> {
+    let router = state.router_engine.lock().map_err(|e| e.to_string())?;
+    Ok(router.get_config().clone())
+}
+
+/// Update routing rules configuration.
+/// Validates against known runtimes before applying.
+/// Persists the new config to the workspace directory.
+#[tauri::command]
+async fn update_routing_rules(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+    config: RoutingConfig,
+) -> Result<Vec<String>, String> {
+    // Get known runtime ids for validation
+    let known_ids: Vec<String> = {
+        let registry = state.agent_runtime_registry.lock().map_err(|e| e.to_string())?;
+        registry.list_all().iter().map(|r| r.id.clone()).collect()
+    };
+
+    // Validate
+    let mut router = state.router_engine.lock().map_err(|e| e.to_string())?;
+    let warnings = router.validate_config(&config, &known_ids);
+
+    // Apply the new config
+    router.update_config(config.clone());
+
+    // Persist to workspace
+    let workspace_path = state.workspace_path.lock().map_err(|e| e.to_string())?;
+    if !workspace_path.is_empty() {
+        if let Err(e) = save_routing_config(&workspace_path, &config) {
+            // Log but don't fail - the in-memory config is still updated
+            let _ = app.emit("router://config-save-error", serde_json::json!({
+                "error": e.to_string(),
+            }));
+        }
+    }
+
+    Ok(warnings)
+}
+
+/// Get the routing decision history for a specific task or recent decisions.
+#[tauri::command]
+fn get_task_routing_decision(
+    state: tauri::State<'_, AppState>,
+    decision_id: Option<String>,
+) -> Result<Vec<RoutingDecision>, String> {
+    let router = state.router_engine.lock().map_err(|e| e.to_string())?;
+    if let Some(id) = decision_id {
+        // Find specific decision
+        let found = router.get_decisions(1000)
+            .iter()
+            .filter(|d| d.decision_id == id)
+            .cloned()
+            .collect();
+        Ok(found)
+    } else {
+        // Return recent decisions (last 50)
+        Ok(router.get_decisions(50).to_vec())
+    }
+}
+
+// ===========================================================================
 // Misc commands
 // ===========================================================================
 
@@ -3290,6 +3831,7 @@ pub fn run() {
             hw_monitor_stop: Mutex::new(None),
             req_agent: Mutex::new(ReqAgentState::new()),
             agent_runtime_registry: Mutex::new(create_default_registry()),
+            router_engine: Mutex::new(RouterEngine::with_defaults()),
         })
         .invoke_handler(tauri::generate_handler![
             greet,
@@ -3334,6 +3876,11 @@ pub fn run() {
             list_agent_runtimes,
             scan_agent_runtimes,
             get_runtime_status,
+            // Smart Router (feat-agent-runtime-router)
+            submit_task,
+            get_routing_rules,
+            update_routing_rules,
+            get_task_routing_decision,
             read_file,
             read_file_base64,
             write_file,
