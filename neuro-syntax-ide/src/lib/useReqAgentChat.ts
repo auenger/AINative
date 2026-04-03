@@ -81,6 +81,9 @@ export function useReqAgentChat() {
   const [lastCreatedFeature, setLastCreatedFeature] = useState<FeatureCreatedNotification | null>(null);
   const streamingTextRef = useRef<string>('');
 
+  // Ref to hold the persistent chunk listener unlisten function
+  const chunkUnlistenRef = useRef<(() => void) | null>(null);
+
   // Persist messages to localStorage whenever they change
   useEffect(() => {
     if (!isTauri) return;
@@ -91,8 +94,88 @@ export function useReqAgentChat() {
     }
   }, [messages]);
 
-  /** Start a new agent session (or resume with given session_id) */
-  const startSession = useCallback(async (resumeSessionId?: string) => {
+  // ---------------------------------------------------------------------------
+  // Persistent chunk listener
+  // ---------------------------------------------------------------------------
+
+  /** Register the persistent req_agent_chunk listener.
+   *  Called once after startSession succeeds; stays active until stopSession or unmount. */
+  const registerChunkListener = useCallback(async () => {
+    // Remove any previous listener
+    if (chunkUnlistenRef.current) {
+      chunkUnlistenRef.current();
+      chunkUnlistenRef.current = null;
+    }
+
+    const { listen } = await import('@tauri-apps/api/event');
+    const unlisten = await listen<ReqAgentChunkEvent>('req_agent_chunk', (event) => {
+      const chunk = event.payload;
+
+      // Handle error chunks (but not stderr — those are just diagnostics)
+      if (chunk.error && chunk.type !== 'stderr') {
+        setError(chunk.error);
+        if (chunk.is_done) {
+          setIsStreaming(false);
+          // Keep connectionState as 'connected' so user can send another message
+          // Only set to 'error' for non-result errors
+          if (chunk.type === 'disconnect') {
+            setConnectionState('error');
+          }
+        }
+        return;
+      }
+
+      // Stream text from assistant / system / raw messages
+      if (chunk.text && (chunk.type === 'assistant' || chunk.type === 'system' || chunk.type === 'raw')) {
+        streamingTextRef.current += chunk.text;
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === 'assistant') {
+            return [...prev.slice(0, -1), { ...last, content: streamingTextRef.current }];
+          }
+          return [...prev, { role: 'assistant', content: streamingTextRef.current }];
+        });
+      }
+
+      // When the result message arrives, mark streaming as done
+      if (chunk.is_done) {
+        setIsStreaming(false);
+        if (!streamingTextRef.current) {
+          setMessages((prev) => [
+            ...prev,
+            { role: 'assistant', content: '(未收到响应)' },
+          ]);
+        }
+        // Do NOT set connectionState to disconnected — the session is still active
+        // (per-message model: process exits, but session ID persists)
+      }
+    });
+
+    chunkUnlistenRef.current = unlisten;
+  }, []);
+
+  /** Remove the persistent chunk listener */
+  const removeChunkListener = useCallback(() => {
+    if (chunkUnlistenRef.current) {
+      chunkUnlistenRef.current();
+      chunkUnlistenRef.current = null;
+    }
+  }, []);
+
+  // Cleanup listener on unmount
+  useEffect(() => {
+    return () => {
+      removeChunkListener();
+    };
+  }, [removeChunkListener]);
+
+  // ---------------------------------------------------------------------------
+  // Session management
+  // ---------------------------------------------------------------------------
+
+  /** Start a new agent session.
+   *  Always creates a fresh session ID (ignores resumeSessionId for reliability). */
+  const startSession = useCallback(async (_resumeSessionId?: string) => {
     if (!isTauri) {
       setConnectionState('connected');
       return;
@@ -103,8 +186,9 @@ export function useReqAgentChat() {
 
     try {
       const { invoke } = await import('@tauri-apps/api/core');
+      // Always start a fresh session (no resume)
       const sid: string = await invoke('req_agent_start', {
-        sessionId: resumeSessionId || null,
+        sessionId: null,
       });
       setSessionId(sid);
       setConnectionState('connected');
@@ -115,12 +199,15 @@ export function useReqAgentChat() {
       } catch {
         // ignore
       }
+
+      // Register the persistent chunk listener for this session
+      await registerChunkListener();
     } catch (e: any) {
       const errMsg = e?.toString() ?? 'Failed to start agent session';
       setError(errMsg);
       setConnectionState('error');
     }
-  }, []);
+  }, [registerChunkListener]);
 
   /** Stop the current agent session */
   const stopSession = useCallback(async () => {
@@ -129,6 +216,9 @@ export function useReqAgentChat() {
       setSessionId(null);
       return;
     }
+
+    // Remove the persistent chunk listener first
+    removeChunkListener();
 
     try {
       const { invoke } = await import('@tauri-apps/api/core');
@@ -143,7 +233,7 @@ export function useReqAgentChat() {
     } catch {
       // ignore
     }
-  }, []);
+  }, [removeChunkListener]);
 
   /** Check agent status (used on mount for auto-restore) */
   const checkStatus = useCallback(async () => {
@@ -156,30 +246,30 @@ export function useReqAgentChat() {
       if (status.running && status.session_id) {
         setSessionId(status.session_id);
         setConnectionState('connected');
+        // Re-register the persistent listener
+        await registerChunkListener();
       } else {
-        // Check if we have a stored session to resume
-        const storedSid = localStorage.getItem(STORAGE_KEY_SESSION_ID);
-        if (storedSid) {
-          setConnectionState('disconnected');
-          // Don't auto-resume here, let user decide
-        } else {
-          setConnectionState('disconnected');
-        }
+        setConnectionState('disconnected');
       }
     } catch {
       setConnectionState('disconnected');
     }
-  }, []);
+  }, [registerChunkListener]);
 
-  /** Send a message to the agent and listen for streaming response */
+  // ---------------------------------------------------------------------------
+  // Message sending (per-message process model)
+  // ---------------------------------------------------------------------------
+
+  /** Send a message to the agent.
+   *  Uses the persistent listener for responses — no self-registered listener. */
   const sendMessage = useCallback(
     async (input: string) => {
       if (!input.trim()) return;
 
-      // If not connected, try to start session first
+      // If not connected, start a fresh session first
       if (connectionState !== 'connected') {
-        const storedSid = localStorage.getItem(STORAGE_KEY_SESSION_ID);
-        await startSession(storedSid || undefined);
+        await startSession();
+        // After startSession, the persistent listener is registered
       }
 
       const userMessage: ReqChatMessage = { role: 'user', content: input };
@@ -205,54 +295,21 @@ export function useReqAgentChat() {
 
       try {
         const { invoke } = await import('@tauri-apps/api/core');
-        const { listen } = await import('@tauri-apps/api/event');
-
-        // Start listening for chunks
-        const unlisten = await listen<ReqAgentChunkEvent>('req_agent_chunk', (event) => {
-          const chunk = event.payload;
-
-          if (chunk.error && chunk.type !== 'stderr') {
-            setError(chunk.error);
-            if (chunk.is_done || chunk.type === 'disconnect') {
-              setIsStreaming(false);
-              setConnectionState('disconnected');
-            }
-            return;
-          }
-
-          // Only process text from assistant or system messages
-          if (chunk.text && (chunk.type === 'assistant' || chunk.type === 'system' || chunk.type === 'raw')) {
-            streamingTextRef.current += chunk.text;
-            setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last && last.role === 'assistant') {
-                return [...prev.slice(0, -1), { ...last, content: streamingTextRef.current }];
-              }
-              return [...prev, { role: 'assistant', content: streamingTextRef.current }];
-            });
-          }
-
-          if (chunk.is_done) {
-            setIsStreaming(false);
-            if (!streamingTextRef.current) {
-              setMessages((prev) => [
-                ...prev,
-                { role: 'assistant', content: '(未收到响应)' },
-              ]);
-            }
-            unlisten();
-          }
-        });
-
-        // Send message via IPC
-        await invoke('req_agent_send', { message: input });
+        // Call the per-message command (spawns a new CLI process)
+        await invoke('req_agent_send_message', { message: input });
+        // The persistent chunk listener will receive all response events
       } catch (e: any) {
         setError(e?.toString() ?? 'Failed to send message');
         setIsStreaming(false);
+        setConnectionState('error');
       }
     },
     [connectionState, startSession],
   );
+
+  // ---------------------------------------------------------------------------
+  // Session lifecycle
+  // ---------------------------------------------------------------------------
 
   /** Start a new session (clear history) */
   const newSession = useCallback(async () => {
@@ -268,12 +325,9 @@ export function useReqAgentChat() {
     }
   }, [stopSession]);
 
-  /** Resume a previous session */
+  /** Resume a previous session — always starts fresh for reliability */
   const resumeSession = useCallback(async () => {
-    const storedSid = localStorage.getItem(STORAGE_KEY_SESSION_ID);
-    if (storedSid) {
-      await startSession(storedSid);
-    }
+    await startSession();
   }, [startSession]);
 
   // Check status on mount

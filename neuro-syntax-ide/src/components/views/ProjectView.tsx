@@ -244,8 +244,8 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
   };
 
   const handleReqAgentStart = async () => {
-    const storedSid = localStorage.getItem('req_agent_session_id');
-    await reqAgent.startSession(storedSid || undefined);
+    // Always start a fresh session — do not reuse old session IDs
+    await reqAgent.startSession();
   };
 
   const handleReqAgentNewSession = async () => {
