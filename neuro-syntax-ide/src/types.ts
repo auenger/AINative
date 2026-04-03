@@ -97,3 +97,20 @@ export interface GitStatusResult {
   remote_url: string | null;
   files: FileDiffInfo[];
 }
+
+/** Agent Runtime types (feat-agent-runtime-core) */
+
+export type AgentRuntimeStatusType = 'available' | 'not-installed' | 'unhealthy' | 'busy';
+
+export type AgentCapabilityType = 'streaming' | 'sessions' | 'tool-use' | 'structured-output';
+
+export interface AgentRuntimeInfo {
+  id: string;
+  name: string;
+  type: string;
+  status: AgentRuntimeStatusType;
+  version: string | null;
+  install_path: string | null;
+  capabilities: AgentCapabilityType[];
+  install_hint: string;
+}

@@ -297,6 +297,81 @@ const KEYRING_SERVICE: &str = "neuro-syntax-ide";
 const KEYRING_ACCOUNT: &str = "ai-api-key";
 
 // ===========================================================================
+// Data types - Agent Runtime System (feat-agent-runtime-core)
+// ===========================================================================
+
+/// Status of an agent runtime.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub enum AgentRuntimeStatus {
+    /// CLI tool detected and working
+    Available,
+    /// CLI tool not found on the system
+    NotInstalled,
+    /// CLI tool found but health check failed
+    Unhealthy,
+    /// Currently processing a request
+    Busy,
+}
+
+/// Capabilities that an agent runtime supports.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub enum AgentCapability {
+    /// Streaming text output
+    Streaming,
+    /// Session management (resume conversations)
+    Sessions,
+    /// Tool use (file read/write, bash, etc.)
+    ToolUse,
+    /// Structured output (JSON mode)
+    StructuredOutput,
+}
+
+/// Info about a detected agent runtime, returned to the frontend.
+#[derive(Debug, Serialize, Clone)]
+pub struct AgentRuntimeInfo {
+    /// Unique identifier (e.g. "claude-code", "codex")
+    pub id: String,
+    /// Human-readable name
+    pub name: String,
+    /// Runtime type identifier
+    #[serde(rename = "type")]
+    pub runtime_type: String,
+    /// Current status
+    pub status: AgentRuntimeStatus,
+    /// Detected version string (if available)
+    pub version: Option<String>,
+    /// Installation path (if detected)
+    pub install_path: Option<String>,
+    /// Supported capabilities
+    pub capabilities: Vec<AgentCapability>,
+    /// Install hint command (shown when not-installed)
+    pub install_hint: String,
+}
+
+/// Trait that all agent runtimes must implement.
+/// Each runtime wraps a specific AI coding CLI tool.
+pub trait AgentRuntime: Send + Sync {
+    /// Unique runtime identifier (e.g. "claude-code")
+    fn id(&self) -> &str;
+    /// Human-readable name
+    fn name(&self) -> &str;
+    /// Runtime type (e.g. "cli")
+    fn runtime_type(&self) -> &str;
+    /// List of capabilities this runtime supports
+    fn capabilities(&self) -> Vec<AgentCapability>;
+    /// Install hint command for this runtime
+    fn install_hint(&self) -> String;
+    /// Detect whether the CLI is available and return (path, version)
+    fn detect(&self) -> Result<Option<(String, String)>, String>;
+    /// Perform a health check (e.g. run --version)
+    fn health_check(&self) -> AgentRuntimeStatus;
+    /// Get the current runtime info (id, name, status, version, etc.)
+    fn info(&self) -> AgentRuntimeInfo;
+}
+
+// ===========================================================================
 // Constants
 // ===========================================================================
 
@@ -309,6 +384,383 @@ const SKIP_NAMES: &[&str] = &[
     "__pycache__", ".DS_Store", ".cache", ".turbo", ".parcel-cache",
     "build", ".build",
 ];
+
+// ===========================================================================
+// Runtime Registry & Detector (feat-agent-runtime-core)
+// ===========================================================================
+
+/// Registry that manages all discovered agent runtimes.
+/// Thread-safe via Arc<Mutex<...>>.
+struct RuntimeRegistry {
+    runtimes: Vec<Box<dyn AgentRuntime>>,
+    /// Cached detection results: runtime_id -> (path, version)
+    detected: HashMap<String, (String, String)>,
+}
+
+impl RuntimeRegistry {
+    fn new() -> Self {
+        Self {
+            runtimes: Vec::new(),
+            detected: HashMap::new(),
+        }
+    }
+
+    /// Register a runtime implementation.
+    fn register(&mut self, runtime: Box<dyn AgentRuntime>) {
+        self.runtimes.push(runtime);
+    }
+
+    /// Scan all registered runtimes, detect their presence on the system.
+    /// Returns info for each runtime.
+    fn scan_all(&mut self) -> Vec<AgentRuntimeInfo> {
+        self.detected.clear();
+        let mut results = Vec::new();
+
+        for runtime in &self.runtimes {
+            let rt_id = runtime.id().to_string();
+            match runtime.detect() {
+                Ok(Some((path, version))) => {
+                    self.detected.insert(rt_id.clone(), (path.clone(), version.clone()));
+                    results.push(AgentRuntimeInfo {
+                        id: runtime.id().to_string(),
+                        name: runtime.name().to_string(),
+                        runtime_type: runtime.runtime_type().to_string(),
+                        status: AgentRuntimeStatus::Available,
+                        version: Some(version),
+                        install_path: Some(path),
+                        capabilities: runtime.capabilities(),
+                        install_hint: runtime.install_hint(),
+                    });
+                }
+                Ok(None) => {
+                    results.push(AgentRuntimeInfo {
+                        id: runtime.id().to_string(),
+                        name: runtime.name().to_string(),
+                        runtime_type: runtime.runtime_type().to_string(),
+                        status: AgentRuntimeStatus::NotInstalled,
+                        version: None,
+                        install_path: None,
+                        capabilities: runtime.capabilities(),
+                        install_hint: runtime.install_hint(),
+                    });
+                }
+                Err(_) => {
+                    results.push(AgentRuntimeInfo {
+                        id: runtime.id().to_string(),
+                        name: runtime.name().to_string(),
+                        runtime_type: runtime.runtime_type().to_string(),
+                        status: AgentRuntimeStatus::NotInstalled,
+                        version: None,
+                        install_path: None,
+                        capabilities: runtime.capabilities(),
+                        install_hint: runtime.install_hint(),
+                    });
+                }
+            }
+        }
+
+        results
+    }
+
+    /// Get runtime info for all registered runtimes (using cached detection data).
+    fn list_all(&self) -> Vec<AgentRuntimeInfo> {
+        self.runtimes.iter().map(|rt| {
+            let rt_id = rt.id().to_string();
+            if let Some((path, version)) = self.detected.get(&rt_id) {
+                AgentRuntimeInfo {
+                    id: rt.id().to_string(),
+                    name: rt.name().to_string(),
+                    runtime_type: rt.runtime_type().to_string(),
+                    status: AgentRuntimeStatus::Available,
+                    version: Some(version.clone()),
+                    install_path: Some(path.clone()),
+                    capabilities: rt.capabilities(),
+                    install_hint: rt.install_hint(),
+                }
+            } else {
+                AgentRuntimeInfo {
+                    id: rt.id().to_string(),
+                    name: rt.name().to_string(),
+                    runtime_type: rt.runtime_type().to_string(),
+                    status: AgentRuntimeStatus::NotInstalled,
+                    version: None,
+                    install_path: None,
+                    capabilities: rt.capabilities(),
+                    install_hint: rt.install_hint(),
+                }
+            }
+        }).collect()
+    }
+
+    /// Get info for a single runtime by id.
+    fn get_runtime(&self, id: &str) -> Option<AgentRuntimeInfo> {
+        self.runtimes.iter()
+            .find(|rt| rt.id() == id)
+            .map(|rt| {
+                let rt_id = rt.id().to_string();
+                if let Some((path, version)) = self.detected.get(&rt_id) {
+                    AgentRuntimeInfo {
+                        id: rt.id().to_string(),
+                        name: rt.name().to_string(),
+                        runtime_type: rt.runtime_type().to_string(),
+                        status: AgentRuntimeStatus::Available,
+                        version: Some(version.clone()),
+                        install_path: Some(path.clone()),
+                        capabilities: rt.capabilities(),
+                        install_hint: rt.install_hint(),
+                    }
+                } else {
+                    AgentRuntimeInfo {
+                        id: rt.id().to_string(),
+                        name: rt.name().to_string(),
+                        runtime_type: rt.runtime_type().to_string(),
+                        status: AgentRuntimeStatus::NotInstalled,
+                        version: None,
+                        install_path: None,
+                        capabilities: rt.capabilities(),
+                        install_hint: rt.install_hint(),
+                    }
+                }
+            })
+    }
+
+    /// Run health checks on all detected runtimes.
+    fn health_check_all(&mut self) -> Vec<AgentRuntimeInfo> {
+        let mut results = Vec::new();
+        for runtime in &self.runtimes {
+            let status = runtime.health_check();
+            let rt_id = runtime.id().to_string();
+            let (version, install_path) = self.detected.get(&rt_id)
+                .map(|(p, v)| (Some(v.clone()), Some(p.clone())))
+                .unwrap_or((None, None));
+
+            // If health check says unhealthy, update detected map
+            if status == AgentRuntimeStatus::Unhealthy {
+                self.detected.remove(&rt_id);
+            }
+
+            results.push(AgentRuntimeInfo {
+                id: rt_id,
+                name: runtime.name().to_string(),
+                runtime_type: runtime.runtime_type().to_string(),
+                status,
+                version,
+                install_path,
+                capabilities: runtime.capabilities(),
+                install_hint: runtime.install_hint(),
+            });
+        }
+        results
+    }
+
+    /// Count available (detected & healthy) runtimes.
+    fn available_count(&self) -> usize {
+        self.detected.len()
+    }
+}
+
+/// Detector utility: checks if a CLI command exists on PATH and gets its version.
+struct RuntimeDetector;
+
+impl RuntimeDetector {
+    /// Check if a command exists on the system PATH.
+    /// Returns the full path if found.
+    fn find_command(cmd: &str) -> Option<String> {
+        #[cfg(unix)]
+        {
+            Command::new("which")
+                .arg(cmd)
+                .output()
+                .ok()
+                .filter(|o| o.status.success())
+                .and_then(|o| {
+                    let path = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                    if path.is_empty() { None } else { Some(path) }
+                })
+        }
+        #[cfg(windows)]
+        {
+            Command::new("where")
+                .arg(cmd)
+                .output()
+                .ok()
+                .filter(|o| o.status.success())
+                .and_then(|o| {
+                    let path = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                    if path.is_empty() { None } else { Some(path) }
+                })
+        }
+    }
+
+    /// Get the version of a CLI tool by running `cmd --version`.
+    fn get_version(cmd: &str) -> Option<String> {
+        Command::new(cmd)
+            .arg("--version")
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| {
+                let ver = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                // Take only the first line of version output
+                ver.lines().next().unwrap_or(&ver).to_string()
+            })
+    }
+}
+
+// ===========================================================================
+// Runtime Implementations (feat-agent-runtime-core)
+// ===========================================================================
+
+/// Claude Code CLI runtime implementation.
+struct ClaudeCodeRuntime;
+
+impl ClaudeCodeRuntime {
+    fn new() -> Self {
+        Self
+    }
+}
+
+impl AgentRuntime for ClaudeCodeRuntime {
+    fn id(&self) -> &str { "claude-code" }
+    fn name(&self) -> &str { "Claude Code" }
+    fn runtime_type(&self) -> &str { "cli" }
+
+    fn capabilities(&self) -> Vec<AgentCapability> {
+        vec![
+            AgentCapability::Streaming,
+            AgentCapability::Sessions,
+            AgentCapability::ToolUse,
+            AgentCapability::StructuredOutput,
+        ]
+    }
+
+    fn install_hint(&self) -> String {
+        "npm install -g @anthropic-ai/claude-code".to_string()
+    }
+
+    fn detect(&self) -> Result<Option<(String, String)>, String> {
+        let path = RuntimeDetector::find_command("claude");
+        match path {
+            Some(p) => {
+                let version = RuntimeDetector::get_version("claude")
+                    .unwrap_or_else(|| "unknown".to_string());
+                Ok(Some((p, version)))
+            }
+            None => Ok(None),
+        }
+    }
+
+    fn health_check(&self) -> AgentRuntimeStatus {
+        match self.detect() {
+            Ok(Some(_)) => AgentRuntimeStatus::Available,
+            _ => AgentRuntimeStatus::Unhealthy,
+        }
+    }
+
+    fn info(&self) -> AgentRuntimeInfo {
+        match self.detect() {
+            Ok(Some((path, version))) => AgentRuntimeInfo {
+                id: self.id().to_string(),
+                name: self.name().to_string(),
+                runtime_type: self.runtime_type().to_string(),
+                status: AgentRuntimeStatus::Available,
+                version: Some(version),
+                install_path: Some(path),
+                capabilities: self.capabilities(),
+                install_hint: self.install_hint(),
+            },
+            _ => AgentRuntimeInfo {
+                id: self.id().to_string(),
+                name: self.name().to_string(),
+                runtime_type: self.runtime_type().to_string(),
+                status: AgentRuntimeStatus::NotInstalled,
+                version: None,
+                install_path: None,
+                capabilities: self.capabilities(),
+                install_hint: self.install_hint(),
+            },
+        }
+    }
+}
+
+/// OpenAI Codex CLI runtime implementation.
+struct CodexRuntime;
+
+impl CodexRuntime {
+    fn new() -> Self {
+        Self
+    }
+}
+
+impl AgentRuntime for CodexRuntime {
+    fn id(&self) -> &str { "codex" }
+    fn name(&self) -> &str { "OpenAI Codex CLI" }
+    fn runtime_type(&self) -> &str { "cli" }
+
+    fn capabilities(&self) -> Vec<AgentCapability> {
+        vec![
+            AgentCapability::Streaming,
+            AgentCapability::ToolUse,
+            AgentCapability::StructuredOutput,
+        ]
+    }
+
+    fn install_hint(&self) -> String {
+        "npm install -g @openai/codex".to_string()
+    }
+
+    fn detect(&self) -> Result<Option<(String, String)>, String> {
+        let path = RuntimeDetector::find_command("codex");
+        match path {
+            Some(p) => {
+                let version = RuntimeDetector::get_version("codex")
+                    .unwrap_or_else(|| "unknown".to_string());
+                Ok(Some((p, version)))
+            }
+            None => Ok(None),
+        }
+    }
+
+    fn health_check(&self) -> AgentRuntimeStatus {
+        match self.detect() {
+            Ok(Some(_)) => AgentRuntimeStatus::Available,
+            _ => AgentRuntimeStatus::Unhealthy,
+        }
+    }
+
+    fn info(&self) -> AgentRuntimeInfo {
+        match self.detect() {
+            Ok(Some((path, version))) => AgentRuntimeInfo {
+                id: self.id().to_string(),
+                name: self.name().to_string(),
+                runtime_type: self.runtime_type().to_string(),
+                status: AgentRuntimeStatus::Available,
+                version: Some(version),
+                install_path: Some(path),
+                capabilities: self.capabilities(),
+                install_hint: self.install_hint(),
+            },
+            _ => AgentRuntimeInfo {
+                id: self.id().to_string(),
+                name: self.name().to_string(),
+                runtime_type: self.runtime_type().to_string(),
+                status: AgentRuntimeStatus::NotInstalled,
+                version: None,
+                install_path: None,
+                capabilities: self.capabilities(),
+                install_hint: self.install_hint(),
+            },
+        }
+    }
+}
+
+/// Helper to create the default registry with all known runtimes registered.
+fn create_default_registry() -> RuntimeRegistry {
+    let mut registry = RuntimeRegistry::new();
+    registry.register(Box::new(ClaudeCodeRuntime::new()));
+    registry.register(Box::new(CodexRuntime::new()));
+    registry
+}
 
 // ===========================================================================
 // Pty management
@@ -436,6 +888,8 @@ struct AppState {
     fs_watcher: Mutex<Option<RecommendedWatcher>>,
     hw_monitor_stop: Mutex<Option<std::sync::mpsc::Sender<()>>>,
     req_agent: Mutex<ReqAgentState>,
+    /// Agent runtime registry (feat-agent-runtime-core)
+    agent_runtime_registry: Mutex<RuntimeRegistry>,
 }
 
 // ===========================================================================
@@ -2511,6 +2965,41 @@ fn req_agent_status(
 }
 
 // ===========================================================================
+// Tauri commands - Agent Runtime (feat-agent-runtime-core)
+// ===========================================================================
+
+/// List all registered agent runtimes and their status.
+/// Uses cached detection data if available (call scan_agent_runtimes to refresh).
+#[tauri::command]
+fn list_agent_runtimes(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<AgentRuntimeInfo>, String> {
+    let registry = state.agent_runtime_registry.lock().map_err(|e| e.to_string())?;
+    Ok(registry.list_all())
+}
+
+/// Trigger a re-scan of all agent runtimes.
+/// Detects CLI presence and version for each registered runtime.
+#[tauri::command]
+fn scan_agent_runtimes(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<AgentRuntimeInfo>, String> {
+    let mut registry = state.agent_runtime_registry.lock().map_err(|e| e.to_string())?;
+    Ok(registry.scan_all())
+}
+
+/// Get the status of a single agent runtime by id.
+#[tauri::command]
+fn get_runtime_status(
+    state: tauri::State<'_, AppState>,
+    runtime_id: String,
+) -> Result<AgentRuntimeInfo, String> {
+    let registry = state.agent_runtime_registry.lock().map_err(|e| e.to_string())?;
+    registry.get_runtime(&runtime_id)
+        .ok_or_else(|| format!("Runtime '{}' not found", runtime_id))
+}
+
+// ===========================================================================
 // Misc commands
 // ===========================================================================
 
@@ -2613,6 +3102,7 @@ pub fn run() {
             fs_watcher: Mutex::new(None),
             hw_monitor_stop: Mutex::new(None),
             req_agent: Mutex::new(ReqAgentState::new()),
+            agent_runtime_registry: Mutex::new(create_default_registry()),
         })
         .invoke_handler(tauri::generate_handler![
             greet,
@@ -2653,6 +3143,10 @@ pub fn run() {
             req_agent_send_message,
             req_agent_stop,
             req_agent_status,
+            // Agent Runtime (feat-agent-runtime-core)
+            list_agent_runtimes,
+            scan_agent_runtimes,
+            get_runtime_status,
             read_file,
             read_file_base64,
             write_file,
