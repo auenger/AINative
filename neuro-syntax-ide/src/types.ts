@@ -97,3 +97,34 @@ export interface GitStatusResult {
   remote_url: string | null;
   files: FileDiffInfo[];
 }
+
+// ---------------------------------------------------------------------------
+// Settings & LLM Provider types (feat-settings-llm-config)
+// ---------------------------------------------------------------------------
+
+/** A single LLM provider configuration (OpenAI-compatible). */
+export interface ProviderConfig {
+  api_key: string;
+  api_base: string;
+}
+
+/** LLM model selection and parameters. */
+export interface LlmConfig {
+  provider: string;
+  model: string;
+  max_tokens: number;
+  temperature: number;
+  context_window_tokens: number;
+}
+
+/** Application-level settings. */
+export interface AppConfig {
+  auto_refresh_interval: number;
+}
+
+/** Root settings object stored in settings.yaml. */
+export interface AppSettings {
+  providers: Record<string, ProviderConfig>;
+  llm: LlmConfig;
+  app: AppConfig;
+}

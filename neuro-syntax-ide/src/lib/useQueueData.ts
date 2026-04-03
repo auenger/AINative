@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 // ---------------------------------------------------------------------------
 // Types matching Rust QueueState / FeatureNode / FsChangeEvent
@@ -60,6 +60,8 @@ export function useQueueData() {
   const [queueState, setQueueState] = useState<QueueState | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshInterval, setRefreshInterval] = useState<number>(0); // seconds, 0 = disabled
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /** Fetch the latest queue state from Rust backend. */
   const refresh = useCallback(async () => {
@@ -244,6 +246,30 @@ export function useQueueData() {
     };
   }, [refresh]);
 
+  // ---- Configurable auto-refresh interval ----
+
+  useEffect(() => {
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    // Set up new interval if enabled (> 0)
+    if (refreshInterval > 0) {
+      intervalRef.current = setInterval(() => {
+        refresh();
+      }, refreshInterval * 1000);
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [refreshInterval, refresh]);
+
   return {
     queueState,
     loading,
@@ -251,5 +277,7 @@ export function useQueueData() {
     refresh,
     moveTask,
     readDetail,
+    refreshInterval,
+    setRefreshInterval,
   };
 }
