@@ -30,6 +30,7 @@ import { NEURO_DARK_THEME, NEURO_LIGHT_THEME } from '../../lib/monaco-theme';
 import { useTheme } from '../../context/ThemeContext';
 import { getFileRendererType } from '../../lib/file-type-router';
 import { getEditorOptionsForLanguage } from '../../lib/language-presets';
+import { registerVueLanguage } from '../../lib/vue-language';
 
 // Lazy-load Monaco Editor for performance
 const Editor = lazy(() => import('@monaco-editor/react'));
@@ -47,6 +48,7 @@ function ensureThemesRegistered(monaco: Parameters<
   if (_themeRegistered) return;
   monaco.editor.defineTheme('neuro-dark', NEURO_DARK_THEME);
   monaco.editor.defineTheme('neuro-light', NEURO_LIGHT_THEME);
+  registerVueLanguage(monaco);
   _themeRegistered = true;
 }
 
@@ -150,7 +152,7 @@ function getLanguageFromPath(filePath: string): string {
     txt: 'plaintext',
     log: 'plaintext',
     csv: 'plaintext',
-    vue: 'html',
+    vue: 'vue',
     svelte: 'html',
     java: 'java',
     kt: 'kotlin',
