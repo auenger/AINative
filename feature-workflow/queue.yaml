@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-03T23:30:00Z"
+  last_updated: "2026-04-05T13:00:00Z"
   version: 1
 
 parents:
@@ -15,50 +15,42 @@ parents:
       - feat-hardware-monitor
       - feat-ai-agent-service
 
-active:
-  - id: feat-agent-runtime-core
-    name: "Agent 发现与 Runtime 抽象层"
-    priority: 60
-    parent: feat-agent-runtime-system
-    branch: feature/feat-agent-runtime-core
-    worktree: ../NeuroSyntaxIDE-feat-agent-runtime-core
-    started_at: "2026-04-04T14:00:00Z"
+active: []
 
-pending:
+pending: []
+
+blocked: []
+
+completed:
   - id: feat-agent-runtime-system
     name: "Agent Runtime 系统（多 Agent 编排引擎）"
-    priority: 60
+    completed_at: "2026-04-05T13:00:00Z"
     split: true
     children:
       - feat-agent-runtime-core
       - feat-agent-runtime-pipeline
       - feat-agent-runtime-router
       - feat-agent-runtime-ui
-  - id: feat-agent-runtime-pipeline
-    name: "Pipeline 管道编排引擎"
-    priority: 55
-    parent: feat-agent-runtime-system
-    depends_on: feat-agent-runtime-core
-  - id: feat-agent-runtime-router
-    name: "智能路由分发引擎"
-    priority: 55
-    parent: feat-agent-runtime-system
-    depends_on: feat-agent-runtime-core
-  - id: feat-agent-runtime-ui
-    name: "Agent 控制面板 UI"
-    priority: 55
-    parent: feat-agent-runtime-system
-    depends_on:
-      - feat-agent-runtime-core
-      - feat-agent-runtime-pipeline
-      - feat-agent-runtime-router
   - id: feat-git-modal-enhance
     name: "Git 弹窗内容增强（全貌展示 + 可拖拽调整）"
-    priority: 50
-
-blocked: []
-
-completed:
+    completed_at: "2026-04-05T13:00:00Z"
+    tag: feat-git-modal-enhance-20260404
+  - id: feat-agent-runtime-ui
+    name: "Agent 控制面板 UI"
+    completed_at: "2026-04-05T12:30:00Z"
+    tag: feat-agent-runtime-ui-20260405
+  - id: feat-agent-runtime-router
+    name: "智能路由分发引擎"
+    completed_at: "2026-04-03T16:30:00Z"
+    tag: feat-agent-runtime-router-20260403
+  - id: feat-agent-runtime-pipeline
+    name: "Pipeline 管道编排引擎"
+    completed_at: "2026-04-05T11:00:00Z"
+    tag: feat-agent-runtime-pipeline-20260405
+  - id: feat-agent-runtime-core
+    name: "Agent 发现与 Runtime 抽象层"
+    completed_at: "2026-04-04T23:30:00Z"
+    tag: feat-agent-runtime-core-20260404
   - id: feat-settings-llm-config
     name: "Settings 页面 & LLM Provider 配置（UI + 持久化 + 自动刷新）"
     completed_at: "2026-04-03T23:30:00Z"

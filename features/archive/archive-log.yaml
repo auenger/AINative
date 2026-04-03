@@ -1,10 +1,157 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-03T19:00:00Z"
+  last_updated: "2026-04-05T13:00:00Z"
   version: 1
-  total_completed: 39
+  total_completed: 45
 
 records:
+  - id: feat-git-modal-enhance
+    name: "Git 弹窗内容增强（全貌展示 + 可拖拽调整）"
+    completed_at: "2026-04-05T13:00:00Z"
+    tag: feat-git-modal-enhance-20260404
+    merge_commit: HEAD
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-git-modal-enhance
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-git-modal-enhance
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-05T12:00:00Z"
+      duration: "~60m"
+      commits: 1
+      files_changed: 4
+      insertions: 847
+      deletions: 286
+  - id: feat-agent-runtime-system
+    name: "Agent Runtime 系统（多 Agent 编排引擎）"
+    completed_at: "2026-04-05T13:00:00Z"
+    split: true
+    children:
+      - feat-agent-runtime-core
+      - feat-agent-runtime-pipeline
+      - feat-agent-runtime-router
+      - feat-agent-runtime-ui
+    archive_path: features/archive/done-feat-agent-runtime-system-20260405
+  - id: feat-agent-runtime-ui
+    name: "Agent 控制面板 UI"
+    completed_at: "2026-04-05T12:30:00Z"
+    tag: feat-agent-runtime-ui-20260405
+    merge_commit: 86a3ae5
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-agent-runtime-ui
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-agent-runtime-ui
+    parent: feat-agent-runtime-system
+    depends_on:
+      - feat-agent-runtime-core
+      - feat-agent-runtime-pipeline
+      - feat-agent-runtime-router
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-05T12:00:00Z"
+      duration: "30min"
+      commits: 1
+      files_changed: 7
+
+  - id: feat-agent-runtime-router
+    name: "智能路由分发引擎"
+    completed_at: "2026-04-03T16:30:00Z"
+    tag: feat-agent-runtime-router-20260403
+    merge_commit: 6a422ae
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-agent-runtime-router
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-agent-runtime-router
+    parent: feat-agent-runtime-system
+    depends_on: feat-agent-runtime-core
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-03T16:00:00Z"
+      duration: "30min"
+      commits: 1
+      files_changed: 3
+
+  - id: feat-agent-runtime-pipeline
+    name: "Pipeline 管道编排引擎"
+    completed_at: "2026-04-05T11:00:00Z"
+    tag: feat-agent-runtime-pipeline-20260405
+    merge_commit: 23e375a
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-agent-runtime-pipeline
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-agent-runtime-pipeline
+    parent: feat-agent-runtime-system
+    conflicts:
+      had_conflict: true
+      conflict_files:
+        - neuro-syntax-ide/src/types.ts
+      resolved_at: "2026-04-05T11:00:00Z"
+      resolution: "Combined both Router types (feat-agent-runtime-router) and Pipeline types (feat-agent-runtime-pipeline) in types.ts"
+      re_verified: true
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-05T10:00:00Z"
+      duration: "~60m"
+      commits: 1
+      files_changed: 4
+      insertions: 1183
+      deletions: 0
+
+  - id: feat-agent-runtime-core
+    name: "Agent 发现与 Runtime 抽象层"
+    completed_at: "2026-04-04T23:30:00Z"
+    tag: feat-agent-runtime-core-20260404
+    merge_commit: 8c6c5c5
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-agent-runtime-core
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-agent-runtime-core
+    parent: feat-agent-runtime-system
+    conflicts:
+      had_conflict: true
+      conflict_files:
+        - neuro-syntax-ide/src/types.ts
+      resolved_at: "2026-04-04T23:30:00Z"
+      resolution: "Combined both feature type sections (settings-llm-config + agent-runtime-core)"
+      re_verified: true
+    verification:
+      status: passed
+      scenarios_total: 5
+      scenarios_passed: 5
+    stats:
+      started: "2026-04-04T14:00:00Z"
+      duration: "9h 30m"
+      commits: 1
+      files_changed: 8
+      insertions: 963
+      deletions: 2
+
   - id: fix-terminal-writer-tabs
     name: "终端 Writer 不可重复获取 & 新增终端失效修复"
     completed_at: "2026-04-03T19:00:00Z"
