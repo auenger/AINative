@@ -1,10 +1,35 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-04T11:00:00Z"
+  last_updated: "2026-04-03T19:00:00Z"
   version: 1
-  total_completed: 37
+  total_completed: 39
 
 records:
+  - id: fix-reqagent-connection
+    name: "ReqAgent Claude Code 连接修复（首次无响应 + 重连自动断开）"
+    completed_at: "2026-04-03T23:00:00Z"
+    tag: fix-reqagent-connection-20260403
+    merge_commit: ec3266c
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/fix-reqagent-connection
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-fix-reqagent-connection
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+      resolved_at: null
+      re_verified: false
+    verification:
+      status: passed
+      scenarios_total: 5
+      scenarios_passed: 5
+    stats:
+      started: "2026-04-03T18:00:00Z"
+      duration: "~5h"
+      commits: 1
+      files_changed: 3
+
   - id: feat-git-modal-compact
     name: "Git 弹窗布局优化（高度限制 + 内容分组折叠）"
     completed_at: "2026-04-04T11:00:00Z"

@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-04T11:00:00Z"
+  last_updated: "2026-04-03T23:00:00Z"
   version: 1
 
 parents:
@@ -16,12 +16,60 @@ parents:
       - feat-ai-agent-service
 
 active:
+  - id: fix-terminal-writer-tabs
+    name: "终端 Writer 不可重复获取 & 新增终端失效修复"
+    priority: 90
+    branch: feature/fix-terminal-writer-tabs
+    worktree: ../NeuroSyntaxIDE-fix-terminal-writer-tabs
+    started_at: "2026-04-03T18:00:00Z"
 
 pending:
+  - id: feat-settings-llm-config
+  - id: feat-settings-llm-config
+    name: "Settings 页面 & LLM Provider 配置（UI + 持久化 + 自动刷新）"
+    priority: 70
+  - id: feat-agent-runtime-system
+    name: "Agent Runtime 系统（多 Agent 编排引擎）"
+    priority: 60
+    split: true
+    children:
+      - feat-agent-runtime-core
+      - feat-agent-runtime-pipeline
+      - feat-agent-runtime-router
+      - feat-agent-runtime-ui
+  - id: feat-agent-runtime-core
+    name: "Agent 发现与 Runtime 抽象层"
+    priority: 60
+    parent: feat-agent-runtime-system
+  - id: feat-agent-runtime-pipeline
+    name: "Pipeline 管道编排引擎"
+    priority: 55
+    parent: feat-agent-runtime-system
+    depends_on: feat-agent-runtime-core
+  - id: feat-agent-runtime-router
+    name: "智能路由分发引擎"
+    priority: 55
+    parent: feat-agent-runtime-system
+    depends_on: feat-agent-runtime-core
+  - id: feat-agent-runtime-ui
+    name: "Agent 控制面板 UI"
+    priority: 55
+    parent: feat-agent-runtime-system
+    depends_on:
+      - feat-agent-runtime-core
+      - feat-agent-runtime-pipeline
+      - feat-agent-runtime-router
+  - id: feat-git-modal-enhance
+    name: "Git 弹窗内容增强（全貌展示 + 可拖拽调整）"
+    priority: 50
 
 blocked: []
 
 completed:
+  - id: fix-reqagent-connection
+    name: "ReqAgent Claude Code 连接修复（首次无响应 + 重连自动断开）"
+    completed_at: "2026-04-03T23:00:00Z"
+    tag: fix-reqagent-connection-20260403
   - id: feat-git-modal-compact
     name: "Git 弹窗布局优化（高度限制 + 内容分组折叠）"
     completed_at: "2026-04-04T11:00:00Z"
