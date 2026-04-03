@@ -30,6 +30,7 @@ import { NEURO_DARK_THEME, NEURO_LIGHT_THEME } from '../../lib/monaco-theme';
 import { useTheme } from '../../context/ThemeContext';
 import { getFileRendererType } from '../../lib/file-type-router';
 import { getEditorOptionsForLanguage } from '../../lib/language-presets';
+import { MarkdownSplitView } from './MarkdownSplitView';
 
 // Lazy-load Monaco Editor for performance
 const Editor = lazy(() => import('@monaco-editor/react'));
@@ -870,6 +871,14 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                 </div>
               </div>
             ) : activeFile ? (
+              activeFile.rendererType === 'markdown' ? (
+                <MarkdownSplitView
+                  filePath={activeFile.path}
+                  content={activeFile.content}
+                  onContentChange={(v) => handleEditorChange(v)}
+                  language={activeFile.language}
+                />
+              ) : (
               <Suspense
                 fallback={
                   <div className="flex flex-col items-center justify-center h-full bg-[var(--t-editor-bg)] gap-4">
@@ -920,6 +929,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                   }
                 />
               </Suspense>
+              )
             ) : (
               <div className="flex items-center justify-center h-full bg-surface-container-lowest text-outline/30">
                 <p className="text-xs uppercase tracking-widest">{t('editor.selectFile')}</p>

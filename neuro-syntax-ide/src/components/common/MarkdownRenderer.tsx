@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { cn } from '../../lib/utils';
 
 // ---------------------------------------------------------------------------
@@ -219,7 +220,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
 
   return (
     <div className={cn('md-renderer', className)}>
-      <ReactMarkdown components={components}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {content}
       </ReactMarkdown>
     </div>
