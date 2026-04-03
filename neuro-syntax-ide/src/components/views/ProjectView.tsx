@@ -61,8 +61,9 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ workspace }) => {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isPushing, setIsPushing] = useState(false);
+  const [isPulling, setIsPulling] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);  const [isGenerating, setIsGenerating] = useState(false);
   const [commitMessage, setCommitMessage] = useState('');
   const [isCommitting, setIsCommitting] = useState(false);
   const [stagingPath, setStagingPath] = useState<string | null>(null);
@@ -115,12 +116,40 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
     }
   }, [showGitModal]);
 
-  const handleSync = () => {
-    setIsSyncing(true);
-    setTimeout(() => {
-      setIsSyncing(false);
-      setShowGitModal(false);
-    }, 2000);
+  const handlePush = async () => {
+    setIsPushing(true);
+    setSyncMessage(null);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const result = await invoke<{ success: boolean; message: string }>('git_push');
+      setSyncMessage({ text: result.message, type: result.success ? 'success' : 'error' });
+      await gitStatus.refresh();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setSyncMessage({ text: msg, type: 'error' });
+    } finally {
+      setIsPushing(false);
+      // Auto-dismiss message after 4 seconds
+      setTimeout(() => setSyncMessage(null), 4000);
+    }
+  };
+
+  const handlePull = async () => {
+    setIsPulling(true);
+    setSyncMessage(null);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const result = await invoke<{ success: boolean; message: string }>('git_pull');
+      setSyncMessage({ text: result.message, type: result.success ? 'success' : 'error' });
+      await gitStatus.refresh();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setSyncMessage({ text: msg, type: 'error' });
+    } finally {
+      setIsPulling(false);
+      // Auto-dismiss message after 4 seconds
+      setTimeout(() => setSyncMessage(null), 4000);
+    }
   };
 
   const handleStageFile = async (filePath: string) => {
@@ -957,23 +986,40 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                   </button>
                 </div>
 
+                {/* Sync feedback message */}
+                {syncMessage && (
+                  <div className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium",
+                    syncMessage.type === 'success'
+                      ? "bg-tertiary/10 text-tertiary border border-tertiary/20"
+                      : "bg-error/10 text-error border border-error/20"
+                  )}>
+                    {syncMessage.type === 'success' ? (
+                      <CheckCircle2 size={14} className="shrink-0" />
+                    ) : (
+                      <AlertTriangle size={14} className="shrink-0" />
+                    )}
+                    <span className="truncate">{syncMessage.text}</span>
+                  </div>
+                )}
+
                 {/* Push / Pull buttons */}
                 <div className="flex gap-3">
                   <button
-                    onClick={handleSync}
-                    disabled={isSyncing}
+                    onClick={handlePush}
+                    disabled={isPushing || isPulling || !gitStatus.data?.remote_url}
                     className="flex-1 flex items-center justify-center gap-2 bg-primary text-on-primary py-2.5 rounded-lg text-xs font-bold hover:brightness-110 transition-all disabled:opacity-50"
                   >
-                    {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <ArrowUpRight size={14} />}
-                    {isSyncing ? t('project.syncing') : t('project.pushChanges')}
+                    {isPushing ? <RefreshCw size={14} className="animate-spin" /> : <ArrowUpRight size={14} />}
+                    {isPushing ? t('project.syncing') : t('project.pushChanges')}
                   </button>
                   <button
-                    onClick={handleSync}
-                    disabled={isSyncing}
+                    onClick={handlePull}
+                    disabled={isPushing || isPulling || !gitStatus.data?.remote_url}
                     className="flex-1 flex items-center justify-center gap-2 bg-surface-container-highest text-on-surface py-2.5 rounded-lg text-xs font-bold hover:bg-surface-variant transition-all border border-outline-variant/10 disabled:opacity-50"
                   >
-                    <RefreshCw size={14} className={cn(isSyncing && "animate-spin")} />
-                    {t('project.updateRemote')}
+                    {isPulling ? <RefreshCw size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                    {isPulling ? t('project.syncing') : t('project.updateRemote')}
                   </button>
                 </div>
               </div>

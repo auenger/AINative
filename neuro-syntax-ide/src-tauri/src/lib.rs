@@ -1375,6 +1375,288 @@ async fn git_commit(
 }
 
 // ===========================================================================
+// Tauri commands - Git push & pull (feat-git-push-pull)
+// ===========================================================================
+
+/// Result returned by git_push / git_pull to the frontend.
+#[derive(Debug, Serialize, Clone)]
+pub struct GitSyncResult {
+    /// Whether the operation succeeded
+    pub success: bool,
+    /// Human-readable summary (e.g. "Everything up-to-date", "Pushed 3 commits")
+    pub message: String,
+}
+
+/// Build authentication callbacks for git2 remote operations.
+/// Tries SSH agent first, then falls back to default credential helper.
+fn make_remote_callbacks<'a>() -> git2::RemoteCallbacks<'a> {
+    let mut callbacks = git2::RemoteCallbacks::new();
+
+    callbacks.credentials(|_url, username_from_url, allowed_types| {
+        // Try SSH key authentication first
+        if allowed_types.contains(git2::CredentialType::SSH_KEY) {
+            if let Ok(cred) = git2::Cred::ssh_key_from_agent(
+                username_from_url.unwrap_or("git"),
+            ) {
+                return Ok(cred);
+            }
+        }
+
+        // Try default credential (for HTTPS with stored credentials)
+        if allowed_types.contains(git2::CredentialType::DEFAULT) {
+            if let Ok(cred) = git2::Cred::default() {
+                return Ok(cred);
+            }
+        }
+
+        Err(git2::Error::from_str("No authentication method available. Please configure SSH keys or HTTPS credentials."))
+    });
+
+    callbacks
+}
+
+/// Push the current branch to origin. Equivalent to `git push origin <branch>`.
+#[tauri::command]
+async fn git_push(
+    state: tauri::State<'_, AppState>,
+) -> Result<GitSyncResult, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo = git2::Repository::discover(&workspace)
+        .map_err(|e| format!("Not a git repository: {}", e))?;
+
+    // Get current branch name
+    let head = repo.head()
+        .map_err(|e| format!("Failed to read HEAD: {}", e))?;
+    let branch_name = head.shorthand()
+        .ok_or_else(|| "Detached HEAD — cannot push".to_string())?
+        .to_string();
+
+    // Get the remote
+    let mut remote = repo.find_remote("origin")
+        .map_err(|e| format!("No 'origin' remote configured: {}", e))?;
+
+    // Build refspec: push current branch to same name on remote
+    let refspec = format!("refs/heads/{branch}:refs/heads/{branch}", branch = branch_name);
+
+    let mut callbacks = make_remote_callbacks();
+
+    // Track what gets pushed
+    let push_result = Arc::new(Mutex::new(String::new()));
+    let push_result_clone = Arc::clone(&push_result);
+    callbacks.push_update_reference(move |refname, status| {
+        let mut result = push_result_clone.lock().unwrap();
+        if let Some(s) = status {
+            *result = format!("Rejected: {} ({})", refname, s);
+        } else {
+            *result = format!("Pushed {}", refname);
+        }
+        Ok(())
+    });
+
+    let mut push_options = git2::PushOptions::new();
+    push_options.remote_callbacks(callbacks);
+
+    remote.push(&[&refspec], Some(&mut push_options))
+        .map_err(|e| {
+            let err_str = e.to_string();
+            if err_str.contains("authentication") || err_str.contains("credentials") {
+                "Authentication failed. Please configure SSH keys or HTTPS credentials for this repository.".to_string()
+            } else if err_str.contains("Couldn't resolve host") || err_str.contains("network") {
+                format!("Network error: {}", err_str)
+            } else {
+                format!("Push failed: {}", err_str)
+            }
+        })?;
+
+    let push_msg = push_result.lock().map_err(|e| e.to_string())?.clone();
+    let message = if push_msg.is_empty() {
+        "Everything up-to-date".to_string()
+    } else {
+        push_msg
+    };
+
+    Ok(GitSyncResult {
+        success: true,
+        message,
+    })
+}
+
+/// Pull (fetch + merge) from origin for the current branch. Equivalent to `git pull origin <branch>`.
+#[tauri::command]
+async fn git_pull(
+    state: tauri::State<'_, AppState>,
+) -> Result<GitSyncResult, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo = git2::Repository::discover(&workspace)
+        .map_err(|e| format!("Not a git repository: {}", e))?;
+
+    // Get current branch name
+    let head = repo.head()
+        .map_err(|e| format!("Failed to read HEAD: {}", e))?;
+    let branch_name = head.shorthand()
+        .ok_or_else(|| "Detached HEAD — cannot pull".to_string())?
+        .to_string();
+
+    // Get the remote
+    let mut remote = repo.find_remote("origin")
+        .map_err(|e| format!("No 'origin' remote configured: {}", e))?;
+
+    // Build refspec for fetching
+    let refspec = format!("refs/heads/{branch}:refs/remotes/origin/{branch}", branch = branch_name);
+
+    let callbacks = make_remote_callbacks();
+
+    let mut fetch_options = git2::FetchOptions::new();
+    fetch_options.remote_callbacks(callbacks);
+
+    // Fetch from remote
+    remote.fetch(&[&refspec], Some(&mut fetch_options), None)
+        .map_err(|e| {
+            let err_str = e.to_string();
+            if err_str.contains("authentication") || err_str.contains("credentials") {
+                "Authentication failed. Please configure SSH keys or HTTPS credentials for this repository.".to_string()
+            } else if err_str.contains("Couldn't resolve host") || err_str.contains("network") {
+                format!("Network error: {}", err_str)
+            } else {
+                format!("Fetch failed: {}", err_str)
+            }
+        })?;
+
+    // Get the fetch HEAD (the remote branch tip)
+    let fetch_head = repo.find_reference("FETCH_HEAD")
+        .map_err(|e| format!("Failed to find FETCH_HEAD: {}", e))?;
+
+    let fetch_commit = fetch_head.peel_to_commit()
+        .map_err(|e| format!("Failed to peel FETCH_HEAD to commit: {}", e))?;
+
+    // Check if we're already up-to-date
+    let head_oid = head.target()
+        .ok_or_else(|| "HEAD has no target".to_string())?;
+
+    if head_oid == fetch_commit.id() {
+        return Ok(GitSyncResult {
+            success: true,
+            message: "Already up-to-date".to_string(),
+        });
+    }
+
+    // Perform merge: analyze, then merge
+    let head_commit = repo.find_commit(head_oid)
+        .map_err(|e| format!("Failed to find HEAD commit: {}", e))?;
+
+    // Get the ancestor (merge base)
+    let ancestor = repo.merge_base(head_oid, fetch_commit.id())
+        .map_err(|e| format!("Failed to find merge base: {}", e))?;
+
+    let _ancestor_commit = repo.find_commit(ancestor)
+        .map_err(|e| format!("Failed to find ancestor commit: {}", e))?;
+
+    // Check if fast-forward is possible
+    if ancestor == head_oid {
+        // Fast-forward: just move HEAD forward
+        // Count how many commits we're pulling
+        let mut count = 0u32;
+        let mut walk_oid = fetch_commit.id();
+        loop {
+            if walk_oid == head_oid { break; }
+            let c = repo.find_commit(walk_oid)
+                .map_err(|e| format!("Failed to walk commits: {}", e))?;
+            count += 1;
+            walk_oid = c.parent(0)
+                .map(|p| p.id())
+                .unwrap_or_else(|_| head_oid);
+        }
+
+        // Set HEAD to the fetched commit (fast-forward)
+        repo.reference(&format!("refs/heads/{}", branch_name), fetch_commit.id(), true, "Fast-forward pull")
+            .map_err(|e| format!("Failed to update branch: {}", e))?;
+
+        // Checkout the updated files
+        repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))
+            .map_err(|e| format!("Failed to checkout after pull: {}", e))?;
+
+        Ok(GitSyncResult {
+            success: true,
+            message: format!("Fast-forward: {} commit{} pulled", count, if count != 1 { "s" } else { "" }),
+        })
+    } else {
+        // Non-fast-forward: perform a real merge
+        let fetch_annotated = repo.find_annotated_commit(fetch_commit.id())
+            .map_err(|e| format!("Failed to create annotated commit: {}", e))?;
+
+        let (analysis, _) = repo.merge_analysis(&[&fetch_annotated])
+            .map_err(|e| format!("Merge analysis failed: {}", e))?;
+
+        if analysis.is_up_to_date() {
+            return Ok(GitSyncResult {
+                success: true,
+                message: "Already up-to-date".to_string(),
+            });
+        }
+
+        // Do the merge
+        let mut merge_opts = git2::MergeOptions::new();
+        repo.merge(&[&fetch_annotated], Some(&mut merge_opts), None)
+            .map_err(|e| format!("Merge failed: {}", e))?;
+
+        // Check for conflicts
+        let mut index = repo.index()
+            .map_err(|e| format!("Failed to get index after merge: {}", e))?;
+
+        if index.has_conflicts() {
+            // Abort merge and report conflicts
+            repo.cleanup_state()
+                .unwrap_or_else(|_| ());
+
+            return Ok(GitSyncResult {
+                success: false,
+                message: "Merge conflicts detected. Please resolve conflicts manually and commit.".to_string(),
+            });
+        }
+
+        // No conflicts — auto-commit the merge
+        let tree_id = index.write_tree()
+            .map_err(|e| format!("Failed to write merge tree: {}", e))?;
+
+        let tree = repo.find_tree(tree_id)
+            .map_err(|e| format!("Failed to find merge tree: {}", e))?;
+
+        let sig = repo.signature()
+            .map_err(|e| format!("Failed to get signature: {}", e))?;
+
+        let merge_commit_id = repo.commit(
+            Some("HEAD"),
+            &sig,
+            &sig,
+            &format!("Merge branch '{}' of origin", branch_name),
+            &tree,
+            &[&head_commit, &fetch_commit],
+        ).map_err(|e| format!("Failed to create merge commit: {}", e))?;
+
+        // Cleanup merge state
+        repo.cleanup_state()
+            .unwrap_or_else(|_| ());
+
+        Ok(GitSyncResult {
+            success: true,
+            message: format!("Merged {} commit{} (merge commit: {:.7})",
+                if merge_commit_id.is_zero() { 0 } else { 1 },
+                if merge_commit_id.is_zero() { "s" } else { "" },
+                merge_commit_id
+            ),
+        })
+    }
+}
+
+// ===========================================================================
 // Tauri commands - AI Agent Service
 // ===========================================================================
 
@@ -2378,6 +2660,9 @@ pub fn run() {
             git_stage_all,
             git_unstage_file,
             git_commit,
+            // Git push & pull (feat-git-push-pull)
+            git_push,
+            git_pull,
             // AI Agent Service
             agent_chat_stream,
             store_api_key,
