@@ -21,7 +21,7 @@ worktree_base: ..
 
 workflow:
   auto_start: false
-  auto_start_next: false
+  auto_start_next: true
   require_checklist: true
   splitting:
     enabled: true

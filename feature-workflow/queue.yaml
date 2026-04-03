@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-04T02:00:00Z"
+  last_updated: "2026-04-04T11:00:00Z"
   version: 1
 
 parents:
@@ -18,9 +18,17 @@ parents:
 active:
 
 pending:
+
+blocked: []
+
+completed:
+  - id: feat-git-modal-compact
+    name: "Git 弹窗布局优化（高度限制 + 内容分组折叠）"
+    completed_at: "2026-04-04T11:00:00Z"
+    tag: feat-git-modal-compact-20260404
   - id: feat-git-integration
     name: "Git 集成功能（状态展示 + Stage/Commit + Push/Pull）"
-    priority: 70
+    completed_at: "2026-04-04T02:30:00Z"
     split: true
     children:
       - feat-git-status-read
@@ -29,7 +37,7 @@ pending:
 
   - id: feat-file-type-display
     name: "文件类型差异化展示系统"
-    priority: 60
+    completed_at: "2026-04-04T02:30:00Z"
     split: true
     children:
       - feat-file-type-router
@@ -37,9 +45,6 @@ pending:
       - feat-image-config-preview
       - feat-syntax-highlight-lang
 
-blocked: []
-
-completed:
   - id: feat-image-config-preview
     name: "图片可视化预览 + 配置文件结构化视图"
     completed_at: "2026-04-04T02:00:00Z"

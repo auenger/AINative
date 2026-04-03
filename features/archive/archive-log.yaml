@@ -1,10 +1,56 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-04T02:00:00Z"
+  last_updated: "2026-04-04T11:00:00Z"
   version: 1
-  total_completed: 34
+  total_completed: 37
 
 records:
+  - id: feat-git-modal-compact
+    name: "Git 弹窗布局优化（高度限制 + 内容分组折叠）"
+    completed_at: "2026-04-04T11:00:00Z"
+    tag: feat-git-modal-compact-20260404
+    merge_commit: f0a4c931b3340b3c2a9eb7cc543c331d227c945f
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-git-modal-compact
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-git-modal-compact
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+      resolved_at: null
+      re_verified: false
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-04-04T10:00:00Z"
+      duration: "~60m"
+      commits: 1
+      files_changed: 1
+
+  - id: feat-git-integration
+    name: "Git 集成功能（状态展示 + Stage/Commit + Push/Pull）"
+    completed_at: "2026-04-04T02:30:00Z"
+    split: true
+    children:
+      - feat-git-status-read
+      - feat-git-stage-commit
+      - feat-git-push-pull
+    archive_path: features/archive/done-feat-git-integration-20260404
+
+  - id: feat-file-type-display
+    name: "文件类型差异化展示系统"
+    completed_at: "2026-04-04T02:30:00Z"
+    split: true
+    children:
+      - feat-file-type-router
+      - feat-markdown-split-preview
+      - feat-image-config-preview
+      - feat-syntax-highlight-lang
+    archive_path: features/archive/done-feat-file-type-display-20260404
+
   - id: feat-image-config-preview
     name: "图片可视化预览 + 配置文件结构化视图"
     completed_at: "2026-04-04T02:00:00Z"
