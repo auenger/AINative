@@ -316,6 +316,7 @@ const SKIP_NAMES: &[&str] = &[
 
 struct PtyInstance {
     master: Box<dyn MasterPty + Send>,
+    writer: Box<dyn IoWrite + Send>,
 }
 
 struct PtyManager {
@@ -360,6 +361,13 @@ impl PtyManager {
             .try_clone_reader()
             .map_err(|e| format!("Failed to clone reader: {}", e))?;
 
+        // Take the writer once and store it persistently — `take_writer()` can
+        // only be called once per portable-pty instance, so we must keep it alive.
+        let writer = pair
+            .master
+            .take_writer()
+            .map_err(|e| format!("Failed to get writer: {}", e))?;
+
         let emit_id = pty_id.clone();
         let ah = app_handle.clone();
         std::thread::spawn(move || {
@@ -383,17 +391,16 @@ impl PtyManager {
             let _ = ah.emit("pty-closed", &payload);
         });
 
-        self.instances.insert(pty_id, PtyInstance { master: pair.master });
+        self.instances.insert(pty_id, PtyInstance { master: pair.master, writer });
         Ok(())
     }
 
     fn write(&mut self, pty_id: &str, data: &str) -> Result<(), String> {
         if let Some(instance) = self.instances.get_mut(pty_id) {
-            let mut writer = instance.master
-                .take_writer()
-                .map_err(|e| format!("Failed to get writer: {}", e))?;
-            writer.write_all(data.as_bytes()).map_err(|e| format!("Failed to write: {}", e))?;
-            writer.flush().map_err(|e| format!("Failed to flush: {}", e))?;
+            instance.writer.write_all(data.as_bytes())
+                .map_err(|e| format!("Failed to write: {}", e))?;
+            instance.writer.flush()
+                .map_err(|e| format!("Failed to flush: {}", e))?;
             Ok(())
         } else {
             Err(format!("Pty '{}' not found", pty_id))
