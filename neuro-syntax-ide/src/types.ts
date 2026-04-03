@@ -198,3 +198,127 @@ export interface FallbackLogEntry {
   reason: string;
   timestamp: string;
 }
+
+// ---------------------------------------------------------------------------
+// Pipeline types (feat-agent-runtime-pipeline)
+// ---------------------------------------------------------------------------
+
+/** Execution status of a pipeline or individual stage. */
+export type PipelineStatusType = 'pending' | 'running' | 'paused' | 'completed' | 'failed';
+
+/** A single stage in a pipeline definition. */
+export interface PipelineStageConfig {
+  /** Unique stage id within the pipeline (e.g. "req-analysis"). */
+  id: string;
+  /** Display name. */
+  name: string;
+  /** The agent runtime this stage binds to (references AgentRuntimeInfo.id). */
+  runtime_id: string;
+  /** Prompt template. Use {{input}} for initial input, {{prev_output}} for previous stage output. */
+  prompt_template: string;
+  /** Mapping of variable names to values for the prompt template. */
+  input_mapping?: Record<string, string>;
+  /** Max retries on failure (default 0). */
+  max_retries?: number;
+  /** Timeout in seconds (0 = no timeout). */
+  timeout_seconds?: number;
+}
+
+/** Pipeline configuration persisted as YAML. */
+export interface PipelineConfig {
+  /** Unique pipeline id (kebab-case). */
+  id: string;
+  /** Display name. */
+  name: string;
+  /** Human-readable description. */
+  description?: string;
+  /** Ordered list of stages. */
+  stages: PipelineStageConfig[];
+  /** Global variables available in all stage prompt templates. */
+  variables?: Record<string, string>;
+  /** Default max retries for any stage that doesn't specify its own. */
+  default_max_retries?: number;
+}
+
+/** Runtime execution state of a single stage. */
+export interface PipelineStageExecution {
+  stage_id: string;
+  status: PipelineStatusType;
+  /** The input text that was fed to this stage. */
+  input: string;
+  /** The output text produced by this stage. */
+  output: string;
+  /** Error message if the stage failed. */
+  error: string | null;
+  /** Number of attempts so far (including retries). */
+  attempts: number;
+  /** Timestamp (ISO string) when the stage started. */
+  started_at: string | null;
+  /** Timestamp (ISO string) when the stage finished. */
+  finished_at: string | null;
+}
+
+/** Runtime execution state of a pipeline. */
+export interface PipelineExecution {
+  /** Execution id (unique per run). */
+  id: string;
+  /** The pipeline config id. */
+  pipeline_id: string;
+  /** Overall status. */
+  status: PipelineStatusType;
+  /** Index of the currently executing stage (-1 = not started). */
+  current_stage_index: number;
+  /** Per-stage execution records. */
+  stages: PipelineStageExecution[];
+  /** The original user input that kicked off the pipeline. */
+  initial_input: string;
+  /** Timestamp (ISO string) when execution started. */
+  started_at: string | null;
+  /** Timestamp (ISO string) when execution finished. */
+  finished_at: string | null;
+  /** Error message if the pipeline failed overall. */
+  error: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline Tauri event payloads (feat-agent-runtime-pipeline)
+// ---------------------------------------------------------------------------
+
+/** Payload for pipeline://stage-start event. */
+export interface PipelineStageStartEvent {
+  execution_id: string;
+  pipeline_id: string;
+  stage_index: number;
+  stage_id: string;
+}
+
+/** Payload for pipeline://stage-output event. */
+export interface PipelineStageOutputEvent {
+  execution_id: string;
+  pipeline_id: string;
+  stage_index: number;
+  stage_id: string;
+  text: string;
+  is_done: boolean;
+  error?: string;
+}
+
+/** Payload for pipeline://stage-complete event. */
+export interface PipelineStageCompleteEvent {
+  execution_id: string;
+  pipeline_id: string;
+  stage_index: number;
+  stage_id: string;
+  status: PipelineStatusType;
+  output: string;
+  error: string | null;
+}
+
+/** Payload for pipeline://pipeline-complete event. */
+export interface PipelineCompleteEvent {
+  execution_id: string;
+  pipeline_id: string;
+  status: PipelineStatusType;
+  final_output: string;
+  stages: PipelineStageExecution[];
+}
