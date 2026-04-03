@@ -246,6 +246,72 @@ pub struct CreateFeatureRequest {
 }
 
 // ===========================================================================
+// Data types - Settings & LLM Provider (feat-settings-llm-config)
+// ===========================================================================
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ProviderConfig {
+    pub api_key: String,
+    pub api_base: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct LlmConfig {
+    #[serde(default = "default_llm_provider")]
+    pub provider: String,
+    #[serde(default = "default_llm_model")]
+    pub model: String,
+    #[serde(default = "default_max_tokens")]
+    pub max_tokens: u32,
+    #[serde(default = "default_temperature")]
+    pub temperature: f32,
+    #[serde(default = "default_context_window")]
+    pub context_window_tokens: u32,
+}
+
+fn default_llm_provider() -> String { String::new() }
+fn default_llm_model() -> String { String::new() }
+fn default_max_tokens() -> u32 { 2000 }
+fn default_temperature() -> f32 { 0.7 }
+fn default_context_window() -> u32 { 128000 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AppConfigYaml {
+    #[serde(default = "default_auto_refresh")]
+    pub auto_refresh_interval: u32,
+}
+
+fn default_auto_refresh() -> u32 { 30 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AppSettings {
+    #[serde(default)]
+    pub providers: HashMap<String, ProviderConfig>,
+    #[serde(default)]
+    pub llm: LlmConfig,
+    #[serde(default)]
+    pub app: AppConfigYaml,
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            providers: HashMap::new(),
+            llm: LlmConfig {
+                provider: default_llm_provider(),
+                model: default_llm_model(),
+                max_tokens: default_max_tokens(),
+                temperature: default_temperature(),
+                context_window_tokens: default_context_window(),
+            },
+            app: AppConfigYaml {
+                auto_refresh_interval: default_auto_refresh(),
+            },
+        }
+    }
+}
+
+// ===========================================================================
 // Data types - ReqAgent (Claude Code CLI Bridge)
 // ===========================================================================
 
@@ -2598,6 +2664,125 @@ async fn write_file(path: String, content: String) -> Result<(), String> {
 }
 
 // ===========================================================================
+// Tauri commands - Settings & LLM Provider (feat-settings-llm-config)
+// ===========================================================================
+
+/// Read the application settings from {workspace}/.neuro/settings.yaml.
+/// Returns default settings if the file does not exist.
+#[tauri::command]
+async fn read_settings(
+    state: tauri::State<'_, AppState>,
+) -> Result<AppSettings, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Ok(AppSettings::default());
+    }
+
+    let settings_path = PathBuf::from(&workspace)
+        .join(".neuro")
+        .join("settings.yaml");
+
+    if !settings_path.exists() {
+        return Ok(AppSettings::default());
+    }
+
+    let content = fs::read_to_string(&settings_path)
+        .map_err(|e| format!("Failed to read settings.yaml: {}", e))?;
+
+    let settings: AppSettings = serde_yaml::from_str(&content)
+        .map_err(|e| format!("Failed to parse settings.yaml: {}", e))?;
+
+    Ok(settings)
+}
+
+/// Write the application settings to {workspace}/.neuro/settings.yaml.
+/// Creates the .neuro directory if it does not exist.
+#[tauri::command]
+async fn write_settings(
+    state: tauri::State<'_, AppState>,
+    settings: AppSettings,
+) -> Result<(), String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let neuro_dir = PathBuf::from(&workspace).join(".neuro");
+    if !neuro_dir.exists() {
+        fs::create_dir_all(&neuro_dir)
+            .map_err(|e| format!("Failed to create .neuro directory: {}", e))?;
+    }
+
+    let settings_path = neuro_dir.join("settings.yaml");
+
+    let yaml_str = serde_yaml::to_string(&settings)
+        .map_err(|e| format!("Failed to serialize settings: {}", e))?;
+
+    // Atomic write: temp then rename
+    let temp_path = settings_path.with_extension("yaml.tmp");
+    fs::write(&temp_path, &yaml_str)
+        .map_err(|e| format!("Failed to write settings temp file: {}", e))?;
+
+    fs::rename(&temp_path, &settings_path)
+        .map_err(|e| format!("Failed to rename settings temp file: {}", e))?;
+
+    Ok(())
+}
+
+/// Test an LLM provider connection by calling {api_base}/models.
+/// Returns a list of available model IDs on success.
+#[tauri::command]
+async fn test_llm_connection(
+    provider: ProviderConfig,
+) -> Result<Vec<String>, String> {
+    if provider.api_base.is_empty() {
+        return Err("API base URL is required".into());
+    }
+    if provider.api_key.is_empty() {
+        return Err("API key is required".into());
+    }
+
+    let client = reqwest::Client::new();
+    let url = format!("{}/models", provider.api_base.trim_end_matches('/'));
+
+    let response = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", provider.api_key))
+        .header("Content-Type", "application/json")
+        .send()
+        .await
+        .map_err(|e| format!("Connection failed: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_else(|_| "Unknown error".into());
+        return Err(format!("API error ({}): {}", status, body));
+    }
+
+    let json: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse response: {}", e))?;
+
+    // OpenAI-compatible /models returns { data: [{ id: "model-name", ... }] }
+    let models: Vec<String> = json
+        .get("data")
+        .and_then(|d| d.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|m| m.get("id").and_then(|id| id.as_str()).map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    if models.is_empty() {
+        return Err("Connection successful but no models found".into());
+    }
+
+    Ok(models)
+}
+
+// ===========================================================================
 // Application entry point
 // ===========================================================================
 
@@ -2656,6 +2841,10 @@ pub fn run() {
             read_file,
             read_file_base64,
             write_file,
+            // Settings & LLM Provider (feat-settings-llm-config)
+            read_settings,
+            write_settings,
+            test_llm_connection,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
