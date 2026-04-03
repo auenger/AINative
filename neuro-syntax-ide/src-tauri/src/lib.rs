@@ -249,13 +249,15 @@ pub struct CreateFeatureRequest {
 // Data types - Settings & LLM Provider (feat-settings-llm-config)
 // ===========================================================================
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct ProviderConfig {
+    #[serde(default)]
     pub api_key: String,
+    #[serde(default)]
     pub api_base: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct LlmConfig {
     #[serde(default = "default_llm_provider")]
     pub provider: String,
@@ -275,7 +277,7 @@ fn default_max_tokens() -> u32 { 2000 }
 fn default_temperature() -> f32 { 0.7 }
 fn default_context_window() -> u32 { 128000 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct AppConfigYaml {
     #[serde(default = "default_auto_refresh")]
     pub auto_refresh_interval: u32,
