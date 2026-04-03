@@ -1237,6 +1237,144 @@ async fn fetch_git_status(
 }
 
 // ===========================================================================
+// Tauri commands - Git stage & commit (feat-git-stage-commit)
+// ===========================================================================
+
+/// Stage (add) a single file to the Git index. Equivalent to `git add <path>`.
+#[tauri::command]
+async fn git_stage_file(
+    state: tauri::State<'_, AppState>,
+    path: String,
+) -> Result<(), String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo = git2::Repository::discover(&workspace)
+        .map_err(|e| format!("Not a git repository: {}", e))?;
+
+    let mut index = repo.index()
+        .map_err(|e| format!("Failed to get index: {}", e))?;
+
+    index.add_path(std::path::Path::new(&path))
+        .map_err(|e| format!("Failed to stage '{}': {}", path, e))?;
+
+    index.write()
+        .map_err(|e| format!("Failed to write index: {}", e))?;
+
+    Ok(())
+}
+
+/// Stage all changes (tracked + untracked). Equivalent to `git add -A`.
+#[tauri::command]
+async fn git_stage_all(
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo = git2::Repository::discover(&workspace)
+        .map_err(|e| format!("Not a git repository: {}", e))?;
+
+    let mut index = repo.index()
+        .map_err(|e| format!("Failed to get index: {}", e))?;
+
+    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)
+        .map_err(|e| format!("Failed to stage all files: {}", e))?;
+
+    index.write()
+        .map_err(|e| format!("Failed to write index: {}", e))?;
+
+    Ok(())
+}
+
+/// Unstage a single file (reset from index to HEAD). Equivalent to `git reset HEAD -- <path>`.
+#[tauri::command]
+async fn git_unstage_file(
+    state: tauri::State<'_, AppState>,
+    path: String,
+) -> Result<(), String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo = git2::Repository::discover(&workspace)
+        .map_err(|e| format!("Not a git repository: {}", e))?;
+
+    // Get HEAD tree for resetting
+    let head = repo.head()
+        .map_err(|e| format!("Failed to read HEAD: {}", e))?;
+    let head_tree = head.peel_to_tree()
+        .map_err(|e| format!("Failed to peel HEAD to tree: {}", e))?;
+
+    // Reset the single path in the index to match HEAD
+    let mut index = repo.index()
+        .map_err(|e| format!("Failed to get index: {}", e))?;
+
+    index.read_tree(&head_tree)
+        .map_err(|e| format!("Failed to read HEAD tree into index: {}", e))?;
+
+    // Now we need to only reset the specified path.
+    // Approach: use diff to figure out the right state, or simpler: use
+    // repo.reset_default which resets specific paths.
+    drop(index);
+
+    let path_obj = std::path::Path::new(&path);
+    repo.reset_default(Some(&head_tree.into_object()), &[path_obj])
+        .map_err(|e| format!("Failed to unstage '{}': {}", path, e))?;
+
+    Ok(())
+}
+
+/// Create a commit with the given message using currently staged files.
+#[tauri::command]
+async fn git_commit(
+    state: tauri::State<'_, AppState>,
+    message: String,
+) -> Result<String, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo = git2::Repository::discover(&workspace)
+        .map_err(|e| format!("Not a git repository: {}", e))?;
+
+    // Get the index and write a tree from it
+    let mut index = repo.index()
+        .map_err(|e| format!("Failed to get index: {}", e))?;
+
+    let tree_id = index.write_tree()
+        .map_err(|e| format!("Failed to write tree: {}", e))?;
+
+    let tree = repo.find_tree(tree_id)
+        .map_err(|e| format!("Failed to find tree: {}", e))?;
+
+    // Determine parent commit (HEAD)
+    let head = repo.head().ok();
+    let parent_commit = head.as_ref().and_then(|h| h.target()).and_then(|oid| repo.find_commit(oid).ok());
+
+    // Build signature
+    let sig = repo.signature()
+        .map_err(|e| format!("Failed to get signature: {}", e))?;
+
+    // Create the commit
+    let commit_id = if let Some(parent) = parent_commit {
+        repo.commit(Some("HEAD"), &sig, &sig, &message, &tree, &[&parent])
+            .map_err(|e| format!("Failed to commit: {}", e))?
+    } else {
+        repo.commit(Some("HEAD"), &sig, &sig, &message, &tree, &[])
+            .map_err(|e| format!("Failed to commit: {}", e))?
+    };
+
+    Ok(format!("{}", commit_id))
+}
+
+// ===========================================================================
 // Tauri commands - AI Agent Service
 // ===========================================================================
 
@@ -2128,6 +2266,11 @@ pub fn run() {
             stop_hardware_monitor,
             fetch_git_stats,
             fetch_git_status,
+            // Git stage & commit (feat-git-stage-commit)
+            git_stage_file,
+            git_stage_all,
+            git_unstage_file,
+            git_commit,
             // AI Agent Service
             agent_chat_stream,
             store_api_key,

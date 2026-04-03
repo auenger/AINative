@@ -19,7 +19,10 @@ import {
   MessageSquarePlus,
   Square,
   Radio,
-  WifiOff
+  WifiOff,
+  PlusCircle,
+  MinusCircle,
+  GitCommitHorizontal,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
@@ -58,6 +61,9 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ workspace }) => {
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [commitMessage, setCommitMessage] = useState('');
+  const [isCommitting, setIsCommitting] = useState(false);
+  const [stagingPath, setStagingPath] = useState<string | null>(null);
   const [generatedPlan, setGeneratedPlan] = useState<FeaturePlanOutput | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -113,6 +119,47 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
       setIsSyncing(false);
       setShowGitModal(false);
     }, 2000);
+  };
+
+  const handleStageFile = async (filePath: string) => {
+    setStagingPath(filePath);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('git_stage_file', { path: filePath });
+      await gitStatus.refresh();
+    } catch (e) {
+      console.error('Failed to stage file:', e);
+    } finally {
+      setStagingPath(null);
+    }
+  };
+
+  const handleUnstageFile = async (filePath: string) => {
+    setStagingPath(filePath);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('git_unstage_file', { path: filePath });
+      await gitStatus.refresh();
+    } catch (e) {
+      console.error('Failed to unstage file:', e);
+    } finally {
+      setStagingPath(null);
+    }
+  };
+
+  const handleCommit = async () => {
+    if (!commitMessage.trim() || isCommitting) return;
+    setIsCommitting(true);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('git_commit', { message: commitMessage });
+      setCommitMessage('');
+      await gitStatus.refresh();
+    } catch (e) {
+      console.error('Failed to commit:', e);
+    } finally {
+      setIsCommitting(false);
+    }
   };
 
   const handleGenerateTasks = async () => {
@@ -734,7 +781,7 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                       </div>
                     </div>
 
-                    {/* Changed files */}
+                    {/* Changed files — grouped into Staged and Unstaged */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-outline">{t('project.changesDetected')}</span>
@@ -749,62 +796,158 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                           No changes detected
                         </div>
                       ) : (
-                        <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden divide-y divide-outline-variant/5">
-                          {gitStatus.data.files.map((file) => {
-                            const fileName = file.path.split('/').pop() || file.path;
-                            const statusColor = file.status === 'staged'
-                              ? 'text-tertiary'
-                              : file.status === 'untracked'
-                                ? 'text-warning'
-                                : 'text-primary';
-                            const statusLabel = file.status === 'staged'
-                              ? 'Staged'
-                              : file.status === 'untracked'
-                                ? 'Untracked'
-                                : 'Modified';
+                        <>
+                          {/* Staged files */}
+                          {(() => {
+                            const stagedFiles = gitStatus.data.files.filter(f => f.status === 'staged');
+                            if (stagedFiles.length === 0) return null;
                             return (
-                              <div key={file.path} className="flex items-center gap-3 p-3 bg-surface-container-high/20">
-                                <FileText size={16} className="text-primary shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-bold truncate">{fileName}</p>
-                                  <p className="text-[10px] text-outline truncate">{file.path}</p>
+                              <div className="space-y-1">
+                                <span className="text-[9px] font-bold uppercase tracking-widest text-tertiary">Staged ({stagedFiles.length})</span>
+                                <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden divide-y divide-outline-variant/5">
+                                  {stagedFiles.map((file) => {
+                                    const fileName = file.path.split('/').pop() || file.path;
+                                    return (
+                                      <div key={file.path} className="flex items-center gap-3 p-3 bg-surface-container-high/20">
+                                        <FileText size={16} className="text-tertiary shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-xs font-bold truncate">{fileName}</p>
+                                          <p className="text-[10px] text-outline truncate">{file.path}</p>
+                                        </div>
+                                        {(file.additions > 0 || file.deletions > 0) && (
+                                          <div className="flex items-center gap-1 text-[10px] font-mono shrink-0">
+                                            {file.additions > 0 && <span className="text-emerald-400">+{file.additions}</span>}
+                                            {file.deletions > 0 && <span className="text-error">-{file.deletions}</span>}
+                                          </div>
+                                        )}
+                                        <button
+                                          onClick={() => handleUnstageFile(file.path)}
+                                          disabled={stagingPath === file.path}
+                                          className="p-1.5 rounded-md text-warning hover:bg-warning/10 transition-colors disabled:opacity-50"
+                                          title="Unstage"
+                                        >
+                                          {stagingPath === file.path ? (
+                                            <Loader2 size={14} className="animate-spin" />
+                                          ) : (
+                                            <MinusCircle size={14} />
+                                          )}
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
-                                <span className={cn("text-[9px] font-bold uppercase shrink-0", statusColor)}>
-                                  {statusLabel}
-                                </span>
-                                {(file.additions > 0 || file.deletions > 0) && (
-                                  <div className="flex items-center gap-1 text-[10px] font-mono shrink-0">
-                                    {file.additions > 0 && <span className="text-emerald-400">+{file.additions}</span>}
-                                    {file.deletions > 0 && <span className="text-error">-{file.deletions}</span>}
-                                  </div>
-                                )}
                               </div>
                             );
-                          })}
-                        </div>
+                          })()}
+
+                          {/* Unstaged & Untracked files */}
+                          {(() => {
+                            const unstagedFiles = gitStatus.data.files.filter(f => f.status === 'unstaged' || f.status === 'untracked');
+                            if (unstagedFiles.length === 0) return null;
+                            return (
+                              <div className="space-y-1">
+                                <span className="text-[9px] font-bold uppercase tracking-widest text-primary">Changes ({unstagedFiles.length})</span>
+                                <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden divide-y divide-outline-variant/5">
+                                  {unstagedFiles.map((file) => {
+                                    const fileName = file.path.split('/').pop() || file.path;
+                                    const statusColor = file.status === 'untracked'
+                                      ? 'text-warning'
+                                      : 'text-primary';
+                                    const statusLabel = file.status === 'untracked'
+                                      ? 'Untracked'
+                                      : 'Modified';
+                                    return (
+                                      <div key={file.path} className="flex items-center gap-3 p-3 bg-surface-container-high/20">
+                                        <FileText size={16} className={cn("shrink-0", statusColor)} />
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-xs font-bold truncate">{fileName}</p>
+                                          <p className="text-[10px] text-outline truncate">{file.path}</p>
+                                        </div>
+                                        <span className={cn("text-[9px] font-bold uppercase shrink-0", statusColor)}>
+                                          {statusLabel}
+                                        </span>
+                                        {(file.additions > 0 || file.deletions > 0) && (
+                                          <div className="flex items-center gap-1 text-[10px] font-mono shrink-0">
+                                            {file.additions > 0 && <span className="text-emerald-400">+{file.additions}</span>}
+                                            {file.deletions > 0 && <span className="text-error">-{file.deletions}</span>}
+                                          </div>
+                                        )}
+                                        <button
+                                          onClick={() => handleStageFile(file.path)}
+                                          disabled={stagingPath === file.path}
+                                          className="p-1.5 rounded-md text-tertiary hover:bg-tertiary/10 transition-colors disabled:opacity-50"
+                                          title="Stage"
+                                        >
+                                          {stagingPath === file.path ? (
+                                            <Loader2 size={14} className="animate-spin" />
+                                          ) : (
+                                            <PlusCircle size={14} />
+                                          )}
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </>
                       )}
                     </div>
                   </>
                 ) : null}
               </div>
 
-              <div className="p-4 bg-surface-container-high/30 border-t border-outline-variant/10 flex gap-3">
-                <button
-                  onClick={handleSync}
-                  disabled={isSyncing}
-                  className="flex-1 flex items-center justify-center gap-2 bg-primary text-on-primary py-2.5 rounded-lg text-xs font-bold hover:brightness-110 transition-all disabled:opacity-50"
-                >
-                  {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <ArrowUpRight size={14} />}
-                  {isSyncing ? t('project.syncing') : t('project.pushChanges')}
-                </button>
-                <button
-                  onClick={handleSync}
-                  disabled={isSyncing}
-                  className="flex-1 flex items-center justify-center gap-2 bg-surface-container-highest text-on-surface py-2.5 rounded-lg text-xs font-bold hover:bg-surface-variant transition-all border border-outline-variant/10 disabled:opacity-50"
-                >
-                  <RefreshCw size={14} className={cn(isSyncing && "animate-spin")} />
-                  {t('project.updateRemote')}
-                </button>
+              <div className="p-4 bg-surface-container-high/30 border-t border-outline-variant/10 space-y-3">
+                {/* Commit input + button */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={commitMessage}
+                    onChange={(e) => setCommitMessage(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleCommit()}
+                    placeholder="Commit message..."
+                    disabled={isCommitting}
+                    className="flex-1 bg-surface-container-lowest border border-outline-variant/20 rounded-lg px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary/50 font-mono disabled:opacity-50"
+                  />
+                  <button
+                    onClick={handleCommit}
+                    disabled={isCommitting || !commitMessage.trim() || !gitStatus.data?.files.some(f => f.status === 'staged')}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed",
+                      commitMessage.trim() && gitStatus.data?.files.some(f => f.status === 'staged')
+                        ? "bg-primary text-on-primary hover:brightness-110"
+                        : "bg-surface-container-highest text-on-surface-variant border border-outline-variant/10"
+                    )}
+                  >
+                    {isCommitting ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <GitCommitHorizontal size={14} />
+                    )}
+                    Commit
+                  </button>
+                </div>
+
+                {/* Push / Pull buttons */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleSync}
+                    disabled={isSyncing}
+                    className="flex-1 flex items-center justify-center gap-2 bg-primary text-on-primary py-2.5 rounded-lg text-xs font-bold hover:brightness-110 transition-all disabled:opacity-50"
+                  >
+                    {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <ArrowUpRight size={14} />}
+                    {isSyncing ? t('project.syncing') : t('project.pushChanges')}
+                  </button>
+                  <button
+                    onClick={handleSync}
+                    disabled={isSyncing}
+                    className="flex-1 flex items-center justify-center gap-2 bg-surface-container-highest text-on-surface py-2.5 rounded-lg text-xs font-bold hover:bg-surface-variant transition-all border border-outline-variant/10 disabled:opacity-50"
+                  >
+                    <RefreshCw size={14} className={cn(isSyncing && "animate-spin")} />
+                    {t('project.updateRemote')}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>
