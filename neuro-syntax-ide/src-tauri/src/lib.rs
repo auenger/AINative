@@ -2613,6 +2613,14 @@ async fn read_file(path: String) -> Result<String, String> {
         .map_err(|e| format!("Failed to read file '{}': {}", path, e))
 }
 
+/// Read a file as base64-encoded string. Used for binary files like images.
+#[tauri::command]
+async fn read_file_base64(path: String) -> Result<String, String> {
+    let bytes = fs::read(&path)
+        .map_err(|e| format!("Failed to read file '{}': {}", path, e))?;
+    Ok(base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes))
+}
+
 #[tauri::command]
 async fn write_file(path: String, content: String) -> Result<(), String> {
     fs::write(&path, content)
@@ -2676,6 +2684,7 @@ pub fn run() {
             req_agent_stop,
             req_agent_status,
             read_file,
+            read_file_base64,
             write_file,
         ])
         .run(tauri::generate_context!())

@@ -31,6 +31,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { getFileRendererType } from '../../lib/file-type-router';
 import { getEditorOptionsForLanguage } from '../../lib/language-presets';
 import { MarkdownSplitView } from './MarkdownSplitView';
+import { ImagePreview } from './ImagePreview';
+import { ConfigTreeView } from './ConfigTreeView';
 import { registerVueLanguage } from '../../lib/vue-language';
 
 // Lazy-load Monaco Editor for performance
@@ -879,6 +881,18 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                   content={activeFile.content}
                   onContentChange={(v) => handleEditorChange(v)}
                   language={activeFile.language}
+                />
+              ) : activeFile.rendererType === 'image' ? (
+                <ImagePreview
+                  filePath={activeFile.path}
+                  isTauri={isTauri}
+                />
+              ) : activeFile.rendererType === 'config-tree' ? (
+                <ConfigTreeView
+                  filePath={activeFile.path}
+                  content={activeFile.content}
+                  language={activeFile.language}
+                  onContentChange={(v) => handleEditorChange(v)}
                 />
               ) : (
               <Suspense
