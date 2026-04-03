@@ -1,10 +1,83 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-03T22:00:00Z"
+  last_updated: "2026-04-04T00:30:00Z"
   version: 1
-  total_completed: 29
+  total_completed: 32
 
 records:
+  - id: feat-markdown-split-preview
+    name: "Markdown 分栏预览（左代码右渲染）"
+    completed_at: "2026-04-04T00:30:00Z"
+    tag: feat-markdown-split-preview-20260404
+    merge_commit: a7ec88a
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-markdown-split-preview
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-markdown-split-preview
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+      resolved_at: null
+      re_verified: false
+    verification:
+      status: passed
+      scenarios_total: 5
+      scenarios_passed: 5
+    stats:
+      started: "2026-04-04T00:00:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 5
+
+  - id: feat-file-type-router
+    name: "文件类型路由 + 代码语言风格差异化"
+    completed_at: "2026-04-03T23:30:00Z"
+    tag: feat-file-type-router-20260403
+    merge_commit: f556a96
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-file-type-router
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-file-type-router
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+      resolved_at: null
+      re_verified: false
+    verification:
+      status: passed
+      scenarios_total: 5
+      scenarios_passed: 5
+    stats:
+      started: "2026-04-03T23:00:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 4
+
+  - id: feat-terminal-enhance
+    name: "编辑器终端能力增强（可用性 + hover 样式 + 新建终端）"
+    completed_at: "2026-04-03T22:30:00Z"
+    tag: feat-terminal-enhance-20260403
+    merge_commit: bc092e0
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-terminal-enhance
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-terminal-enhance
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-03T22:10:00Z"
+      duration: "20m"
+      commits: 1
+      files_changed: 5
+
   - id: feat-tauri-v2-init
     name: "Tauri V2 工程初始化"
     completed_at: "2026-04-01T10:00:00Z"
@@ -456,3 +529,26 @@ records:
       duration: "~60m"
       commits: 1
       files_changed: 4
+
+  - id: feat-git-push-pull
+    name: "Git 远程同步（Push & Pull）"
+    completed_at: "2026-04-03T22:30:00Z"
+    tag: feat-git-push-pull-20260403
+    merge_commit: e67734aba496d062f5471d3a90d2091ba43f40ca
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-git-push-pull
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-git-push-pull
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-03T21:30:00Z"
+      duration: "~60m"
+      commits: 1
+      files_changed: 2

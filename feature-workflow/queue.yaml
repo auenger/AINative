@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-03T22:00:00Z"
+  last_updated: "2026-04-04T00:30:00Z"
   version: 1
 
 parents:
@@ -16,15 +16,15 @@ parents:
       - feat-ai-agent-service
 
 active:
-  - id: feat-git-push-pull
-    name: "Git 远程同步（Push & Pull）"
-    priority: 68
-    parent: feat-git-integration
+  - id: feat-syntax-highlight-lang
+    name: "多语言语法配色渲染增强"
+    priority: 58
+    parent: feat-file-type-display
     dependencies:
-      - feat-git-stage-commit
-    branch: feature/feat-git-push-pull
-    worktree: ../NeuroSyntaxIDE-feat-git-push-pull
-    started_at: "2026-04-03T21:30:00Z"
+      - feat-file-type-router
+    branch: feature/feat-syntax-highlight-lang
+    worktree: ../NeuroSyntaxIDE-feat-syntax-highlight-lang
+    started_at: "2026-04-04T00:00:00Z"
 
 pending:
   - id: feat-git-integration
@@ -36,11 +36,6 @@ pending:
       - feat-git-stage-commit
       - feat-git-push-pull
 
-  - id: feat-terminal-enhance
-    name: "编辑器终端能力增强（可用性 + hover 样式 + 新建终端）"
-    priority: 65
-    dependencies: []
-
   - id: feat-file-type-display
     name: "文件类型差异化展示系统"
     priority: 60
@@ -51,19 +46,6 @@ pending:
       - feat-image-config-preview
       - feat-syntax-highlight-lang
 
-  - id: feat-file-type-router
-    name: "文件类型路由 + 代码语言风格差异化"
-    priority: 60
-    parent: feat-file-type-display
-    dependencies: []
-
-  - id: feat-markdown-split-preview
-    name: "Markdown 分栏预览（左代码右渲染）"
-    priority: 55
-    parent: feat-file-type-display
-    dependencies:
-      - feat-file-type-router
-
   - id: feat-image-config-preview
     name: "图片可视化预览 + 配置文件结构化视图"
     priority: 50
@@ -71,16 +53,19 @@ pending:
     dependencies:
       - feat-file-type-router
 
-  - id: feat-syntax-highlight-lang
-    name: "多语言语法配色渲染增强"
-    priority: 58
-    parent: feat-file-type-display
-    dependencies:
-      - feat-file-type-router
-
 blocked: []
 
 completed:
+  - id: feat-markdown-split-preview
+    name: "Markdown 分栏预览（左代码右渲染）"
+    completed_at: "2026-04-04T00:30:00Z"
+    tag: feat-markdown-split-preview-20260404
+
+  - id: feat-file-type-router
+    name: "文件类型路由 + 代码语言风格差异化"
+    completed_at: "2026-04-03T23:30:00Z"
+    tag: feat-file-type-router-20260403
+
   - id: feat-tauri-v2-init
     name: "Tauri V2 工程初始化"
     completed_at: "2026-04-01T10:00:00Z"
@@ -230,3 +215,13 @@ completed:
     name: "需求分析输出工作流"
     completed_at: "2026-04-03T22:00:00Z"
     tag: feat-req-agent-workflow-20260403
+
+  - id: feat-git-push-pull
+    name: "Git 远程同步（Push & Pull）"
+    completed_at: "2026-04-03T22:30:00Z"
+    tag: feat-git-push-pull-20260403
+
+  - id: feat-terminal-enhance
+    name: "编辑器终端能力增强（可用性 + hover 样式 + 新建终端）"
+    completed_at: "2026-04-03T22:30:00Z"
+    tag: feat-terminal-enhance-20260403
