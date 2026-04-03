@@ -12,15 +12,7 @@ interface BottomPanelProps {
 
 export const BottomPanel: React.FC<BottomPanelProps> = ({ logs, visible, onClose, onOpen }) => {
   if (!visible) {
-    return (
-      <button
-        onClick={onOpen}
-        className="absolute bottom-1 right-3 z-30 w-8 h-8 flex items-center justify-center rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/60 transition-all duration-200 cursor-pointer"
-        title="Show Console"
-      >
-        <Terminal size={16} />
-      </button>
-    );
+    return null;
   }
 
   return (

@@ -313,6 +313,8 @@ export const XTerminal: React.FC<XTerminalProps> = ({
         'w-full h-full',
         // Ensure xterm fills its container
         '[&_.xterm]:h-full [&_.xterm]:w-full',
+        // xterm v6 scrollable wrapper must also fill height
+        '[&_.xterm-scrollable-element]:h-full [&_.xterm-scrollable-element]:w-full',
         '[&_.xterm-viewport]:!overflow-y-auto',
         className,
       )}

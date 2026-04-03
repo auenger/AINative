@@ -1,12 +1,18 @@
 import React from 'react';
-import { Bell, FolderOpen } from 'lucide-react';
+import { Bell, FolderOpen, Terminal } from 'lucide-react';
 
-export const StatusBar: React.FC<{ workspacePath?: string }> = ({ workspacePath }) => {
+interface StatusBarProps {
+  workspacePath?: string;
+  consoleVisible?: boolean;
+  onToggleConsole?: () => void;
+}
+
+export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisible, onToggleConsole }) => {
   return (
     <footer
       className={
-        'fixed bottom-0 left-0 w-full h-6 flex justify-between items-center ' +
-        'px-4 z-50 bg-app font-mono text-[10px] uppercase tracking-tighter ' +
+        'h-6 shrink-0 flex justify-between items-center ' +
+        'px-4 z-50 bg-surface-container-lowest font-mono text-[10px] uppercase tracking-tighter ' +
         'border-t border-outline-variant/10'
       }
     >
@@ -24,6 +30,19 @@ export const StatusBar: React.FC<{ workspacePath?: string }> = ({ workspacePath 
         </div>
       </div>
       <div className="flex items-center gap-4">
+        {onToggleConsole && (
+          <button
+            onClick={onToggleConsole}
+            className={consoleVisible
+              ? "flex items-center gap-1.5 text-tertiary font-bold hover:text-on-surface transition-colors cursor-pointer"
+              : "flex items-center gap-1.5 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+            }
+            title={consoleVisible ? 'Hide Console' : 'Show Console'}
+          >
+            <Terminal size={10} />
+            <span>Console</span>
+          </button>
+        )}
         <div className="flex items-center gap-1.5 text-tertiary font-bold">
           <div className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></div>
           <span>Connected</span>

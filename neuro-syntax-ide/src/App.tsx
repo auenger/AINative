@@ -76,7 +76,11 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      <StatusBar workspacePath={workspace.workspacePath} />
+      <StatusBar
+        workspacePath={workspace.workspacePath}
+        consoleVisible={consoleVisible}
+        onToggleConsole={() => setConsoleVisible(!consoleVisible)}
+      />
     </div>
   );
 };
