@@ -63,10 +63,6 @@ completed:
     name: "Settings 页面 & LLM Provider 配置（UI + 持久化 + 自动刷新）"
     completed_at: "2026-04-03T23:30:00Z"
     tag: feat-settings-llm-config-20260403
-  - id: feat-settings-llm-config
-    name: "Settings 页面 & LLM Provider 配置（UI + 持久化 + 自动刷新）"
-    completed_at: "2026-04-03T23:30:00Z"
-    tag: feat-settings-llm-config-20260403
   - id: fix-terminal-writer-tabs
     name: "终端 Writer 不可重复获取 & 新增终端失效修复"
     completed_at: "2026-04-04T12:00:00Z"
