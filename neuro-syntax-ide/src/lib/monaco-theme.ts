@@ -23,11 +23,13 @@ export const NEURO_DARK_THEME: editor.IStandaloneThemeData = {
     { token: 'keyword.control', foreground: '7db8ff' },
     { token: 'keyword.operator', foreground: 'a2c9ff' },
     { token: 'keyword.operator.new', foreground: 'a2c9ff' },
+    { token: 'keyword.declaration', foreground: '93c5fd' },
 
     // --- Strings ---
     { token: 'string', foreground: '67df70' },
     { token: 'string.escape', foreground: '8ff09a' },
     { token: 'string.regex', foreground: '5bc460' },
+    { token: 'string.template', foreground: '67df70' },
 
     // --- Numbers ---
     { token: 'number', foreground: 'ffb4ab' },
@@ -48,11 +50,13 @@ export const NEURO_DARK_THEME: editor.IStandaloneThemeData = {
     { token: 'variable', foreground: 'dfe2eb' },
     { token: 'variable.predefined', foreground: 'a2c9ff' },
     { token: 'variable.other.constant', foreground: 'ffb4ab', fontStyle: 'bold' },
+    { token: 'variable.language', foreground: 'f0abfc', fontStyle: 'italic' },
 
     // --- Operators & punctuation ---
     { token: 'operator', foreground: '8b919d' },
     { token: 'delimiter', foreground: '8b919d' },
     { token: 'delimiter.bracket', foreground: 'a2c9ff' },
+    { token: 'delimiter.angle', foreground: '7dd3fc' },
 
     // --- Tags (HTML/JSX) ---
     { token: 'tag', foreground: 'a2c9ff' },
@@ -62,14 +66,68 @@ export const NEURO_DARK_THEME: editor.IStandaloneThemeData = {
 
     // --- Meta / decorators ---
     { token: 'meta', foreground: '8b919d' },
-    { token: 'meta.decorator', foreground: 'ffb4ab' },
-    { token: 'annotation', foreground: 'ffb4ab' },
+    { token: 'meta.decorator', foreground: 'f0abfc' },
+    { token: 'meta.decorator.java', foreground: 'f0abfc' },
+    { token: 'meta.annotation', foreground: 'f0abfc' },
+    { token: 'annotation', foreground: 'f0abfc' },
+    { token: 'annotation.java', foreground: 'f0abfc' },
 
     // --- Literals ---
     { token: 'string.literal', foreground: '67df70' },
     { token: 'constant', foreground: 'ffb4ab' },
     { token: 'constant.language', foreground: 'a2c9ff' },
     { token: 'constant.escape', foreground: '8ff09a' },
+
+    // --- Java-specific ---
+    { token: 'keyword.declaration.java', foreground: '93c5fd' },
+    { token: 'keyword.control.java', foreground: '7db8ff' },
+    { token: 'type.identifier.java', foreground: '7dd3fc' },
+
+    // --- Python-specific ---
+    { token: 'decorator.python', foreground: 'f0abfc' },
+    { token: 'variable.language.python', foreground: 'f0abfc', fontStyle: 'italic' },
+    { token: 'string.interpolated.python', foreground: '8ff09a' },
+    { token: 'keyword.control.python', foreground: '7db8ff' },
+    { token: 'keyword.operator.logical.python', foreground: 'a2c9ff' },
+    { token: 'constant.language.python', foreground: 'a2c9ff' },
+    { token: 'support.function.builtin.python', foreground: 'c8d8f0' },
+
+    // --- Rust-specific ---
+    { token: 'keyword.control.rust', foreground: '7db8ff' },
+    { token: 'support.function.std.rust', foreground: 'c8d8f0' },
+    { token: 'keyword.other.rust', foreground: 'a2c9ff' },
+    { token: 'meta.attribute.rust', foreground: 'f0abfc' },
+    { token: 'entity.name.function.macro.rust', foreground: 'ffb4ab' },
+    { token: 'entity.name.type.rust', foreground: '7dd3fc' },
+    { token: 'keyword.unsafe.rust', foreground: 'fca5a5' },
+
+    // --- Go-specific ---
+    { token: 'keyword.go', foreground: 'a2c9ff' },
+    { token: 'keyword.channel.go', foreground: '93c5fd' },
+    { token: 'keyword.operator.go', foreground: 'a2c9ff' },
+    { token: 'support.function.builtin.go', foreground: 'c8d8f0' },
+    { token: 'variable.other.assignment.go', foreground: 'dfe2eb' },
+
+    // --- Kotlin-specific ---
+    { token: 'keyword.kotlin', foreground: 'a2c9ff' },
+    { token: 'keyword.control.kotlin', foreground: '7db8ff' },
+    { token: 'entity.name.type.kotlin', foreground: '7dd3fc' },
+    { token: 'annotation.kotlin', foreground: 'f0abfc' },
+
+    // --- C/C++-specific ---
+    { token: 'keyword.directive.cpp', foreground: 'f0abfc' },
+    { token: 'keyword.control.cpp', foreground: '7db8ff' },
+    { token: 'keyword.control.c', foreground: '7db8ff' },
+    { token: 'entity.name.type.cpp', foreground: '7dd3fc' },
+    { token: 'entity.name.type.c', foreground: '7dd3fc' },
+    { token: 'meta.preprocessor.cpp', foreground: 'f0abfc' },
+    { token: 'meta.preprocessor.c', foreground: 'f0abfc' },
+
+    // --- Vue-specific ---
+    { token: 'entity.name.tag.vue', foreground: 'a2c9ff' },
+    { token: 'support.directive.vue', foreground: '93c5fd' },
+    { token: 'entity.other.attribute-name.directive.vue', foreground: 'f0abfc' },
+    { token: 'punctuation.definition.interpolation.vue', foreground: 'ffb4ab' },
 
     // --- Markdown ---
     { token: 'keyword.md', foreground: 'a2c9ff' },
@@ -150,11 +208,13 @@ export const NEURO_LIGHT_THEME: editor.IStandaloneThemeData = {
     { token: 'keyword.control', foreground: '1a73e8' },
     { token: 'keyword.operator', foreground: '0b57d0' },
     { token: 'keyword.operator.new', foreground: '0b57d0' },
+    { token: 'keyword.declaration', foreground: '1a73e8' },
 
     // --- Strings ---
     { token: 'string', foreground: '1b7d34' },
     { token: 'string.escape', foreground: '2e8b47' },
     { token: 'string.regex', foreground: '1b7d34' },
+    { token: 'string.template', foreground: '1b7d34' },
 
     // --- Numbers ---
     { token: 'number', foreground: 'ba1a1a' },
@@ -175,11 +235,13 @@ export const NEURO_LIGHT_THEME: editor.IStandaloneThemeData = {
     { token: 'variable', foreground: '1a1c1e' },
     { token: 'variable.predefined', foreground: '0b57d0' },
     { token: 'variable.other.constant', foreground: 'ba1a1a', fontStyle: 'bold' },
+    { token: 'variable.language', foreground: '9333ea', fontStyle: 'italic' },
 
     // --- Operators & punctuation ---
     { token: 'operator', foreground: '5f6368' },
     { token: 'delimiter', foreground: '5f6368' },
     { token: 'delimiter.bracket', foreground: '0b57d0' },
+    { token: 'delimiter.angle', foreground: '0b57d0' },
 
     // --- Tags (HTML/JSX) ---
     { token: 'tag', foreground: '0b57d0' },
@@ -189,14 +251,68 @@ export const NEURO_LIGHT_THEME: editor.IStandaloneThemeData = {
 
     // --- Meta / decorators ---
     { token: 'meta', foreground: '5f6368' },
-    { token: 'meta.decorator', foreground: 'ba1a1a' },
-    { token: 'annotation', foreground: 'ba1a1a' },
+    { token: 'meta.decorator', foreground: '9333ea' },
+    { token: 'meta.decorator.java', foreground: '9333ea' },
+    { token: 'meta.annotation', foreground: '9333ea' },
+    { token: 'annotation', foreground: '9333ea' },
+    { token: 'annotation.java', foreground: '9333ea' },
 
     // --- Literals ---
     { token: 'string.literal', foreground: '1b7d34' },
     { token: 'constant', foreground: 'ba1a1a' },
     { token: 'constant.language', foreground: '0b57d0' },
     { token: 'constant.escape', foreground: '2e8b47' },
+
+    // --- Java-specific ---
+    { token: 'keyword.declaration.java', foreground: '1a73e8' },
+    { token: 'keyword.control.java', foreground: '1a73e8' },
+    { token: 'type.identifier.java', foreground: '0b57d0' },
+
+    // --- Python-specific ---
+    { token: 'decorator.python', foreground: '9333ea' },
+    { token: 'variable.language.python', foreground: '9333ea', fontStyle: 'italic' },
+    { token: 'string.interpolated.python', foreground: '2e8b47' },
+    { token: 'keyword.control.python', foreground: '1a73e8' },
+    { token: 'keyword.operator.logical.python', foreground: '0b57d0' },
+    { token: 'constant.language.python', foreground: '0b57d0' },
+    { token: 'support.function.builtin.python', foreground: '3c4043' },
+
+    // --- Rust-specific ---
+    { token: 'keyword.control.rust', foreground: '1a73e8' },
+    { token: 'support.function.std.rust', foreground: '3c4043' },
+    { token: 'keyword.other.rust', foreground: '0b57d0' },
+    { token: 'meta.attribute.rust', foreground: '9333ea' },
+    { token: 'entity.name.function.macro.rust', foreground: 'ba1a1a' },
+    { token: 'entity.name.type.rust', foreground: '0b57d0' },
+    { token: 'keyword.unsafe.rust', foreground: 'dc2626' },
+
+    // --- Go-specific ---
+    { token: 'keyword.go', foreground: '0b57d0' },
+    { token: 'keyword.channel.go', foreground: '1a73e8' },
+    { token: 'keyword.operator.go', foreground: '0b57d0' },
+    { token: 'support.function.builtin.go', foreground: '3c4043' },
+    { token: 'variable.other.assignment.go', foreground: '1a1c1e' },
+
+    // --- Kotlin-specific ---
+    { token: 'keyword.kotlin', foreground: '0b57d0' },
+    { token: 'keyword.control.kotlin', foreground: '1a73e8' },
+    { token: 'entity.name.type.kotlin', foreground: '0b57d0' },
+    { token: 'annotation.kotlin', foreground: '9333ea' },
+
+    // --- C/C++-specific ---
+    { token: 'keyword.directive.cpp', foreground: '9333ea' },
+    { token: 'keyword.control.cpp', foreground: '1a73e8' },
+    { token: 'keyword.control.c', foreground: '1a73e8' },
+    { token: 'entity.name.type.cpp', foreground: '0b57d0' },
+    { token: 'entity.name.type.c', foreground: '0b57d0' },
+    { token: 'meta.preprocessor.cpp', foreground: '9333ea' },
+    { token: 'meta.preprocessor.c', foreground: '9333ea' },
+
+    // --- Vue-specific ---
+    { token: 'entity.name.tag.vue', foreground: '0b57d0' },
+    { token: 'support.directive.vue', foreground: '1a73e8' },
+    { token: 'entity.other.attribute-name.directive.vue', foreground: '9333ea' },
+    { token: 'punctuation.definition.interpolation.vue', foreground: 'ba1a1a' },
 
     // --- Markdown ---
     { token: 'keyword.md', foreground: '0b57d0' },

@@ -128,6 +128,20 @@ const sqlPreset: LanguagePreset = {
   minimap: { enabled: false },
 };
 
+const cPreset: LanguagePreset = {
+  tabSize: 4,
+  insertSpaces: true,
+  wordWrap: 'off',
+  minimap: { enabled: true, scale: 1 },
+};
+
+const cppPreset: LanguagePreset = {
+  tabSize: 4,
+  insertSpaces: true,
+  wordWrap: 'off',
+  minimap: { enabled: true, scale: 1 },
+};
+
 // -- Preset map: Monaco language id → preset --------------------------------
 
 const LANGUAGE_PRESETS: Record<string, LanguagePreset> = {
@@ -135,7 +149,9 @@ const LANGUAGE_PRESETS: Record<string, LanguagePreset> = {
   javascript: javascriptPreset,
   rust: rustPreset,
   python: pythonPreset,
-  html: htmlPreset,       // Vue files use html as fallback
+  html: htmlPreset,
+  vue: vuePreset,
+  svelte: sveltePreset,
   css: cssPreset,
   scss: cssPreset,
   less: cssPreset,
@@ -148,6 +164,8 @@ const LANGUAGE_PRESETS: Record<string, LanguagePreset> = {
   shell: shellPreset,
   sql: sqlPreset,
   ini: yamlPreset,        // TOML etc. use yaml-like config
+  c: cPreset,
+  cpp: cppPreset,
 };
 
 // -- Public API -------------------------------------------------------------
