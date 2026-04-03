@@ -99,6 +99,39 @@ export interface GitStatusResult {
 }
 
 // ---------------------------------------------------------------------------
+// Git detail types (feat-git-modal-enhance)
+// ---------------------------------------------------------------------------
+
+/** Git tag info from fetch_git_tags command. */
+export interface GitTag {
+  name: string;
+  date: number;
+  commit_hash: string;
+  message: string;
+}
+
+/** Git commit detail from fetch_git_log command. */
+export interface GitCommit {
+  hash: string;
+  short_hash: string;
+  message: string;
+  author: string;
+  timestamp: number;
+  time_ago: string;
+}
+
+/** Git branch info from fetch_git_branches command. */
+export interface GitBranch {
+  name: string;
+  is_current: boolean;
+  latest_commit: string;
+  latest_commit_hash: string;
+}
+
+/** Tab identifiers for the Git modal sidebar navigation. */
+export type GitModalTab = 'overview' | 'branches' | 'tags' | 'history' | 'changes' | 'features';
+
+// ---------------------------------------------------------------------------
 // Settings & LLM Provider types (feat-settings-llm-config)
 // ---------------------------------------------------------------------------
 

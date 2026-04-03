@@ -189,6 +189,36 @@ pub struct GitStatusResult {
 }
 
 // ===========================================================================
+// Data types - Git detail (feat-git-modal-enhance)
+// ===========================================================================
+
+#[derive(Debug, Serialize, Clone)]
+pub struct GitTag {
+    pub name: String,
+    pub date: i64,
+    pub commit_hash: String,
+    pub message: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct GitCommitDetail {
+    pub hash: String,
+    pub short_hash: String,
+    pub message: String,
+    pub author: String,
+    pub timestamp: i64,
+    pub time_ago: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct GitBranchInfo {
+    pub name: String,
+    pub is_current: bool,
+    pub latest_commit: String,
+    pub latest_commit_hash: String,
+}
+
+// ===========================================================================
 // Data types - AI Agent Service
 // ===========================================================================
 
@@ -2197,6 +2227,198 @@ async fn fetch_git_status(
 }
 
 // ===========================================================================
+// Tauri commands - Git detail queries (feat-git-modal-enhance)
+// ===========================================================================
+
+/// Fetch all Git tags (name, date, commit hash, message).
+#[tauri::command]
+async fn fetch_git_tags(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<GitTag>, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo_path = PathBuf::from(&workspace);
+    let repo = git2::Repository::discover(&repo_path)
+        .map_err(|e| format!("Not a git repository: {}", e))?;
+
+    let mut tags: Vec<GitTag> = Vec::new();
+
+    repo.tag_foreach(|oid, name_bytes| {
+        let name = String::from_utf8_lossy(name_bytes)
+            .strip_prefix("refs/tags/")
+            .unwrap_or("")
+            .to_string();
+
+        // Try to peel to commit for date/message
+        let date = repo.find_tag(oid).ok().and_then(|tag| {
+            let target_id = tag.target_id();
+            repo.find_commit(target_id).ok().map(|c| c.time().seconds())
+        }).or_else(|| {
+            // Lightweight tag: try to peel the object directly to a commit
+            repo.find_object(oid, None).ok().and_then(|obj| {
+                obj.peel_to_commit().ok().map(|c| c.time().seconds())
+            })
+        });
+
+        let commit_hash = repo.find_tag(oid).ok().and_then(|tag| {
+            Some(tag.target_id().to_string())
+        }).or_else(|| {
+            repo.find_object(oid, None).ok().and_then(|obj| {
+                obj.peel_to_commit().ok().map(|c| c.id().to_string())
+            })
+        });
+
+        let message = repo.find_tag(oid).ok().and_then(|tag| {
+            tag.message().map(|m| m.lines().next().unwrap_or("").to_string())
+        }).or_else(|| {
+            // For lightweight tags, get the commit message
+            repo.find_object(oid, None).ok().and_then(|obj| {
+                obj.peel_to_commit().ok().and_then(|c| {
+                    c.message().map(|m| m.lines().next().unwrap_or("").to_string())
+                })
+            })
+        });
+
+        tags.push(GitTag {
+            name,
+            date: date.unwrap_or(0),
+            commit_hash: commit_hash.unwrap_or_default(),
+            message: message.unwrap_or_default(),
+        });
+
+        true
+    }).map_err(|e| format!("Failed to iterate tags: {}", e))?;
+
+    // Sort by date descending (newest first)
+    tags.sort_by(|a, b| b.date.cmp(&a.date));
+
+    Ok(tags)
+}
+
+/// Fetch recent Git commit log (most recent N commits).
+#[tauri::command]
+async fn fetch_git_log(
+    state: tauri::State<'_, AppState>,
+    limit: Option<usize>,
+) -> Result<Vec<GitCommitDetail>, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo_path = PathBuf::from(&workspace);
+    let repo = git2::Repository::discover(&repo_path)
+        .map_err(|e| format!("Not a git repository: {}", e))?;
+
+    let max = limit.unwrap_or(50);
+    let mut commits: Vec<GitCommitDetail> = Vec::new();
+
+    let mut revwalk = repo.revwalk()
+        .map_err(|e| format!("Failed to create revwalk: {}", e))?;
+    revwalk.push_head()
+        .map_err(|e| format!("Failed to push HEAD: {}", e))?;
+
+    for oid in revwalk.take(max) {
+        let oid = oid.map_err(|e| format!("Revwalk error: {}", e))?;
+        let commit = repo.find_commit(oid)
+            .map_err(|e| format!("Failed to find commit: {}", e))?;
+
+        let hash = oid.to_string();
+        let short_hash = format!("{}", &hash[..7]);
+        let message = commit.message()
+            .unwrap_or("(no message)")
+            .lines()
+            .next()
+            .unwrap_or("")
+            .to_string();
+        let author = commit.author().name().unwrap_or("unknown").to_string();
+        let timestamp = commit.time().seconds();
+        let time_ago = format_time_ago(timestamp);
+
+        commits.push(GitCommitDetail {
+            hash,
+            short_hash,
+            message,
+            author,
+            timestamp,
+            time_ago,
+        });
+    }
+
+    Ok(commits)
+}
+
+/// Fetch all local Git branches with current-branch indicator and latest commit.
+#[tauri::command]
+async fn fetch_git_branches(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<GitBranchInfo>, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo_path = PathBuf::from(&workspace);
+    let repo = git2::Repository::discover(&repo_path)
+        .map_err(|e| format!("Not a git repository: {}", e))?;
+
+    // Get current branch name
+    let current_branch = repo.head()
+        .ok()
+        .and_then(|h| h.shorthand().map(|s| s.to_string()))
+        .unwrap_or_default();
+
+    let mut branches: Vec<GitBranchInfo> = Vec::new();
+
+    let branch_iter = repo.branches(Some(git2::BranchType::Local))
+        .map_err(|e| format!("Failed to list branches: {}", e))?;
+
+    for branch_result in branch_iter {
+        let (branch, _branch_type) = branch_result.map_err(|e| format!("Branch iteration error: {}", e))?;
+        let name = branch.name()
+            .ok()
+            .flatten()
+            .unwrap_or("(unknown)")
+            .to_string();
+
+        let is_current = name == current_branch;
+
+        let (latest_commit, latest_commit_hash) = branch.get().target()
+            .and_then(|oid| repo.find_commit(oid).ok())
+            .map(|c| {
+                let msg = c.message()
+                    .unwrap_or("(no message)")
+                    .lines()
+                    .next()
+                    .unwrap_or("")
+                    .to_string();
+                let hash = format!("{}", &c.id().to_string()[..7]);
+                (msg, hash)
+            })
+            .unwrap_or_else(|| (String::new(), String::new()));
+
+        branches.push(GitBranchInfo {
+            name,
+            is_current,
+            latest_commit,
+            latest_commit_hash,
+        });
+    }
+
+    // Sort: current branch first, then alphabetical
+    branches.sort_by(|a, b| {
+        if a.is_current { std::cmp::Ordering::Less }
+        else if b.is_current { std::cmp::Ordering::Greater }
+        else { a.name.cmp(&b.name) }
+    });
+
+    Ok(branches)
+}
+
+// ===========================================================================
 // Tauri commands - Git stage & commit (feat-git-stage-commit)
 // ===========================================================================
 
@@ -3852,6 +4074,10 @@ pub fn run() {
             stop_hardware_monitor,
             fetch_git_stats,
             fetch_git_status,
+            // Git detail queries (feat-git-modal-enhance)
+            fetch_git_tags,
+            fetch_git_log,
+            fetch_git_branches,
             // Git stage & commit (feat-git-stage-commit)
             git_stage_file,
             git_stage_all,

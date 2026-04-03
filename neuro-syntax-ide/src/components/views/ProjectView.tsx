@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   FolderOpen,
   Github,
@@ -23,10 +23,15 @@ import {
   PlusCircle,
   MinusCircle,
   GitCommitHorizontal,
-  FileCheck,
+  GitBranch,
+  Tag,
+  Clock,
+  History,
   Eye,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  GripVertical,
+  Box,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
@@ -36,6 +41,8 @@ import { useAgentChat } from '../../lib/useAgentChat';
 import type { FeaturePlanOutput } from '../../lib/useAgentChat';
 import { useReqAgentChat } from '../../lib/useReqAgentChat';
 import { useGitStatus } from '../../lib/useGitStatus';
+import { useGitDetail } from '../../lib/useGitDetail';
+import type { GitModalTab } from '../../types';
 
 interface WorkspaceHook {
   workspacePath: string;
@@ -55,11 +62,18 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ workspace }) => {
   const agentChat = useAgentChat();
   const reqAgent = useReqAgentChat();
   const gitStatus = useGitStatus(workspacePath);
+  const gitDetail = useGitDetail();
 
   const [chatInput, setChatInput] = useState('');
   const [reqChatInput, setReqChatInput] = useState('');
   const [activeChatTab, setActiveChatTab] = useState<'pm' | 'req'>('pm');
   const [showGitModal, setShowGitModal] = useState(false);
+  const [gitModalTab, setGitModalTab] = useState<GitModalTab>('overview');
+  const [gitModalPos, setGitModalPos] = useState({ x: 0, y: 0 });
+  const [gitModalSize, setGitModalSize] = useState({ w: 900, h: 560 });
+  const gitModalRef = useRef<HTMLDivElement>(null);
+  const gitDragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
+  const gitResizeRef = useRef<{ startX: number; startY: number; originW: number; originH: number } | null>(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
@@ -120,8 +134,72 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
   useEffect(() => {
     if (showGitModal) {
       gitStatus.refresh();
+      gitDetail.refreshAll();
+      // Reset tab to overview when opening
+      setGitModalTab('overview');
+      // Center the modal
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      setGitModalPos({ x: Math.max(0, (vw - 900) / 2), y: Math.max(0, (vh - 560) / 2) });
     }
   }, [showGitModal]);
+
+  // --- Drag to move the Git modal ---
+  const handleGitDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    gitDragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: gitModalPos.x,
+      originY: gitModalPos.y,
+    };
+    const handleMove = (ev: MouseEvent) => {
+      if (!gitDragRef.current) return;
+      const dx = ev.clientX - gitDragRef.current.startX;
+      const dy = ev.clientY - gitDragRef.current.startY;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      setGitModalPos({
+        x: Math.max(0, Math.min(vw - 200, gitDragRef.current.originX + dx)),
+        y: Math.max(0, Math.min(vh - 60, gitDragRef.current.originY + dy)),
+      });
+    };
+    const handleUp = () => {
+      gitDragRef.current = null;
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+  }, [gitModalPos.x, gitModalPos.y]);
+
+  // --- Drag to resize the Git modal ---
+  const handleGitResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    gitResizeRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      originW: gitModalSize.w,
+      originH: gitModalSize.h,
+    };
+    const handleMove = (ev: MouseEvent) => {
+      if (!gitResizeRef.current) return;
+      const dw = ev.clientX - gitResizeRef.current.startX;
+      const dh = ev.clientY - gitResizeRef.current.startY;
+      setGitModalSize({
+        w: Math.max(600, gitResizeRef.current.originW + dw),
+        h: Math.max(400, gitResizeRef.current.originH + dh),
+      });
+    };
+    const handleUp = () => {
+      gitResizeRef.current = null;
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+  }, [gitModalSize.w, gitModalSize.h]);
 
   const handlePush = async () => {
     setIsPushing(true);
@@ -753,10 +831,11 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
         </div>
       )}
 
-      {/* Git Status Modal */}
+      {/* Git Status Modal — Enhanced (feat-git-modal-enhance) */}
       <AnimatePresence>
         {showGitModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100]">
+            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -764,16 +843,30 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
               onClick={() => setShowGitModal(false)}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             />
+            {/* Modal panel — absolutely positioned for drag */}
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg max-h-[85vh] bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl overflow-hidden flex flex-col"
+              ref={gitModalRef}
+              initial={{ scale: 0.92, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              style={{
+                position: 'absolute',
+                left: gitModalPos.x,
+                top: gitModalPos.y,
+                width: gitModalSize.w,
+                height: gitModalSize.h,
+              }}
+              className="bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl overflow-hidden flex flex-col"
             >
-              <div className="shrink-0 p-4 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-high/30">
+              {/* ─── Title bar (draggable) ─── */}
+              <div
+                onMouseDown={handleGitDragStart}
+                className="shrink-0 px-4 py-3 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-high/30 cursor-move select-none"
+              >
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-secondary/10 rounded-lg">
-                    <Github size={20} className="text-secondary" />
+                  <GripVertical size={14} className="text-outline" />
+                  <div className="p-1.5 bg-secondary/10 rounded-lg">
+                    <Github size={18} className="text-secondary" />
                   </div>
                   <div>
                     <h3 className="text-sm font-bold uppercase tracking-widest">{t('project.gitStatus')}</h3>
@@ -784,7 +877,7 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => gitStatus.refresh()}
+                    onClick={() => { gitStatus.refresh(); gitDetail.refreshAll(); }}
                     disabled={gitStatus.loading}
                     className="p-2 hover:bg-surface-container-high rounded-full transition-colors"
                     title="Refresh"
@@ -800,281 +893,403 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-6 scroll-hide">
-                {gitStatus.error ? (
-                  <div className="flex items-center gap-3 p-4 bg-error/10 rounded-lg border border-error/20">
-                    <AlertTriangle size={16} className="text-error shrink-0" />
-                    <div>
-                      <p className="text-xs font-bold text-error">{gitStatus.error}</p>
-                      <p className="text-[10px] text-on-surface-variant mt-1">Make sure the workspace is a Git repository.</p>
-                    </div>
-                  </div>
-                ) : gitStatus.loading && !gitStatus.data ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 size={24} className="animate-spin text-primary" />
-                  </div>
-                ) : gitStatus.data ? (
-                  <>
-                    {/* Branch info */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-outline">{t('project.branch')}</span>
-                        <span className="text-[10px] font-mono bg-secondary/10 text-secondary px-2 py-0.5 rounded">
-                          {gitStatus.data.current_branch}
-                        </span>
-                      </div>
-                      <div className="relative h-20 bg-surface-container-lowest rounded-lg border border-outline-variant/5 p-4 flex items-center">
-                        <div className="absolute left-4 right-4 h-0.5 bg-outline-variant/20 top-1/2 -translate-y-1/2"></div>
-                        <div className="flex justify-between w-full relative z-10">
-                          <div className="flex flex-col items-center gap-1">
-                            <div className="w-3 h-3 rounded-full bg-outline-variant border-2 border-surface"></div>
-                            <span className="text-[8px] font-mono text-outline">main</span>
-                          </div>
-                          <div className="flex flex-col items-center gap-1 -mt-8">
-                            <div className="w-3 h-3 rounded-full bg-secondary border-2 border-surface"></div>
-                            <span className="text-[8px] font-mono text-secondary">{gitStatus.data.current_branch}</span>
-                          </div>
-                          <div className="flex flex-col items-center gap-1">
-                            <div className="w-3 h-3 rounded-full bg-outline-variant border-2 border-surface"></div>
-                            <span className="text-[8px] font-mono text-outline">origin/main</span>
-                          </div>
-                        </div>
-                        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30">
-                          <path d="M 40 40 Q 100 10 200 40" fill="none" stroke="currentColor" strokeWidth="1" className="text-secondary" strokeDasharray="4 2" />
-                        </svg>
-                      </div>
-                    </div>
-
-                    {/* Changed files — grouped into Staged, Unstaged, Untracked with collapsible sections */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-outline">{t('project.changesDetected')}</span>
-                        <span className="text-[10px] font-bold text-tertiary">
-                          {gitStatus.data.files.length === 0
-                            ? 'No changes'
-                            : `${gitStatus.data.files.length} File${gitStatus.data.files.length > 1 ? 's' : ''} Changed`}
-                        </span>
-                      </div>
-                      {gitStatus.data.files.length === 0 ? (
-                        <div className="flex items-center justify-center py-6 text-xs text-on-surface-variant opacity-60">
-                          No changes detected
-                        </div>
-                      ) : (
-                        <>
-                          {/* Staged files */}
-                          {(() => {
-                            const stagedFiles = gitStatus.data.files.filter(f => f.status === 'staged');
-                            if (stagedFiles.length === 0) return null;
-                            const collapsed = collapsedGroups['staged'] ?? false;
-                            return (
-                              <div className="space-y-1">
-                                <button
-                                  onClick={() => setCollapsedGroups(prev => ({ ...prev, staged: !prev.staged }))}
-                                  className="flex items-center gap-2 w-full hover:bg-surface-container-high/30 rounded px-1 py-0.5 transition-colors"
-                                >
-                                  {collapsed ? (
-                                    <ChevronRight size={12} className="text-tertiary shrink-0" />
-                                  ) : (
-                                    <ChevronDown size={12} className="text-tertiary shrink-0" />
-                                  )}
-                                  <span className="text-[9px] font-bold uppercase tracking-widest text-tertiary">Staged</span>
-                                  <span className="text-[9px] font-bold text-tertiary/70 bg-tertiary/10 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                                    {stagedFiles.length}
-                                  </span>
-                                </button>
-                                <AnimatePresence initial={false}>
-                                  {!collapsed && (
-                                    <motion.div
-                                      initial={{ height: 0, opacity: 0 }}
-                                      animate={{ height: 'auto', opacity: 1 }}
-                                      exit={{ height: 0, opacity: 0 }}
-                                      transition={{ duration: 0.2, ease: 'easeInOut' }}
-                                      className="overflow-hidden"
-                                    >
-                                      <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden divide-y divide-outline-variant/5">
-                                        {stagedFiles.map((file) => {
-                                          const fileName = file.path.split('/').pop() || file.path;
-                                          return (
-                                            <div key={file.path} className="flex items-center gap-3 p-3 bg-surface-container-high/20">
-                                              <FileText size={16} className="text-tertiary shrink-0" />
-                                              <div className="flex-1 min-w-0">
-                                                <p className="text-xs font-bold truncate">{fileName}</p>
-                                                <p className="text-[10px] text-outline truncate">{file.path}</p>
-                                              </div>
-                                              {(file.additions > 0 || file.deletions > 0) && (
-                                                <div className="flex items-center gap-1 text-[10px] font-mono shrink-0">
-                                                  {file.additions > 0 && <span className="text-emerald-400">+{file.additions}</span>}
-                                                  {file.deletions > 0 && <span className="text-error">-{file.deletions}</span>}
-                                                </div>
-                                              )}
-                                              <button
-                                                onClick={() => handleUnstageFile(file.path)}
-                                                disabled={stagingPath === file.path}
-                                                className="p-1.5 rounded-md text-warning hover:bg-warning/10 transition-colors disabled:opacity-50"
-                                                title="Unstage"
-                                              >
-                                                {stagingPath === file.path ? (
-                                                  <Loader2 size={14} className="animate-spin" />
-                                                ) : (
-                                                  <MinusCircle size={14} />
-                                                )}
-                                              </button>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
-                              </div>
-                            );
-                          })()}
-
-                          {/* Unstaged files */}
-                          {(() => {
-                            const unstagedFiles = gitStatus.data.files.filter(f => f.status === 'unstaged');
-                            if (unstagedFiles.length === 0) return null;
-                            const collapsed = collapsedGroups['unstaged'] ?? false;
-                            return (
-                              <div className="space-y-1">
-                                <button
-                                  onClick={() => setCollapsedGroups(prev => ({ ...prev, unstaged: !prev.unstaged }))}
-                                  className="flex items-center gap-2 w-full hover:bg-surface-container-high/30 rounded px-1 py-0.5 transition-colors"
-                                >
-                                  {collapsed ? (
-                                    <ChevronRight size={12} className="text-primary shrink-0" />
-                                  ) : (
-                                    <ChevronDown size={12} className="text-primary shrink-0" />
-                                  )}
-                                  <span className="text-[9px] font-bold uppercase tracking-widest text-primary">Modified</span>
-                                  <span className="text-[9px] font-bold text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                                    {unstagedFiles.length}
-                                  </span>
-                                </button>
-                                <AnimatePresence initial={false}>
-                                  {!collapsed && (
-                                    <motion.div
-                                      initial={{ height: 0, opacity: 0 }}
-                                      animate={{ height: 'auto', opacity: 1 }}
-                                      exit={{ height: 0, opacity: 0 }}
-                                      transition={{ duration: 0.2, ease: 'easeInOut' }}
-                                      className="overflow-hidden"
-                                    >
-                                      <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden divide-y divide-outline-variant/5">
-                                        {unstagedFiles.map((file) => {
-                                          const fileName = file.path.split('/').pop() || file.path;
-                                          return (
-                                            <div key={file.path} className="flex items-center gap-3 p-3 bg-surface-container-high/20">
-                                              <FileText size={16} className="text-primary shrink-0" />
-                                              <div className="flex-1 min-w-0">
-                                                <p className="text-xs font-bold truncate">{fileName}</p>
-                                                <p className="text-[10px] text-outline truncate">{file.path}</p>
-                                              </div>
-                                              <span className="text-[9px] font-bold uppercase shrink-0 text-primary">
-                                                Modified
-                                              </span>
-                                              {(file.additions > 0 || file.deletions > 0) && (
-                                                <div className="flex items-center gap-1 text-[10px] font-mono shrink-0">
-                                                  {file.additions > 0 && <span className="text-emerald-400">+{file.additions}</span>}
-                                                  {file.deletions > 0 && <span className="text-error">-{file.deletions}</span>}
-                                                </div>
-                                              )}
-                                              <button
-                                                onClick={() => handleStageFile(file.path)}
-                                                disabled={stagingPath === file.path}
-                                                className="p-1.5 rounded-md text-tertiary hover:bg-tertiary/10 transition-colors disabled:opacity-50"
-                                                title="Stage"
-                                              >
-                                                {stagingPath === file.path ? (
-                                                  <Loader2 size={14} className="animate-spin" />
-                                                ) : (
-                                                  <PlusCircle size={14} />
-                                                )}
-                                              </button>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
-                              </div>
-                            );
-                          })()}
-
-                          {/* Untracked files */}
-                          {(() => {
-                            const untrackedFiles = gitStatus.data.files.filter(f => f.status === 'untracked');
-                            if (untrackedFiles.length === 0) return null;
-                            const collapsed = collapsedGroups['untracked'] ?? true;
-                            return (
-                              <div className="space-y-1">
-                                <button
-                                  onClick={() => setCollapsedGroups(prev => ({ ...prev, untracked: !prev.untracked }))}
-                                  className="flex items-center gap-2 w-full hover:bg-surface-container-high/30 rounded px-1 py-0.5 transition-colors"
-                                >
-                                  {collapsed ? (
-                                    <ChevronRight size={12} className="text-warning shrink-0" />
-                                  ) : (
-                                    <ChevronDown size={12} className="text-warning shrink-0" />
-                                  )}
-                                  <span className="text-[9px] font-bold uppercase tracking-widest text-warning">Untracked</span>
-                                  <span className="text-[9px] font-bold text-warning/70 bg-warning/10 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                                    {untrackedFiles.length}
-                                  </span>
-                                </button>
-                                <AnimatePresence initial={false}>
-                                  {!collapsed && (
-                                    <motion.div
-                                      initial={{ height: 0, opacity: 0 }}
-                                      animate={{ height: 'auto', opacity: 1 }}
-                                      exit={{ height: 0, opacity: 0 }}
-                                      transition={{ duration: 0.2, ease: 'easeInOut' }}
-                                      className="overflow-hidden"
-                                    >
-                                      <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden divide-y divide-outline-variant/5">
-                                        {untrackedFiles.map((file) => {
-                                          const fileName = file.path.split('/').pop() || file.path;
-                                          return (
-                                            <div key={file.path} className="flex items-center gap-3 p-3 bg-surface-container-high/20">
-                                              <FileText size={16} className="text-warning shrink-0" />
-                                              <div className="flex-1 min-w-0">
-                                                <p className="text-xs font-bold truncate">{fileName}</p>
-                                                <p className="text-[10px] text-outline truncate">{file.path}</p>
-                                              </div>
-                                              <span className="text-[9px] font-bold uppercase shrink-0 text-warning">
-                                                Untracked
-                                              </span>
-                                              <button
-                                                onClick={() => handleStageFile(file.path)}
-                                                disabled={stagingPath === file.path}
-                                                className="p-1.5 rounded-md text-tertiary hover:bg-tertiary/10 transition-colors disabled:opacity-50"
-                                                title="Stage"
-                                              >
-                                                {stagingPath === file.path ? (
-                                                  <Loader2 size={14} className="animate-spin" />
-                                                ) : (
-                                                  <PlusCircle size={14} />
-                                                )}
-                                              </button>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
-                              </div>
-                            );
-                          })()}
-                        </>
+              {/* ─── Body: sidebar tabs + content ─── */}
+              <div className="flex-1 flex overflow-hidden">
+                {/* Sidebar navigation */}
+                <nav className="shrink-0 w-[130px] bg-surface-container-lowest/50 border-r border-outline-variant/10 py-3 flex flex-col gap-0.5 px-2">
+                  {([
+                    { key: 'overview', icon: Eye, label: 'Overview' },
+                    { key: 'branches', icon: GitBranch, label: 'Branches' },
+                    { key: 'tags', icon: Tag, label: 'Tags' },
+                    { key: 'history', icon: History, label: 'History' },
+                    { key: 'changes', icon: FileText, label: 'Changes' },
+                    { key: 'features', icon: Box, label: 'Features' },
+                  ] as const).map(({ key, icon: Icon, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => setGitModalTab(key)}
+                      className={cn(
+                        'flex items-center gap-2 w-full px-3 py-2 rounded-lg text-[11px] font-bold transition-colors',
+                        gitModalTab === key
+                          ? 'bg-primary/15 text-primary'
+                          : 'text-on-surface-variant hover:bg-surface-container-high/40'
                       )}
+                    >
+                      <Icon size={14} />
+                      {label}
+                    </button>
+                  ))}
+                </nav>
+
+                {/* Content area */}
+                <div className="flex-1 overflow-y-auto p-5 scroll-hide">
+                  {gitStatus.error ? (
+                    <div className="flex items-center gap-3 p-4 bg-error/10 rounded-lg border border-error/20">
+                      <AlertTriangle size={16} className="text-error shrink-0" />
+                      <div>
+                        <p className="text-xs font-bold text-error">{gitStatus.error}</p>
+                        <p className="text-[10px] text-on-surface-variant mt-1">Make sure the workspace is a Git repository.</p>
+                      </div>
                     </div>
-                  </>
-                ) : null}
+                  ) : gitStatus.loading && !gitStatus.data ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 size={24} className="animate-spin text-primary" />
+                    </div>
+                  ) : gitStatus.data ? (
+                    <>
+                      {/* ── Overview Tab ── */}
+                      {gitModalTab === 'overview' && (
+                        <div className="space-y-5">
+                          {/* Branch + remote summary */}
+                          <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Branch</span>
+                            <span className="text-[10px] font-mono bg-secondary/10 text-secondary px-2 py-0.5 rounded">
+                              {gitStatus.data.current_branch}
+                            </span>
+                          </div>
+                          {/* Quick stats */}
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/5 p-3 text-center">
+                              <p className="text-lg font-bold text-secondary">{gitDetail.branches.length || '—'}</p>
+                              <p className="text-[9px] uppercase tracking-widest text-outline mt-1">Branches</p>
+                            </div>
+                            <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/5 p-3 text-center">
+                              <p className="text-lg font-bold text-tertiary">{gitDetail.tags.length || '—'}</p>
+                              <p className="text-[9px] uppercase tracking-widest text-outline mt-1">Tags</p>
+                            </div>
+                            <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/5 p-3 text-center">
+                              <p className="text-lg font-bold text-primary">{gitStatus.data.files.length}</p>
+                              <p className="text-[9px] uppercase tracking-widest text-outline mt-1">Changes</p>
+                            </div>
+                          </div>
+                          {/* Recent commits */}
+                          <div className="space-y-2">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Recent Commits</span>
+                            {gitDetail.commits.slice(0, 5).map((c) => (
+                              <div key={c.hash} className="flex items-center gap-3 p-2 bg-surface-container-lowest/50 rounded-lg border border-outline-variant/5">
+                                <GitCommitHorizontal size={14} className="text-outline shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs truncate font-medium">{c.message}</p>
+                                  <p className="text-[9px] text-outline font-mono">{c.short_hash} · {c.author}</p>
+                                </div>
+                                <span className="text-[9px] text-on-surface-variant shrink-0">{c.time_ago}</span>
+                              </div>
+                            ))}
+                          </div>
+                          {/* File change summary */}
+                          {gitStatus.data.files.length > 0 && (
+                            <div className="space-y-2">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-outline">File Changes</span>
+                              <div className="flex items-center gap-3">
+                                {(() => {
+                                  const staged = gitStatus.data.files.filter(f => f.status === 'staged').length;
+                                  const unstaged = gitStatus.data.files.filter(f => f.status === 'unstaged').length;
+                                  const untracked = gitStatus.data.files.filter(f => f.status === 'untracked').length;
+                                  return (
+                                    <>
+                                      {staged > 0 && <span className="text-[10px] bg-tertiary/10 text-tertiary px-2 py-0.5 rounded">{staged} staged</span>}
+                                      {unstaged > 0 && <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded">{unstaged} modified</span>}
+                                      {untracked > 0 && <span className="text-[10px] bg-warning/10 text-warning px-2 py-0.5 rounded">{untracked} untracked</span>}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ── Branches Tab ── */}
+                      {gitModalTab === 'branches' && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Local Branches</span>
+                            <span className="text-[10px] text-on-surface-variant">{gitDetail.branches.length} branch{gitDetail.branches.length !== 1 ? 'es' : ''}</span>
+                          </div>
+                          {gitDetail.branches.length === 0 ? (
+                            <div className="flex items-center justify-center py-8 text-xs text-on-surface-variant opacity-60">Loading...</div>
+                          ) : gitDetail.branches.map((b) => (
+                            <div key={b.name} className={cn(
+                              "flex items-center gap-3 p-3 rounded-lg border transition-colors",
+                              b.is_current
+                                ? "bg-secondary/10 border-secondary/20"
+                                : "bg-surface-container-lowest/50 border-outline-variant/5 hover:bg-surface-container-high/20"
+                            )}>
+                              <GitBranch size={14} className={cn("shrink-0", b.is_current ? "text-secondary" : "text-outline")} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-xs font-bold truncate">{b.name}</p>
+                                  {b.is_current && (
+                                    <span className="text-[8px] bg-secondary/20 text-secondary px-1.5 py-0.5 rounded font-bold uppercase">Current</span>
+                                  )}
+                                </div>
+                                <p className="text-[9px] text-outline truncate font-mono mt-0.5">{b.latest_commit_hash} {b.latest_commit}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* ── Tags Tab ── */}
+                      {gitModalTab === 'tags' && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Git Tags</span>
+                            <span className="text-[10px] text-on-surface-variant">{gitDetail.tags.length} tag{gitDetail.tags.length !== 1 ? 's' : ''}</span>
+                          </div>
+                          {gitDetail.tags.length === 0 ? (
+                            <div className="flex items-center justify-center py-8 text-xs text-on-surface-variant opacity-60">No tags found</div>
+                          ) : gitDetail.tags.map((tag) => {
+                            const isFeatureTag = tag.name.startsWith('feat-') || tag.name.startsWith('fix-');
+                            const dateStr = tag.date > 0 ? new Date(tag.date * 1000).toLocaleDateString() : '—';
+                            return (
+                              <div key={tag.name} className="flex items-center gap-3 p-3 bg-surface-container-lowest/50 rounded-lg border border-outline-variant/5">
+                                <Tag size={14} className={cn("shrink-0", isFeatureTag ? "text-tertiary" : "text-outline")} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-xs font-bold truncate font-mono">{tag.name}</p>
+                                    {isFeatureTag && (
+                                      <span className="text-[8px] bg-tertiary/10 text-tertiary px-1.5 py-0.5 rounded font-bold uppercase">Feature</span>
+                                    )}
+                                  </div>
+                                  <p className="text-[9px] text-outline truncate mt-0.5">{tag.message || tag.commit_hash.slice(0, 7)}</p>
+                                </div>
+                                <span className="text-[9px] text-on-surface-variant shrink-0">{dateStr}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* ── History Tab ── */}
+                      {gitModalTab === 'history' && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Commit History</span>
+                            <span className="text-[10px] text-on-surface-variant">{gitDetail.commits.length} commits</span>
+                          </div>
+                          {gitDetail.commits.length === 0 ? (
+                            <div className="flex items-center justify-center py-8 text-xs text-on-surface-variant opacity-60">No commits</div>
+                          ) : gitDetail.commits.map((c) => (
+                            <div key={c.hash} className="flex items-center gap-3 p-3 bg-surface-container-lowest/50 rounded-lg border border-outline-variant/5">
+                              <div className="shrink-0 flex items-center justify-center w-7 h-7 rounded-full bg-surface-container-high/50">
+                                <GitCommitHorizontal size={12} className="text-outline" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs truncate font-medium">{c.message}</p>
+                                <p className="text-[9px] text-outline font-mono">{c.short_hash} · {c.author}</p>
+                              </div>
+                              <span className="text-[9px] text-on-surface-variant shrink-0">{c.time_ago}</span>
+                            </div>
+                          ))}
+                          {gitDetail.commits.length >= 50 && (
+                            <button
+                              onClick={() => gitDetail.loadMoreCommits(gitDetail.commits.length)}
+                              className="w-full py-2 text-xs text-primary font-bold hover:bg-primary/10 rounded-lg transition-colors"
+                            >
+                              Load more...
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ── Changes Tab (preserves existing stage/unstage UI) ── */}
+                      {gitModalTab === 'changes' && (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-outline">{t('project.changesDetected')}</span>
+                            <span className="text-[10px] font-bold text-tertiary">
+                              {gitStatus.data.files.length === 0
+                                ? 'No changes'
+                                : `${gitStatus.data.files.length} File${gitStatus.data.files.length > 1 ? 's' : ''} Changed`}
+                            </span>
+                          </div>
+                          {gitStatus.data.files.length === 0 ? (
+                            <div className="flex items-center justify-center py-8 text-xs text-on-surface-variant opacity-60">
+                              No changes detected
+                            </div>
+                          ) : (
+                            <>
+                              {/* Staged files */}
+                              {(() => {
+                                const stagedFiles = gitStatus.data.files.filter(f => f.status === 'staged');
+                                if (stagedFiles.length === 0) return null;
+                                const collapsed = collapsedGroups['staged'] ?? false;
+                                return (
+                                  <div className="space-y-1">
+                                    <button
+                                      onClick={() => setCollapsedGroups(prev => ({ ...prev, staged: !prev.staged }))}
+                                      className="flex items-center gap-2 w-full hover:bg-surface-container-high/30 rounded px-1 py-0.5 transition-colors"
+                                    >
+                                      {collapsed ? <ChevronRight size={12} className="text-tertiary shrink-0" /> : <ChevronDown size={12} className="text-tertiary shrink-0" />}
+                                      <span className="text-[9px] font-bold uppercase tracking-widest text-tertiary">Staged</span>
+                                      <span className="text-[9px] font-bold text-tertiary/70 bg-tertiary/10 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{stagedFiles.length}</span>
+                                    </button>
+                                    <AnimatePresence initial={false}>
+                                      {!collapsed && (
+                                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                                          <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden divide-y divide-outline-variant/5">
+                                            {stagedFiles.map((file) => {
+                                              const fileName = file.path.split('/').pop() || file.path;
+                                              return (
+                                                <div key={file.path} className="flex items-center gap-3 p-2.5">
+                                                  <FileText size={14} className="text-tertiary shrink-0" />
+                                                  <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-bold truncate">{fileName}</p>
+                                                    <p className="text-[10px] text-outline truncate">{file.path}</p>
+                                                  </div>
+                                                  {(file.additions > 0 || file.deletions > 0) && (
+                                                    <div className="flex items-center gap-1 text-[10px] font-mono shrink-0">
+                                                      {file.additions > 0 && <span className="text-emerald-400">+{file.additions}</span>}
+                                                      {file.deletions > 0 && <span className="text-error">-{file.deletions}</span>}
+                                                    </div>
+                                                  )}
+                                                  <button onClick={() => handleUnstageFile(file.path)} disabled={stagingPath === file.path} className="p-1 rounded-md text-warning hover:bg-warning/10 transition-colors disabled:opacity-50" title="Unstage">
+                                                    {stagingPath === file.path ? <Loader2 size={12} className="animate-spin" /> : <MinusCircle size={12} />}
+                                                  </button>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </motion.div>
+                                      )}
+                                    </AnimatePresence>
+                                  </div>
+                                );
+                              })()}
+                              {/* Unstaged files */}
+                              {(() => {
+                                const unstagedFiles = gitStatus.data.files.filter(f => f.status === 'unstaged');
+                                if (unstagedFiles.length === 0) return null;
+                                const collapsed = collapsedGroups['unstaged'] ?? false;
+                                return (
+                                  <div className="space-y-1">
+                                    <button
+                                      onClick={() => setCollapsedGroups(prev => ({ ...prev, unstaged: !prev.unstaged }))}
+                                      className="flex items-center gap-2 w-full hover:bg-surface-container-high/30 rounded px-1 py-0.5 transition-colors"
+                                    >
+                                      {collapsed ? <ChevronRight size={12} className="text-primary shrink-0" /> : <ChevronDown size={12} className="text-primary shrink-0" />}
+                                      <span className="text-[9px] font-bold uppercase tracking-widest text-primary">Modified</span>
+                                      <span className="text-[9px] font-bold text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{unstagedFiles.length}</span>
+                                    </button>
+                                    <AnimatePresence initial={false}>
+                                      {!collapsed && (
+                                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                                          <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden divide-y divide-outline-variant/5">
+                                            {unstagedFiles.map((file) => {
+                                              const fileName = file.path.split('/').pop() || file.path;
+                                              return (
+                                                <div key={file.path} className="flex items-center gap-3 p-2.5">
+                                                  <FileText size={14} className="text-primary shrink-0" />
+                                                  <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-bold truncate">{fileName}</p>
+                                                    <p className="text-[10px] text-outline truncate">{file.path}</p>
+                                                  </div>
+                                                  {(file.additions > 0 || file.deletions > 0) && (
+                                                    <div className="flex items-center gap-1 text-[10px] font-mono shrink-0">
+                                                      {file.additions > 0 && <span className="text-emerald-400">+{file.additions}</span>}
+                                                      {file.deletions > 0 && <span className="text-error">-{file.deletions}</span>}
+                                                    </div>
+                                                  )}
+                                                  <button onClick={() => handleStageFile(file.path)} disabled={stagingPath === file.path} className="p-1 rounded-md text-tertiary hover:bg-tertiary/10 transition-colors disabled:opacity-50" title="Stage">
+                                                    {stagingPath === file.path ? <Loader2 size={12} className="animate-spin" /> : <PlusCircle size={12} />}
+                                                  </button>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </motion.div>
+                                      )}
+                                    </AnimatePresence>
+                                  </div>
+                                );
+                              })()}
+                              {/* Untracked files */}
+                              {(() => {
+                                const untrackedFiles = gitStatus.data.files.filter(f => f.status === 'untracked');
+                                if (untrackedFiles.length === 0) return null;
+                                const collapsed = collapsedGroups['untracked'] ?? true;
+                                return (
+                                  <div className="space-y-1">
+                                    <button
+                                      onClick={() => setCollapsedGroups(prev => ({ ...prev, untracked: !prev.untracked }))}
+                                      className="flex items-center gap-2 w-full hover:bg-surface-container-high/30 rounded px-1 py-0.5 transition-colors"
+                                    >
+                                      {collapsed ? <ChevronRight size={12} className="text-warning shrink-0" /> : <ChevronDown size={12} className="text-warning shrink-0" />}
+                                      <span className="text-[9px] font-bold uppercase tracking-widest text-warning">Untracked</span>
+                                      <span className="text-[9px] font-bold text-warning/70 bg-warning/10 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{untrackedFiles.length}</span>
+                                    </button>
+                                    <AnimatePresence initial={false}>
+                                      {!collapsed && (
+                                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                                          <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden divide-y divide-outline-variant/5">
+                                            {untrackedFiles.map((file) => {
+                                              const fileName = file.path.split('/').pop() || file.path;
+                                              return (
+                                                <div key={file.path} className="flex items-center gap-3 p-2.5">
+                                                  <FileText size={14} className="text-warning shrink-0" />
+                                                  <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-bold truncate">{fileName}</p>
+                                                    <p className="text-[10px] text-outline truncate">{file.path}</p>
+                                                  </div>
+                                                  <button onClick={() => handleStageFile(file.path)} disabled={stagingPath === file.path} className="p-1 rounded-md text-tertiary hover:bg-tertiary/10 transition-colors disabled:opacity-50" title="Stage">
+                                                    {stagingPath === file.path ? <Loader2 size={12} className="animate-spin" /> : <PlusCircle size={12} />}
+                                                  </button>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </motion.div>
+                                      )}
+                                    </AnimatePresence>
+                                  </div>
+                                );
+                              })()}
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ── Features Tab (completed feature list from queue.yaml) ── */}
+                      {gitModalTab === 'features' && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Completed Features</span>
+                          </div>
+                          {(() => {
+                            // Match completed features with their tags
+                            const featureTags = gitDetail.tags.filter(t => t.name.startsWith('feat-') || t.name.startsWith('fix-'));
+                            if (featureTags.length === 0) {
+                              return <div className="flex items-center justify-center py-8 text-xs text-on-surface-variant opacity-60">No feature tags found</div>;
+                            }
+                            return featureTags.map((tag) => {
+                              const dateStr = tag.date > 0 ? new Date(tag.date * 1000).toLocaleDateString() : '—';
+                              // Extract feature name from tag: "feat-xxx-20260403" -> "feat-xxx"
+                              const nameMatch = tag.name.match(/^(feat|fix)-(.+)-\d{8}$/);
+                              const featureName = nameMatch ? `${nameMatch[1]}-${nameMatch[2]}` : tag.name;
+                              return (
+                                <div key={tag.name} className="flex items-center gap-3 p-3 bg-surface-container-lowest/50 rounded-lg border border-outline-variant/5">
+                                  <div className="shrink-0 flex items-center justify-center w-7 h-7 rounded-full bg-tertiary/10">
+                                    <CheckCircle2 size={12} className="text-tertiary" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-bold truncate">{featureName.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</p>
+                                    <p className="text-[9px] text-outline truncate font-mono mt-0.5">{tag.name}</p>
+                                  </div>
+                                  <span className="text-[9px] text-on-surface-variant shrink-0">{dateStr}</span>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      )}
+                    </>
+                  ) : null}
+                </div>
               </div>
 
-              <div className="shrink-0 p-4 bg-surface-container-high/30 border-t border-outline-variant/10 space-y-3">
+              {/* ─── Footer: commit + push/pull ─── */}
+              <div className="shrink-0 px-4 py-3 bg-surface-container-high/30 border-t border-outline-variant/10 space-y-2">
                 {/* Commit input + button */}
                 <div className="flex gap-2">
                   <input
@@ -1084,23 +1299,19 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                     onKeyDown={(e) => e.key === 'Enter' && handleCommit()}
                     placeholder="Commit message..."
                     disabled={isCommitting}
-                    className="flex-1 bg-surface-container-lowest border border-outline-variant/20 rounded-lg px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary/50 font-mono disabled:opacity-50"
+                    className="flex-1 bg-surface-container-lowest border border-outline-variant/20 rounded-lg px-3 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary/50 font-mono disabled:opacity-50"
                   />
                   <button
                     onClick={handleCommit}
                     disabled={isCommitting || !commitMessage.trim() || !gitStatus.data?.files.some(f => f.status === 'staged')}
                     className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed",
+                      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed",
                       commitMessage.trim() && gitStatus.data?.files.some(f => f.status === 'staged')
                         ? "bg-primary text-on-primary hover:brightness-110"
                         : "bg-surface-container-highest text-on-surface-variant border border-outline-variant/10"
                     )}
                   >
-                    {isCommitting ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <GitCommitHorizontal size={14} />
-                    )}
+                    {isCommitting ? <Loader2 size={12} className="animate-spin" /> : <GitCommitHorizontal size={12} />}
                     Commit
                   </button>
                 </div>
@@ -1108,16 +1319,12 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                 {/* Sync feedback message */}
                 {syncMessage && (
                   <div className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium",
+                    "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium",
                     syncMessage.type === 'success'
                       ? "bg-tertiary/10 text-tertiary border border-tertiary/20"
                       : "bg-error/10 text-error border border-error/20"
                   )}>
-                    {syncMessage.type === 'success' ? (
-                      <CheckCircle2 size={14} className="shrink-0" />
-                    ) : (
-                      <AlertTriangle size={14} className="shrink-0" />
-                    )}
+                    {syncMessage.type === 'success' ? <CheckCircle2 size={12} className="shrink-0" /> : <AlertTriangle size={12} className="shrink-0" />}
                     <span className="truncate">{syncMessage.text}</span>
                   </div>
                 )}
@@ -1127,20 +1334,35 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                   <button
                     onClick={handlePush}
                     disabled={isPushing || isPulling || !gitStatus.data?.remote_url}
-                    className="flex-1 flex items-center justify-center gap-2 bg-primary text-on-primary py-2.5 rounded-lg text-xs font-bold hover:brightness-110 transition-all disabled:opacity-50"
+                    className="flex-1 flex items-center justify-center gap-2 bg-primary text-on-primary py-2 rounded-lg text-xs font-bold hover:brightness-110 transition-all disabled:opacity-50"
                   >
-                    {isPushing ? <RefreshCw size={14} className="animate-spin" /> : <ArrowUpRight size={14} />}
+                    {isPushing ? <RefreshCw size={12} className="animate-spin" /> : <ArrowUpRight size={12} />}
                     {isPushing ? t('project.syncing') : t('project.pushChanges')}
                   </button>
                   <button
                     onClick={handlePull}
                     disabled={isPushing || isPulling || !gitStatus.data?.remote_url}
-                    className="flex-1 flex items-center justify-center gap-2 bg-surface-container-highest text-on-surface py-2.5 rounded-lg text-xs font-bold hover:bg-surface-variant transition-all border border-outline-variant/10 disabled:opacity-50"
+                    className="flex-1 flex items-center justify-center gap-2 bg-surface-container-highest text-on-surface py-2 rounded-lg text-xs font-bold hover:bg-surface-variant transition-all border border-outline-variant/10 disabled:opacity-50"
                   >
-                    {isPulling ? <RefreshCw size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                    {isPulling ? <RefreshCw size={12} className="animate-spin" /> : <RefreshCw size={12} />}
                     {isPulling ? t('project.syncing') : t('project.updateRemote')}
                   </button>
                 </div>
+              </div>
+
+              {/* ─── Resize handle ─── */}
+              <div
+                onMouseDown={handleGitResizeStart}
+                className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize flex items-end justify-end p-1 opacity-30 hover:opacity-60 transition-opacity"
+              >
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" className="text-on-surface-variant">
+                  <circle cx="7" cy="1" r="0.8" />
+                  <circle cx="7" cy="4" r="0.8" />
+                  <circle cx="7" cy="7" r="0.8" />
+                  <circle cx="4" cy="4" r="0.8" />
+                  <circle cx="4" cy="7" r="0.8" />
+                  <circle cx="1" cy="7" r="0.8" />
+                </svg>
               </div>
             </motion.div>
           </div>
