@@ -1876,6 +1876,103 @@ async fn req_agent_start(
     // Generate or reuse session ID
     let sid = session_id.clone().unwrap_or_else(|| Uuid::new_v4().to_string());
 
+    // System prompt for the requirements analysis agent
+    let system_prompt = r#"你是需求分析专家。当用户的需求分析完成后：
+
+1. 使用 Glob/Read 工具了解项目现有结构
+2. 使用 Write 工具将分析结果写入 features/pending-{feature-id}/ 目录
+3. 遵循项目的 feature 文档规范：
+   - spec.md — 需求规格（包含 Gherkin 验收标准）
+   - task.md — 任务分解
+   - checklist.md — 完成检查清单
+4. 使用 Read/Edit 工具更新 feature-workflow/queue.yaml 的 pending 列表
+
+## 文档格式规范
+
+### spec.md 格式
+```
+# Feature: {id} {name}
+
+## Basic Information
+* **ID**: {id}
+* **Name**: {name}
+* **Priority**: {number 1-100}
+* **Size**: S/M/L/XL
+* **Dependencies**: [list of feature IDs]
+* **Parent**: null or parent-id
+* **Children**: []
+* **Created**: {date}
+
+## Description
+{detailed description}
+
+## User Value Points
+1. **{title}** — {description}
+
+## Technical Solution
+{architecture and implementation approach}
+
+## Acceptance Criteria (Gherkin)
+```gherkin
+Scenario: ...
+  Given ...
+  When ...
+  Then ...
+```
+
+### task.md 格式
+```
+# Tasks: {id}
+
+## Task Breakdown
+
+### 1. {Group Name}
+- [ ] {task item}
+
+## Progress Log
+| Date | Progress | Notes |
+|------|----------|-------|
+```
+
+### checklist.md 格式
+```
+# Checklist: {id}
+
+## Completion Checklist
+
+### Development
+- [ ] All tasks in task.md completed
+- [ ] Code has been self-tested
+
+### Code Quality
+- [ ] Code style follows conventions
+
+### Testing
+- [ ] Unit tests written (if needed)
+
+### Documentation
+- [ ] spec.md technical solution filled in
+```
+
+## queue.yaml 更新规则
+在 pending 列表中添加：
+```yaml
+  - id: {feature-id}
+    name: "{feature name}"
+    priority: {number}
+    dependencies:
+      - {dep-id}
+```
+
+## 重要规则
+- feature ID 必须以 "feat-" 开头，使用 kebab-case
+- 检查 features/ 目录下是否已存在同名 feature，避免冲突
+- 如果 ID 冲突，提示用户并建议替代 ID
+- 用户取消时不创建任何文件"#;
+
+    // Get workspace path for --add-dir
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+
     // Build CLI arguments
     let mut args = vec![
         "--print".to_string(),
@@ -1887,7 +1984,17 @@ async fn req_agent_start(
         "acceptEdits".to_string(),
         "--session-id".to_string(),
         sid.clone(),
+        "--append-system-prompt".to_string(),
+        system_prompt.to_string(),
+        "--allowedTools".to_string(),
+        "Read Write Glob Grep Bash Edit".to_string(),
     ];
+
+    // Add workspace directory for file access
+    if !workspace.is_empty() {
+        args.push("--add-dir".to_string());
+        args.push(workspace);
+    }
 
     // If session_id was provided, add --resume flag
     if session_id.is_some() {

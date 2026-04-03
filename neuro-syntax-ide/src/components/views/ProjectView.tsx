@@ -23,6 +23,8 @@ import {
   PlusCircle,
   MinusCircle,
   GitCommitHorizontal,
+  FileCheck,
+  Eye
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
@@ -572,6 +574,32 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                         className="text-primary underline text-[9px]"
                       >
                         {t('project.reqAgentRetry')}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Feature Created Notification Banner */}
+                  {reqAgent.lastCreatedFeature && (
+                    <div className="px-4 py-2 bg-tertiary/10 border-b border-tertiary/20 text-[10px] text-tertiary flex items-center gap-2">
+                      <FileCheck size={10} />
+                      <span className="flex-1">
+                        {t('project.reqAgentFeatureCreated', { id: reqAgent.lastCreatedFeature.featureId })}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setShowTaskModal(true);
+                          reqAgent.clearFeatureNotification();
+                        }}
+                        className="flex items-center gap-1 text-primary underline text-[9px]"
+                      >
+                        <Eye size={9} />
+                        {t('project.reqAgentViewFeature')}
+                      </button>
+                      <button
+                        onClick={() => reqAgent.clearFeatureNotification()}
+                        className="text-outline-variant hover:text-on-surface-variant ml-1"
+                      >
+                        <X size={9} />
                       </button>
                     </div>
                   )}

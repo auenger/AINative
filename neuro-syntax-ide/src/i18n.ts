@@ -56,7 +56,9 @@ const resources = {
         reqAgentNewSession: 'New Session',
         reqAgentStop: 'Stop Session',
         reqAgentRetry: 'Retry',
-        reqAgentPlaceholder: 'Discuss requirements with Req Agent...'
+        reqAgentPlaceholder: 'Discuss requirements with Req Agent...',
+        reqAgentFeatureCreated: 'Feature {{id}} created successfully',
+        reqAgentViewFeature: 'View Feature'
       },
       editor: {
         explorer: 'Explorer',
@@ -160,7 +162,9 @@ const resources = {
         reqAgentNewSession: '新建会话',
         reqAgentStop: '停止会话',
         reqAgentRetry: '重试',
-        reqAgentPlaceholder: '与需求分析 Agent 讨论需求...'
+        reqAgentPlaceholder: '与需求分析 Agent 讨论需求...',
+        reqAgentFeatureCreated: 'Feature {{id}} 已创建',
+        reqAgentViewFeature: '查看 Feature'
       },
       editor: {
         explorer: '资源管理器',

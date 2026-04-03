@@ -1,5 +1,17 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 
+// Re-export FsChangeEvent type for convenience
+export interface FsChangeEvent {
+  paths: string[];
+  kind: string;
+}
+
+export interface FeatureCreatedNotification {
+  featureId: string;
+  featureDir: string;
+  timestamp: number;
+}
+
 // ---------------------------------------------------------------------------
 // Types matching Rust ReqAgentChunkEvent / ReqAgentStatus
 // ---------------------------------------------------------------------------
@@ -66,6 +78,7 @@ export function useReqAgentChat() {
   const [connectionState, setConnectionState] = useState<ReqAgentConnectionState>('disconnected');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastCreatedFeature, setLastCreatedFeature] = useState<FeatureCreatedNotification | null>(null);
   const streamingTextRef = useRef<string>('');
 
   // Persist messages to localStorage whenever they change
@@ -268,17 +281,60 @@ export function useReqAgentChat() {
     checkStatus();
   }, [checkStatus]);
 
+  // Listen for feature creation events from the agent (FS watcher detects new features)
+  useEffect(() => {
+    if (!isTauri) return;
+
+    let unlisten: (() => void) | null = null;
+
+    (async () => {
+      try {
+        const { listen } = await import('@tauri-apps/api/event');
+        unlisten = await listen<FsChangeEvent>('fs://workspace-changed', (event) => {
+          const change = event.payload;
+          if (change.kind === 'agent-feature-created') {
+            // Extract feature ID from the paths
+            for (const p of change.paths) {
+              const match = p.match(/features\/pending-([^/]+)/);
+              if (match) {
+                setLastCreatedFeature({
+                  featureId: match[1],
+                  featureDir: p,
+                  timestamp: Date.now(),
+                });
+                break;
+              }
+            }
+          }
+        });
+      } catch {
+        // Ignore
+      }
+    })();
+
+    return () => {
+      unlisten?.();
+    };
+  }, []);
+
+  /** Clear the last feature creation notification */
+  const clearFeatureNotification = useCallback(() => {
+    setLastCreatedFeature(null);
+  }, []);
+
   return {
     messages,
     isStreaming,
     connectionState,
     sessionId,
     error,
+    lastCreatedFeature,
     sendMessage,
     startSession,
     stopSession,
     newSession,
     resumeSession,
     checkStatus,
+    clearFeatureNotification,
   };
 }
