@@ -9,6 +9,7 @@ import { MissionControl } from './components/views/MissionControl';
 import { EditorView } from './components/views/EditorView';
 import { ProjectView } from './components/views/ProjectView';
 import { SettingsView } from './components/views/SettingsView';
+import { AgentControlPanel } from './components/views/AgentControlPanel';
 import { ViewType, LogEntry } from './types';
 import { cn } from './lib/utils';
 import { useWorkspace } from './lib/useWorkspace';
@@ -68,6 +69,9 @@ const App: React.FC = () => {
             </div>
             <div className={cn("absolute inset-0 overflow-hidden", activeView === 'settings' ? 'flex' : 'hidden')}>
               <SettingsView />
+            </div>
+            <div className={cn("absolute inset-0 overflow-hidden", activeView === 'agents' ? 'flex' : 'hidden')}>
+              <AgentControlPanel />
             </div>
           </div>
 

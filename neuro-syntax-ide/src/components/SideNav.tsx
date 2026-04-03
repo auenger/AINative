@@ -1,12 +1,13 @@
 import React from 'react';
-import { 
-  ClipboardList, 
-  GitBranch, 
-  Rocket, 
-  Settings, 
+import {
+  ClipboardList,
+  GitBranch,
+  Rocket,
+  Settings,
   User,
   FileCode,
-  Layout
+  Layout,
+  Bot
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/utils';
@@ -25,6 +26,7 @@ export const SideNav: React.FC<SideNavProps> = ({ activeView, onViewChange }) =>
     { id: 'tasks', icon: ClipboardList, label: t('nav.tasks') },
     { id: 'editor', icon: FileCode, label: t('nav.editor') },
     { id: 'mission-control', icon: Rocket, label: t('nav.missionControl') },
+    { id: 'agents', icon: Bot, label: t('nav.agents') },
     { id: 'workflow', icon: GitBranch, label: t('nav.workflow') },
   ];
 
