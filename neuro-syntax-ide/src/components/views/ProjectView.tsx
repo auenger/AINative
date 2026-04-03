@@ -24,7 +24,9 @@ import {
   MinusCircle,
   GitCommitHorizontal,
   FileCheck,
-  Eye
+  Eye,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
@@ -67,6 +69,11 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ workspace }) => {
   const [commitMessage, setCommitMessage] = useState('');
   const [isCommitting, setIsCommitting] = useState(false);
   const [stagingPath, setStagingPath] = useState<string | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({
+    staged: false,
+    unstaged: false,
+    untracked: true,
+  });
   const [generatedPlan, setGeneratedPlan] = useState<FeaturePlanOutput | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -761,9 +768,9 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl overflow-hidden flex flex-col"
+              className="relative w-full max-w-lg max-h-[85vh] bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl overflow-hidden flex flex-col"
             >
-              <div className="p-4 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-high/30">
+              <div className="shrink-0 p-4 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-high/30">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-secondary/10 rounded-lg">
                     <Github size={20} className="text-secondary" />
@@ -793,7 +800,7 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                 </div>
               </div>
 
-              <div className="p-6 space-y-6">
+              <div className="flex-1 overflow-y-auto p-6 space-y-6 scroll-hide">
                 {gitStatus.error ? (
                   <div className="flex items-center gap-3 p-4 bg-error/10 rounded-lg border border-error/20">
                     <AlertTriangle size={16} className="text-error shrink-0" />
@@ -838,7 +845,7 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                       </div>
                     </div>
 
-                    {/* Changed files — grouped into Staged and Unstaged */}
+                    {/* Changed files — grouped into Staged, Unstaged, Untracked with collapsible sections */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-outline">{t('project.changesDetected')}</span>
@@ -858,93 +865,205 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                           {(() => {
                             const stagedFiles = gitStatus.data.files.filter(f => f.status === 'staged');
                             if (stagedFiles.length === 0) return null;
+                            const collapsed = collapsedGroups['staged'] ?? false;
                             return (
                               <div className="space-y-1">
-                                <span className="text-[9px] font-bold uppercase tracking-widest text-tertiary">Staged ({stagedFiles.length})</span>
-                                <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden divide-y divide-outline-variant/5">
-                                  {stagedFiles.map((file) => {
-                                    const fileName = file.path.split('/').pop() || file.path;
-                                    return (
-                                      <div key={file.path} className="flex items-center gap-3 p-3 bg-surface-container-high/20">
-                                        <FileText size={16} className="text-tertiary shrink-0" />
-                                        <div className="flex-1 min-w-0">
-                                          <p className="text-xs font-bold truncate">{fileName}</p>
-                                          <p className="text-[10px] text-outline truncate">{file.path}</p>
-                                        </div>
-                                        {(file.additions > 0 || file.deletions > 0) && (
-                                          <div className="flex items-center gap-1 text-[10px] font-mono shrink-0">
-                                            {file.additions > 0 && <span className="text-emerald-400">+{file.additions}</span>}
-                                            {file.deletions > 0 && <span className="text-error">-{file.deletions}</span>}
-                                          </div>
-                                        )}
-                                        <button
-                                          onClick={() => handleUnstageFile(file.path)}
-                                          disabled={stagingPath === file.path}
-                                          className="p-1.5 rounded-md text-warning hover:bg-warning/10 transition-colors disabled:opacity-50"
-                                          title="Unstage"
-                                        >
-                                          {stagingPath === file.path ? (
-                                            <Loader2 size={14} className="animate-spin" />
-                                          ) : (
-                                            <MinusCircle size={14} />
-                                          )}
-                                        </button>
+                                <button
+                                  onClick={() => setCollapsedGroups(prev => ({ ...prev, staged: !prev.staged }))}
+                                  className="flex items-center gap-2 w-full hover:bg-surface-container-high/30 rounded px-1 py-0.5 transition-colors"
+                                >
+                                  {collapsed ? (
+                                    <ChevronRight size={12} className="text-tertiary shrink-0" />
+                                  ) : (
+                                    <ChevronDown size={12} className="text-tertiary shrink-0" />
+                                  )}
+                                  <span className="text-[9px] font-bold uppercase tracking-widest text-tertiary">Staged</span>
+                                  <span className="text-[9px] font-bold text-tertiary/70 bg-tertiary/10 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                                    {stagedFiles.length}
+                                  </span>
+                                </button>
+                                <AnimatePresence initial={false}>
+                                  {!collapsed && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: 'auto', opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ duration: 0.2, ease: 'easeInOut' }}
+                                      className="overflow-hidden"
+                                    >
+                                      <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden divide-y divide-outline-variant/5">
+                                        {stagedFiles.map((file) => {
+                                          const fileName = file.path.split('/').pop() || file.path;
+                                          return (
+                                            <div key={file.path} className="flex items-center gap-3 p-3 bg-surface-container-high/20">
+                                              <FileText size={16} className="text-tertiary shrink-0" />
+                                              <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-bold truncate">{fileName}</p>
+                                                <p className="text-[10px] text-outline truncate">{file.path}</p>
+                                              </div>
+                                              {(file.additions > 0 || file.deletions > 0) && (
+                                                <div className="flex items-center gap-1 text-[10px] font-mono shrink-0">
+                                                  {file.additions > 0 && <span className="text-emerald-400">+{file.additions}</span>}
+                                                  {file.deletions > 0 && <span className="text-error">-{file.deletions}</span>}
+                                                </div>
+                                              )}
+                                              <button
+                                                onClick={() => handleUnstageFile(file.path)}
+                                                disabled={stagingPath === file.path}
+                                                className="p-1.5 rounded-md text-warning hover:bg-warning/10 transition-colors disabled:opacity-50"
+                                                title="Unstage"
+                                              >
+                                                {stagingPath === file.path ? (
+                                                  <Loader2 size={14} className="animate-spin" />
+                                                ) : (
+                                                  <MinusCircle size={14} />
+                                                )}
+                                              </button>
+                                            </div>
+                                          );
+                                        })}
                                       </div>
-                                    );
-                                  })}
-                                </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
                               </div>
                             );
                           })()}
 
-                          {/* Unstaged & Untracked files */}
+                          {/* Unstaged files */}
                           {(() => {
-                            const unstagedFiles = gitStatus.data.files.filter(f => f.status === 'unstaged' || f.status === 'untracked');
+                            const unstagedFiles = gitStatus.data.files.filter(f => f.status === 'unstaged');
                             if (unstagedFiles.length === 0) return null;
+                            const collapsed = collapsedGroups['unstaged'] ?? false;
                             return (
                               <div className="space-y-1">
-                                <span className="text-[9px] font-bold uppercase tracking-widest text-primary">Changes ({unstagedFiles.length})</span>
-                                <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden divide-y divide-outline-variant/5">
-                                  {unstagedFiles.map((file) => {
-                                    const fileName = file.path.split('/').pop() || file.path;
-                                    const statusColor = file.status === 'untracked'
-                                      ? 'text-warning'
-                                      : 'text-primary';
-                                    const statusLabel = file.status === 'untracked'
-                                      ? 'Untracked'
-                                      : 'Modified';
-                                    return (
-                                      <div key={file.path} className="flex items-center gap-3 p-3 bg-surface-container-high/20">
-                                        <FileText size={16} className={cn("shrink-0", statusColor)} />
-                                        <div className="flex-1 min-w-0">
-                                          <p className="text-xs font-bold truncate">{fileName}</p>
-                                          <p className="text-[10px] text-outline truncate">{file.path}</p>
-                                        </div>
-                                        <span className={cn("text-[9px] font-bold uppercase shrink-0", statusColor)}>
-                                          {statusLabel}
-                                        </span>
-                                        {(file.additions > 0 || file.deletions > 0) && (
-                                          <div className="flex items-center gap-1 text-[10px] font-mono shrink-0">
-                                            {file.additions > 0 && <span className="text-emerald-400">+{file.additions}</span>}
-                                            {file.deletions > 0 && <span className="text-error">-{file.deletions}</span>}
-                                          </div>
-                                        )}
-                                        <button
-                                          onClick={() => handleStageFile(file.path)}
-                                          disabled={stagingPath === file.path}
-                                          className="p-1.5 rounded-md text-tertiary hover:bg-tertiary/10 transition-colors disabled:opacity-50"
-                                          title="Stage"
-                                        >
-                                          {stagingPath === file.path ? (
-                                            <Loader2 size={14} className="animate-spin" />
-                                          ) : (
-                                            <PlusCircle size={14} />
-                                          )}
-                                        </button>
+                                <button
+                                  onClick={() => setCollapsedGroups(prev => ({ ...prev, unstaged: !prev.unstaged }))}
+                                  className="flex items-center gap-2 w-full hover:bg-surface-container-high/30 rounded px-1 py-0.5 transition-colors"
+                                >
+                                  {collapsed ? (
+                                    <ChevronRight size={12} className="text-primary shrink-0" />
+                                  ) : (
+                                    <ChevronDown size={12} className="text-primary shrink-0" />
+                                  )}
+                                  <span className="text-[9px] font-bold uppercase tracking-widest text-primary">Modified</span>
+                                  <span className="text-[9px] font-bold text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                                    {unstagedFiles.length}
+                                  </span>
+                                </button>
+                                <AnimatePresence initial={false}>
+                                  {!collapsed && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: 'auto', opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ duration: 0.2, ease: 'easeInOut' }}
+                                      className="overflow-hidden"
+                                    >
+                                      <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden divide-y divide-outline-variant/5">
+                                        {unstagedFiles.map((file) => {
+                                          const fileName = file.path.split('/').pop() || file.path;
+                                          return (
+                                            <div key={file.path} className="flex items-center gap-3 p-3 bg-surface-container-high/20">
+                                              <FileText size={16} className="text-primary shrink-0" />
+                                              <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-bold truncate">{fileName}</p>
+                                                <p className="text-[10px] text-outline truncate">{file.path}</p>
+                                              </div>
+                                              <span className="text-[9px] font-bold uppercase shrink-0 text-primary">
+                                                Modified
+                                              </span>
+                                              {(file.additions > 0 || file.deletions > 0) && (
+                                                <div className="flex items-center gap-1 text-[10px] font-mono shrink-0">
+                                                  {file.additions > 0 && <span className="text-emerald-400">+{file.additions}</span>}
+                                                  {file.deletions > 0 && <span className="text-error">-{file.deletions}</span>}
+                                                </div>
+                                              )}
+                                              <button
+                                                onClick={() => handleStageFile(file.path)}
+                                                disabled={stagingPath === file.path}
+                                                className="p-1.5 rounded-md text-tertiary hover:bg-tertiary/10 transition-colors disabled:opacity-50"
+                                                title="Stage"
+                                              >
+                                                {stagingPath === file.path ? (
+                                                  <Loader2 size={14} className="animate-spin" />
+                                                ) : (
+                                                  <PlusCircle size={14} />
+                                                )}
+                                              </button>
+                                            </div>
+                                          );
+                                        })}
                                       </div>
-                                    );
-                                  })}
-                                </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Untracked files */}
+                          {(() => {
+                            const untrackedFiles = gitStatus.data.files.filter(f => f.status === 'untracked');
+                            if (untrackedFiles.length === 0) return null;
+                            const collapsed = collapsedGroups['untracked'] ?? true;
+                            return (
+                              <div className="space-y-1">
+                                <button
+                                  onClick={() => setCollapsedGroups(prev => ({ ...prev, untracked: !prev.untracked }))}
+                                  className="flex items-center gap-2 w-full hover:bg-surface-container-high/30 rounded px-1 py-0.5 transition-colors"
+                                >
+                                  {collapsed ? (
+                                    <ChevronRight size={12} className="text-warning shrink-0" />
+                                  ) : (
+                                    <ChevronDown size={12} className="text-warning shrink-0" />
+                                  )}
+                                  <span className="text-[9px] font-bold uppercase tracking-widest text-warning">Untracked</span>
+                                  <span className="text-[9px] font-bold text-warning/70 bg-warning/10 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                                    {untrackedFiles.length}
+                                  </span>
+                                </button>
+                                <AnimatePresence initial={false}>
+                                  {!collapsed && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: 'auto', opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ duration: 0.2, ease: 'easeInOut' }}
+                                      className="overflow-hidden"
+                                    >
+                                      <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden divide-y divide-outline-variant/5">
+                                        {untrackedFiles.map((file) => {
+                                          const fileName = file.path.split('/').pop() || file.path;
+                                          return (
+                                            <div key={file.path} className="flex items-center gap-3 p-3 bg-surface-container-high/20">
+                                              <FileText size={16} className="text-warning shrink-0" />
+                                              <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-bold truncate">{fileName}</p>
+                                                <p className="text-[10px] text-outline truncate">{file.path}</p>
+                                              </div>
+                                              <span className="text-[9px] font-bold uppercase shrink-0 text-warning">
+                                                Untracked
+                                              </span>
+                                              <button
+                                                onClick={() => handleStageFile(file.path)}
+                                                disabled={stagingPath === file.path}
+                                                className="p-1.5 rounded-md text-tertiary hover:bg-tertiary/10 transition-colors disabled:opacity-50"
+                                                title="Stage"
+                                              >
+                                                {stagingPath === file.path ? (
+                                                  <Loader2 size={14} className="animate-spin" />
+                                                ) : (
+                                                  <PlusCircle size={14} />
+                                                )}
+                                              </button>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
                               </div>
                             );
                           })()}
@@ -955,7 +1074,7 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                 ) : null}
               </div>
 
-              <div className="p-4 bg-surface-container-high/30 border-t border-outline-variant/10 space-y-3">
+              <div className="shrink-0 p-4 bg-surface-container-high/30 border-t border-outline-variant/10 space-y-3">
                 {/* Commit input + button */}
                 <div className="flex gap-2">
                   <input
