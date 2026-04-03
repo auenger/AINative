@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-03T19:30:00Z"
+  last_updated: "2026-04-03T22:00:00Z"
   version: 1
 
 parents:
@@ -15,21 +15,18 @@ parents:
       - feat-hardware-monitor
       - feat-ai-agent-service
 
-active: []
+active:
+  - id: feat-git-push-pull
+    name: "Git 远程同步（Push & Pull）"
+    priority: 68
+    parent: feat-git-integration
+    dependencies:
+      - feat-git-stage-commit
+    branch: feature/feat-git-push-pull
+    worktree: ../NeuroSyntaxIDE-feat-git-push-pull
+    started_at: "2026-04-03T21:30:00Z"
 
 pending:
-  - id: feat-req-agent-chat
-    name: "需求分析 Agent 聊天 UI"
-    priority: 70
-    dependencies:
-      - feat-req-agent-bridge
-
-  - id: feat-req-agent-workflow
-    name: "需求分析输出工作流"
-    priority: 65
-    dependencies:
-      - feat-req-agent-chat
-
   - id: feat-git-integration
     name: "Git 集成功能（状态展示 + Stage/Commit + Push/Pull）"
     priority: 70
@@ -39,28 +36,9 @@ pending:
       - feat-git-stage-commit
       - feat-git-push-pull
 
-  - id: feat-git-stage-commit
-    name: "Git 暂存与提交"
-    priority: 70
-    parent: feat-git-integration
-    dependencies:
-      - feat-git-status-read
-
-  - id: feat-git-push-pull
-    name: "Git 远程同步（Push & Pull）"
-    priority: 68
-    parent: feat-git-integration
-    dependencies:
-      - feat-git-stage-commit
-
   - id: feat-terminal-enhance
     name: "编辑器终端能力增强（可用性 + hover 样式 + 新建终端）"
     priority: 65
-    dependencies: []
-
-  - id: feat-dock-icon
-    name: "App Dock 图标替换为 Logo"
-    priority: 70
     dependencies: []
 
   - id: feat-file-type-display
@@ -232,3 +210,23 @@ completed:
     name: "Git 状态真实展示"
     completed_at: "2026-04-03T19:30:00Z"
     tag: feat-git-status-read-20260403
+
+  - id: feat-dock-icon
+    name: "App Dock 图标替换为 Logo"
+    completed_at: "2026-04-03T20:15:00Z"
+    tag: feat-dock-icon-20260403
+
+  - id: feat-req-agent-chat
+    name: "需求分析 Agent 聊天 UI"
+    completed_at: "2026-04-03T20:30:00Z"
+    tag: feat-req-agent-chat-20260403
+
+  - id: feat-git-stage-commit
+    name: "Git 暂存与提交"
+    completed_at: "2026-04-03T20:50:00Z"
+    tag: feat-git-stage-commit-20260403
+
+  - id: feat-req-agent-workflow
+    name: "需求分析输出工作流"
+    completed_at: "2026-04-03T22:00:00Z"
+    tag: feat-req-agent-workflow-20260403

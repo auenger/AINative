@@ -1,8 +1,8 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-03T19:30:00Z"
+  last_updated: "2026-04-03T22:00:00Z"
   version: 1
-  total_completed: 25
+  total_completed: 29
 
 records:
   - id: feat-tauri-v2-init
@@ -359,5 +359,100 @@ records:
     stats:
       started: "2026-04-03T18:01:00Z"
       duration: "~1.5h"
+      commits: 1
+      files_changed: 4
+
+  - id: feat-dock-icon
+    name: "App Dock 图标替换为 Logo"
+    completed_at: "2026-04-03T20:15:00Z"
+    tag: feat-dock-icon-20260403
+    merge_commit: c6d9b2107701082341762fdf0d272c759abdcf10
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-dock-icon
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-dock-icon
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 2
+      scenarios_passed: 2
+    stats:
+      started: "2026-04-03T20:00:00Z"
+      duration: "~15m"
+      commits: 1
+      files_changed: 5
+
+  - id: feat-req-agent-chat
+    name: "需求分析 Agent 聊天 UI"
+    completed_at: "2026-04-03T20:30:00Z"
+    tag: feat-req-agent-chat-20260403
+    merge_commit: 8b1199e
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-req-agent-chat
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-req-agent-chat
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-03T20:10:00Z"
+      duration: "~20m"
+      commits: 1
+      files_changed: 3
+
+  - id: feat-git-stage-commit
+    name: "Git 暂存与提交"
+    completed_at: "2026-04-03T20:50:00Z"
+    tag: feat-git-stage-commit-20260403
+    merge_commit: bbd1d98
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-git-stage-commit
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-git-stage-commit
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-04-03T20:30:00Z"
+      duration: "~20m"
+      commits: 1
+      files_changed: 3
+
+  - id: feat-req-agent-workflow
+    name: "需求分析输出工作流"
+    completed_at: "2026-04-03T22:00:00Z"
+    tag: feat-req-agent-workflow-20260403
+    merge_commit: fddb225
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-req-agent-workflow
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-req-agent-workflow
+    conflicts:
+      had_conflict: true
+      conflict_files:
+        - neuro-syntax-ide/src/components/views/ProjectView.tsx
+      resolved_at: "2026-04-03T22:00:00Z"
+      re_verified: true
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-04-03T21:00:00Z"
+      duration: "~60m"
       commits: 1
       files_changed: 4
