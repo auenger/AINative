@@ -2132,34 +2132,9 @@ fn check_claude_cli() -> Result<(), String> {
     Ok(())
 }
 
-/// Start a Claude Code CLI subprocess in stream-json mode.
-/// If session_id is provided, resumes an existing session with --resume.
-#[tauri::command]
-async fn req_agent_start(
-    app: AppHandle,
-    state: tauri::State<'_, AppState>,
-    session_id: Option<String>,
-) -> Result<String, String> {
-    // Pre-flight: check CLI exists
-    check_claude_cli()?;
-
-    // Stop any existing session first
-    {
-        let mut agent = state.req_agent.lock().map_err(|e| e.to_string())?;
-        if let Some(ref mut child) = agent.process {
-            let _ = child.kill();
-            let _ = child.wait();
-        }
-        agent.process = None;
-        agent.stdin = None;
-        agent.session_id = None;
-    }
-
-    // Generate or reuse session ID
-    let sid = session_id.clone().unwrap_or_else(|| Uuid::new_v4().to_string());
-
-    // System prompt for the requirements analysis agent
-    let system_prompt = r#"你是需求分析专家。当用户的需求分析完成后：
+/// System prompt for the requirements analysis agent.
+/// Shared between req_agent_start and req_agent_send_message.
+const REQ_AGENT_SYSTEM_PROMPT: &str = r#"你是需求分析专家。当用户的需求分析完成后：
 
 1. 使用 Glob/Read 工具了解项目现有结构
 2. 使用 Write 工具将分析结果写入 features/pending-{feature-id}/ 目录
@@ -2252,24 +2227,79 @@ Scenario: ...
 - 如果 ID 冲突，提示用户并建议替代 ID
 - 用户取消时不创建任何文件"#;
 
+/// Initialize a ReqAgent session.
+/// Only performs CLI availability check and generates a session ID.
+/// No long-lived process is started; each message spawns its own process.
+#[tauri::command]
+async fn req_agent_start(
+    state: tauri::State<'_, AppState>,
+    session_id: Option<String>,
+) -> Result<String, String> {
+    // session_id parameter is accepted for API compatibility but always generates a new session
+    let _ = session_id;
+    // Pre-flight: check CLI exists
+    check_claude_cli()?;
+
+    // Stop any existing session first
+    {
+        let mut agent = state.req_agent.lock().map_err(|e| e.to_string())?;
+        if let Some(ref mut child) = agent.process {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        agent.process = None;
+        agent.stdin = None;
+        agent.session_id = None;
+    }
+
+    // Generate new session ID (always fresh, ignore provided session_id for safety)
+    let sid = Uuid::new_v4().to_string();
+
+    // Store only the session ID (no process spawned)
+    {
+        let mut agent = state.req_agent.lock().map_err(|e| e.to_string())?;
+        agent.session_id = Some(sid.clone());
+    }
+
+    Ok(sid)
+}
+
+/// Send a user message to Claude Code CLI using a per-message process model.
+/// Each call spawns a new `claude --print --resume --session-id <id>` process,
+/// passes the user message as a command-line argument, reads stdout until EOF,
+/// emits streaming events, and lets the process exit naturally.
+#[tauri::command]
+async fn req_agent_send_message(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+    message: String,
+) -> Result<(), String> {
+    // Retrieve the current session ID
+    let sid = {
+        let agent = state.req_agent.lock().map_err(|e| e.to_string())?;
+        agent.session_id.clone()
+            .ok_or_else(|| "No active agent session. Call req_agent_start first.".to_string())?
+    };
+
     // Get workspace path for --add-dir
     let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
 
-    // Build CLI arguments
+    // Build CLI arguments: --print --resume to continue the conversation context
     let mut args = vec![
         "--print".to_string(),
         "--output-format".to_string(),
         "stream-json".to_string(),
-        "--input-format".to_string(),
-        "stream-json".to_string(),
-        "--permission-mode".to_string(),
-        "acceptEdits".to_string(),
+        "--resume".to_string(),
         "--session-id".to_string(),
         sid.clone(),
         "--append-system-prompt".to_string(),
-        system_prompt.to_string(),
+        REQ_AGENT_SYSTEM_PROMPT.to_string(),
+        "--permission-mode".to_string(),
+        "acceptEdits".to_string(),
         "--allowedTools".to_string(),
         "Read Write Glob Grep Bash Edit".to_string(),
+        "--".to_string(),
+        message.clone(),
     ];
 
     // Add workspace directory for file access
@@ -2278,36 +2308,29 @@ Scenario: ...
         args.push(workspace);
     }
 
-    // If session_id was provided, add --resume flag
-    if session_id.is_some() {
-        args.push("--resume".to_string());
-    }
-
-    // Spawn the Claude CLI process
+    // Spawn a temporary CLI process for this single message
     let mut child = Command::new("claude")
         .args(&args)
-        .stdin(Stdio::piped())
+        .stdin(Stdio::null())  // No stdin needed — message is in args
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("Failed to spawn Claude CLI: {}", e))?;
 
-    // Take stdin and stdout handles
-    let stdin_handle = child.stdin.take()
-        .ok_or_else(|| "Failed to get stdin handle".to_string())?;
     let stdout_handle = child.stdout.take()
         .ok_or_else(|| "Failed to get stdout handle".to_string())?;
     let stderr_handle = child.stderr.take()
         .ok_or_else(|| "Failed to get stderr handle".to_string())?;
 
-    let stdin_writer = BufWriter::new(stdin_handle);
-
-    // Store process state
+    // Store the child process so req_agent_stop can kill it if needed
     {
         let mut agent = state.req_agent.lock().map_err(|e| e.to_string())?;
+        // Clean up any previous leftover process
+        if let Some(ref mut old_child) = agent.process {
+            let _ = old_child.kill();
+            let _ = old_child.wait();
+        }
         agent.process = Some(child);
-        agent.session_id = Some(sid.clone());
-        agent.stdin = Some(stdin_writer);
     }
 
     // Spawn background thread to read stdout and emit events
@@ -2348,14 +2371,12 @@ Scenario: ...
                                 // Result messages signal completion; text is empty
                                 String::new()
                             } else if msg_type == "system" {
-                                // System messages (e.g. init, tool use)
                                 json_obj.get("content")
                                     .and_then(|c| c.as_str())
                                     .unwrap_or("")
                                     .to_string()
                             } else {
-                                // For other message types, forward the whole JSON as text
-                                // so the frontend can handle tool_use, tool_result, etc.
+                                // Forward other message types as raw JSON
                                 trimmed.to_string()
                             };
 
@@ -2385,9 +2406,8 @@ Scenario: ...
 
                             let _ = app_handle.emit("req_agent_chunk", &event);
 
-                            if is_result {
-                                break;
-                            }
+                            // Do NOT break on result — keep reading until EOF
+                            // The process will exit naturally after producing the result message
                         }
                         Err(_) => {
                             // Non-JSON line, emit as raw text
@@ -2402,19 +2422,12 @@ Scenario: ...
                         }
                     }
                 }
-                Err(_) => break,
+                Err(_) => break, // EOF — process exited naturally
             }
         }
-
-        // Process exited - emit a done event if not already sent
-        let event = ReqAgentChunkEvent {
-            text: String::new(),
-            is_done: true,
-            error: Some("Agent session disconnected".to_string()),
-            msg_type: Some("disconnect".to_string()),
-            session_id: Some(emit_sid),
-        };
-        let _ = app_handle.emit("req_agent_chunk", &event);
+        // No disconnect event emitted here — process exit is expected (per-message model).
+        // The frontend's persistent listener handles the is_done from the result message.
+        let _ = emit_sid; // suppress unused warning
     });
 
     // Spawn background thread to read stderr (for error diagnostics)
@@ -2425,7 +2438,6 @@ Scenario: ...
             match line {
                 Ok(text) => {
                     if !text.trim().is_empty() {
-                        // Emit stderr as error chunks
                         let event = ReqAgentChunkEvent {
                             text: String::new(),
                             is_done: false,
@@ -2441,63 +2453,11 @@ Scenario: ...
         }
     });
 
-    Ok(sid)
-}
-
-/// Send a user message to the Claude CLI subprocess via stdin.
-/// The message is sent as a stream-json formatted JSON object.
-#[tauri::command]
-fn req_agent_send(
-    state: tauri::State<'_, AppState>,
-    message: String,
-) -> Result<(), String> {
-    let mut agent = state.req_agent.lock().map_err(|e| e.to_string())?;
-
-    // Verify process is still running
-    if let Some(ref mut child) = agent.process {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                // Clean up dead process
-                agent.process = None;
-                agent.stdin = None;
-                return Err(format!(
-                    "Agent process has exited with status: {}. Please restart the session.",
-                    status
-                ));
-            }
-            Ok(None) => {
-                // Process is still running, good
-            }
-            Err(e) => {
-                return Err(format!("Failed to check process status: {}", e));
-            }
-        }
-    } else {
-        return Err("No active agent session. Call req_agent_start first.".to_string());
-    }
-
-    let stdin_writer = agent.stdin.as_mut()
-        .ok_or_else(|| "No stdin handle available. Call req_agent_start first.".to_string())?;
-
-    // Build the stream-json input message
-    let input_msg = serde_json::json!({
-        "type": "user",
-        "content": message
-    });
-
-    let json_str = serde_json::to_string(&input_msg)
-        .map_err(|e| format!("Failed to serialize message: {}", e))?;
-
-    // Write JSON + newline to stdin and flush
-    stdin_writer.write_all(format!("{}\n", json_str).as_bytes())
-        .map_err(|e| format!("Failed to write to stdin: {}", e))?;
-    stdin_writer.flush()
-        .map_err(|e| format!("Failed to flush stdin: {}", e))?;
-
     Ok(())
 }
 
-/// Stop the Claude CLI subprocess gracefully.
+/// Stop the ReqAgent session.
+/// Kills any running message process and clears session state.
 #[tauri::command]
 fn req_agent_stop(
     state: tauri::State<'_, AppState>,
@@ -2505,7 +2465,6 @@ fn req_agent_stop(
     let mut agent = state.req_agent.lock().map_err(|e| e.to_string())?;
 
     if let Some(ref mut child) = agent.process {
-        // Try graceful kill first
         let _ = child.kill();
         let _ = child.wait();
     }
@@ -2526,8 +2485,12 @@ fn req_agent_status(
 
     let running = if let Some(ref mut child) = agent.process {
         match child.try_wait() {
-            Ok(None) => true,   // still running
-            Ok(Some(_)) => false, // exited
+            Ok(None) => true,   // still running (processing a message)
+            Ok(Some(_)) => {
+                // Process exited — clean up
+                agent.process = None;
+                false
+            }
             Err(_) => false,
         }
     } else {
@@ -2680,7 +2643,7 @@ pub fn run() {
             agent_generate_feature_plan,
             // ReqAgent (Claude Code CLI Bridge)
             req_agent_start,
-            req_agent_send,
+            req_agent_send_message,
             req_agent_stop,
             req_agent_status,
             read_file,
