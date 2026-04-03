@@ -38,6 +38,9 @@ export interface LogEntry {
   message: string;
 }
 
+/** Renderer type for file type routing. */
+export type FileRendererType = 'monaco' | 'markdown' | 'image' | 'config-tree' | 'text' | 'unsupported';
+
 /** State for a single open file tab in the editor. */
 export interface OpenFileState {
   path: string;
@@ -47,6 +50,8 @@ export interface OpenFileState {
   isDirty: boolean;
   /** Monaco view state to preserve cursor & scroll on tab switch */
   viewState: unknown | null;
+  /** Renderer type determined by file extension for type-based routing. */
+  rendererType: FileRendererType;
 }
 
 /** Hardware stats payload from sys-hardware-tick event. */
