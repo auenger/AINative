@@ -1,4 +1,4 @@
-export type ViewType = 'project' | 'editor' | 'tasks' | 'workflow' | 'mission-control' | 'settings' | 'person';
+export type ViewType = 'project' | 'editor' | 'tasks' | 'workflow' | 'mission-control' | 'settings' | 'person' | 'agents';
 
 export interface FileNode {
   name: string;
@@ -321,4 +321,33 @@ export interface PipelineCompleteEvent {
   status: PipelineStatusType;
   final_output: string;
   stages: PipelineStageExecution[];
+}
+
+// ---------------------------------------------------------------------------
+// Agent configuration (feat-agent-runtime-ui)
+// ---------------------------------------------------------------------------
+
+/** Orchestration mode for an agent. */
+export type AgentOrchestrationMode = 'pipeline' | 'route';
+
+/** A user-created agent configuration. */
+export interface AgentConfig {
+  /** Unique agent id (kebab-case). */
+  id: string;
+  /** Display name. */
+  name: string;
+  /** Orchestration mode: pipeline runs stages sequentially; route uses smart routing. */
+  mode: AgentOrchestrationMode;
+  /** For pipeline mode: the pipeline config id to run. */
+  pipeline_id?: string;
+  /** For route mode: preferred runtime id. */
+  preferred_runtime?: string;
+  /** Description. */
+  description?: string;
+  /** Default prompt template prefix prepended to user input. */
+  system_prompt?: string;
+  /** Whether the agent is active and usable. */
+  enabled: boolean;
+  /** Creation timestamp (ISO string). */
+  created_at: string;
 }
