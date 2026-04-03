@@ -28,6 +28,8 @@ import { XTerminal, TerminalKind } from '../XTerminal';
 import { FileNode as WSFileNode, OpenFileState } from '../../types';
 import { NEURO_DARK_THEME, NEURO_LIGHT_THEME } from '../../lib/monaco-theme';
 import { useTheme } from '../../context/ThemeContext';
+import { getFileRendererType } from '../../lib/file-type-router';
+import { getEditorOptionsForLanguage } from '../../lib/language-presets';
 
 // Lazy-load Monaco Editor for performance
 const Editor = lazy(() => import('@monaco-editor/react'));
@@ -63,10 +65,12 @@ function getFileIcon(name: string): { Icon: React.ElementType; color: string } {
     case 'js':
       return { Icon: FileCode, color: 'text-yellow-400' };
     case 'json':
+    case 'jsonc':
       return { Icon: FileJson, color: 'text-tertiary' };
     case 'css':
     case 'scss':
     case 'less':
+    case 'sass':
       return { Icon: Code2, color: 'text-primary' };
     case 'md':
     case 'mdx':
@@ -75,11 +79,37 @@ function getFileIcon(name: string): { Icon: React.ElementType; color: string } {
     case 'yml':
       return { Icon: FileJson, color: 'text-blue-400' };
     case 'toml':
+    case 'ini':
       return { Icon: FileJson, color: 'text-orange-400' };
     case 'rs':
       return { Icon: FileCode, color: 'text-orange-500' };
+    case 'py':
+      return { Icon: FileCode, color: 'text-green-400' };
+    case 'java':
+    case 'kt':
+    case 'kts':
+      return { Icon: FileCode, color: 'text-red-400' };
+    case 'go':
+      return { Icon: FileCode, color: 'text-cyan-400' };
+    case 'c':
+    case 'h':
+      return { Icon: FileCode, color: 'text-blue-300' };
+    case 'cpp':
+    case 'hpp':
+      return { Icon: FileCode, color: 'text-blue-400' };
+    case 'vue':
+      return { Icon: FileCode, color: 'text-green-500' };
+    case 'svelte':
+      return { Icon: FileCode, color: 'text-orange-400' };
     case 'html':
+    case 'htm':
       return { Icon: Code2, color: 'text-red-400' };
+    case 'sh':
+    case 'bash':
+    case 'zsh':
+      return { Icon: FileCode, color: 'text-green-300' };
+    case 'sql':
+      return { Icon: FileCode, color: 'text-blue-300' };
     default:
       return { Icon: File, color: 'text-outline' };
   }
@@ -91,16 +121,19 @@ function getFileIcon(name: string): { Icon: React.ElementType; color: string } {
 
 function getLanguageFromPath(filePath: string): string {
   const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+  const basename = filePath.split('/').pop()?.toLowerCase() ?? '';
   const langMap: Record<string, string> = {
     ts: 'typescript',
     tsx: 'typescript',
     js: 'javascript',
     jsx: 'javascript',
     json: 'json',
+    jsonc: 'json',
     css: 'css',
     scss: 'scss',
     less: 'less',
     html: 'html',
+    htm: 'html',
     md: 'markdown',
     mdx: 'markdown',
     yaml: 'yaml',
@@ -110,11 +143,35 @@ function getLanguageFromPath(filePath: string): string {
     py: 'python',
     sh: 'shell',
     bash: 'shell',
+    zsh: 'shell',
     sql: 'sql',
     xml: 'xml',
     svg: 'xml',
     txt: 'plaintext',
+    log: 'plaintext',
+    csv: 'plaintext',
+    vue: 'html',
+    svelte: 'html',
+    java: 'java',
+    kt: 'kotlin',
+    kts: 'kotlin',
+    go: 'go',
+    c: 'c',
+    cpp: 'cpp',
+    h: 'c',
+    hpp: 'cpp',
+    cs: 'csharp',
+    swift: 'swift',
+    rb: 'ruby',
+    php: 'php',
+    graphql: 'graphql',
+    gql: 'graphql',
   };
+  // Handle extensionless files like Dockerfile, Makefile
+  if (ext === '' || !(ext in langMap)) {
+    if (basename === 'dockerfile') return 'dockerfile';
+    if (basename === 'makefile') return 'makefile';
+  }
   return langMap[ext] ?? 'plaintext';
 }
 
@@ -278,6 +335,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
         language: getLanguageFromPath(filePath),
         isDirty: false,
         viewState: null,
+        rendererType: getFileRendererType(filePath),
       };
 
       setOpenFiles(prev => {
@@ -555,9 +613,9 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
   const openFileEntries = useMemo(() => Array.from(openFiles.values()), [openFiles]);
 
   // -----------------------------------------------------------------------
-  // Monaco editor options (aligned with design system)
+  // Monaco editor options — base options (aligned with design system)
   // -----------------------------------------------------------------------
-  const editorOptions: MonacoEditor.IStandaloneEditorConstructionOptions = useMemo(() => ({
+  const baseEditorOptions: MonacoEditor.IStandaloneEditorConstructionOptions = useMemo(() => ({
     fontSize: 13,
     fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
     fontLigatures: true,
@@ -587,6 +645,12 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
     },
     theme: appTheme === 'dark' ? 'neuro-dark' : 'neuro-light',
   }), [appTheme]);
+
+  /** Dynamic editor options: base + language-specific preset. */
+  const editorOptions = useMemo(() => {
+    const language = activeFile?.language ?? '';
+    return getEditorOptionsForLanguage(language, baseEditorOptions);
+  }, [baseEditorOptions, activeFile?.language]);
 
   // -----------------------------------------------------------------------
   // Reactively sync Monaco theme on app theme change
