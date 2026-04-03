@@ -15,7 +15,11 @@ import {
   Key,
   AlertTriangle,
   Loader2,
-  Plus
+  Plus,
+  MessageSquarePlus,
+  Square,
+  Radio,
+  WifiOff
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
@@ -23,6 +27,7 @@ import { cn } from '../../lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { useAgentChat } from '../../lib/useAgentChat';
 import type { FeaturePlanOutput } from '../../lib/useAgentChat';
+import { useReqAgentChat } from '../../lib/useReqAgentChat';
 import { useGitStatus } from '../../lib/useGitStatus';
 
 interface WorkspaceHook {
@@ -41,9 +46,12 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ workspace }) => {
   const { workspacePath, loading: workspaceLoading, error: workspaceError, selectWorkspace } = workspace;
 
   const agentChat = useAgentChat();
+  const reqAgent = useReqAgentChat();
   const gitStatus = useGitStatus(workspacePath);
 
   const [chatInput, setChatInput] = useState('');
+  const [reqChatInput, setReqChatInput] = useState('');
+  const [activeChatTab, setActiveChatTab] = useState<'pm' | 'req'>('pm');
   const [showGitModal, setShowGitModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
@@ -86,6 +94,11 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [agentChat.messages]);
+
+  // Auto-scroll req agent chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [reqAgent.messages]);
 
   // Refresh git status when the Git modal opens
   useEffect(() => {
@@ -137,6 +150,34 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
     agentChat.configureApiKey(apiKeyInput);
     setApiKeyInput('');
     setShowApiKeyModal(false);
+  };
+
+  const handleReqAgentSend = () => {
+    if (!reqChatInput.trim() || reqAgent.isStreaming) return;
+    reqAgent.sendMessage(reqChatInput);
+    setReqChatInput('');
+  };
+
+  const handleReqAgentStart = async () => {
+    const storedSid = localStorage.getItem('req_agent_session_id');
+    await reqAgent.startSession(storedSid || undefined);
+  };
+
+  const handleReqAgentNewSession = async () => {
+    await reqAgent.newSession();
+  };
+
+  const handleReqAgentStop = async () => {
+    await reqAgent.stopSession();
+  };
+
+  const reqConnectionLabel = () => {
+    switch (reqAgent.connectionState) {
+      case 'connected': return t('project.reqAgentConnected');
+      case 'connecting': return t('project.reqAgentConnecting');
+      case 'error': return t('project.reqAgentError');
+      default: return t('project.reqAgentDisconnected');
+    }
   };
 
   return (
@@ -264,103 +305,318 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
       {/* Main content: shown when workspace is loaded */}
       {workspacePath && (
         <div className="flex-1 flex overflow-hidden">
-          {/* Left: PM Chat */}
+          {/* Left: Agent Chat Panel with Tab Switcher */}
           <div className="w-[400px] border-r border-outline-variant/10 flex flex-col bg-surface-container-lowest shrink-0">
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="p-4 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-low">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-secondary/10 rounded-lg">
-                    <Bot size={18} className="text-secondary" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold uppercase tracking-widest">{t('project.pmAgent')}</span>
-                    <span className="text-[9px] text-outline uppercase font-medium tracking-tighter">Context Architect</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className={cn(
-                    "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
-                    agentChat.apiKeyConfigured
-                      ? "bg-tertiary/10"
-                      : "bg-outline-variant/10"
-                  )}>
-                    <div className={cn(
-                      "w-1.5 h-1.5 rounded-full",
-                      agentChat.apiKeyConfigured ? "bg-tertiary animate-pulse" : "bg-outline-variant"
-                    )}></div>
-                    <span className={cn(
-                      "text-[9px] font-bold uppercase tracking-tighter",
-                      agentChat.apiKeyConfigured ? "text-tertiary" : "text-outline"
-                    )}>
-                      {agentChat.isStreaming ? 'Thinking...' : agentChat.apiKeyConfigured ? 'Active' : 'No Key'}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setShowApiKeyModal(true)}
-                    className="p-1 text-on-surface-variant hover:text-primary transition-colors"
-                    title="API Key Settings"
-                  >
-                    <Key size={12} />
-                  </button>
-                </div>
+              {/* Tab Bar */}
+              <div className="flex border-b border-outline-variant/10 bg-surface-container-low">
+                <button
+                  onClick={() => setActiveChatTab('pm')}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all border-b-2",
+                    activeChatTab === 'pm'
+                      ? "text-secondary border-secondary bg-surface-container-lowest"
+                      : "text-on-surface-variant border-transparent hover:text-on-surface"
+                  )}
+                >
+                  <Bot size={14} />
+                  {t('project.pmAgent')}
+                </button>
+                <button
+                  onClick={() => setActiveChatTab('req')}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all border-b-2",
+                    activeChatTab === 'req'
+                      ? "text-primary border-primary bg-surface-container-lowest"
+                      : "text-on-surface-variant border-transparent hover:text-on-surface"
+                  )}
+                >
+                  <Sparkles size={14} />
+                  {t('project.reqAgent')}
+                </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-4 scroll-hide">
-                {agentChat.messages.map((msg, idx) => (
-                  <div key={idx} className={cn(
-                    "flex flex-col gap-1 max-w-[85%]",
-                    msg.role === 'user' ? "ml-auto items-end" : "items-start"
-                  )}>
-                    <div className={cn(
-                      "p-3 rounded-lg text-xs leading-relaxed",
-                      msg.role === 'user'
-                        ? "bg-primary text-on-primary rounded-tr-none"
-                        : "bg-surface-container-high text-on-surface rounded-tl-none border border-outline-variant/10"
-                    )}>
-                      {msg.role === 'assistant' ? (
-                        <div className="prose prose-invert prose-xs [&_pre]:text-[10px] [&_p]:text-[10px] [&_pre]:p-2 [&_pre]:bg-surface-container-lowest [&_pre]:rounded [&_code]:text-[10px]">
-                          <ReactMarkdown>{msg.content}</ReactMarkdown>
-                          {idx === agentChat.messages.length - 1 && agentChat.isStreaming && (
-                            <span className="inline-block w-1.5 h-3 bg-primary/70 animate-pulse ml-0.5 align-middle"></span>
+              {/* PM Agent Chat */}
+              {activeChatTab === 'pm' && (
+                <>
+                  <div className="p-3 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-low">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-secondary/10 rounded-lg">
+                        <Bot size={16} className="text-secondary" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold uppercase tracking-widest">{t('project.pmAgent')}</span>
+                        <span className="text-[9px] text-outline uppercase font-medium tracking-tighter">Context Architect</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className={cn(
+                        "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
+                        agentChat.apiKeyConfigured
+                          ? "bg-tertiary/10"
+                          : "bg-outline-variant/10"
+                      )}>
+                        <div className={cn(
+                          "w-1.5 h-1.5 rounded-full",
+                          agentChat.apiKeyConfigured ? "bg-tertiary animate-pulse" : "bg-outline-variant"
+                        )}></div>
+                        <span className={cn(
+                          "text-[9px] font-bold uppercase tracking-tighter",
+                          agentChat.apiKeyConfigured ? "text-tertiary" : "text-outline"
+                        )}>
+                          {agentChat.isStreaming ? 'Thinking...' : agentChat.apiKeyConfigured ? 'Active' : 'No Key'}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setShowApiKeyModal(true)}
+                        className="p-1 text-on-surface-variant hover:text-primary transition-colors"
+                        title="API Key Settings"
+                      >
+                        <Key size={12} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4 scroll-hide">
+                    {agentChat.messages.map((msg, idx) => (
+                      <div key={idx} className={cn(
+                        "flex flex-col gap-1 max-w-[85%]",
+                        msg.role === 'user' ? "ml-auto items-end" : "items-start"
+                      )}>
+                        <div className={cn(
+                          "p-3 rounded-lg text-xs leading-relaxed",
+                          msg.role === 'user'
+                            ? "bg-primary text-on-primary rounded-tr-none"
+                            : "bg-surface-container-high text-on-surface rounded-tl-none border border-outline-variant/10"
+                        )}>
+                          {msg.role === 'assistant' ? (
+                            <div className="prose prose-invert prose-xs [&_pre]:text-[10px] [&_p]:text-[10px] [&_pre]:p-2 [&_pre]:bg-surface-container-lowest [&_pre]:rounded [&_code]:text-[10px]">
+                              <ReactMarkdown>{msg.content}</ReactMarkdown>
+                              {idx === agentChat.messages.length - 1 && agentChat.isStreaming && (
+                                <span className="inline-block w-1.5 h-3 bg-primary/70 animate-pulse ml-0.5 align-middle"></span>
+                              )}
+                            </div>
+                          ) : (
+                            msg.content
                           )}
                         </div>
-                      ) : (
-                        msg.content
+                      </div>
+                    ))}
+                    <div ref={chatEndRef} />
+                  </div>
+
+                  <div className="p-4 border-t border-outline-variant/10 bg-surface">
+                    <div className="relative">
+                      <textarea
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
+                        placeholder={t('project.chatPlaceholder')}
+                        disabled={agentChat.isStreaming}
+                        className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg p-3 pr-10 text-xs text-on-surface focus:outline-none focus:border-primary/50 resize-none h-20 scroll-hide disabled:opacity-50"
+                      />
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={agentChat.isStreaming || !chatInput.trim()}
+                        className={cn(
+                          "absolute right-2 bottom-2 p-1.5 rounded-md transition-colors",
+                          agentChat.isStreaming || !chatInput.trim()
+                            ? "text-outline-variant cursor-not-allowed"
+                            : "text-primary hover:bg-primary/10"
+                        )}
+                      >
+                        {agentChat.isStreaming ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <Send size={16} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Req Agent Chat */}
+              {activeChatTab === 'req' && (
+                <>
+                  <div className="p-3 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-low">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-primary/10 rounded-lg">
+                        <Sparkles size={16} className="text-primary" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold uppercase tracking-widest">{t('project.reqAgent')}</span>
+                        <span className="text-[9px] text-outline uppercase font-medium tracking-tighter">Requirements Analyst</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {/* Connection status indicator */}
+                      <div className={cn(
+                        "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
+                        reqAgent.connectionState === 'connected'
+                          ? "bg-tertiary/10"
+                          : reqAgent.connectionState === 'connecting'
+                            ? "bg-warning/10"
+                            : reqAgent.connectionState === 'error'
+                              ? "bg-error/10"
+                              : "bg-outline-variant/10"
+                      )}>
+                        <div className={cn(
+                          "w-1.5 h-1.5 rounded-full",
+                          reqAgent.connectionState === 'connected'
+                            ? "bg-tertiary animate-pulse"
+                            : reqAgent.connectionState === 'connecting'
+                              ? "bg-warning animate-pulse"
+                              : reqAgent.connectionState === 'error'
+                                ? "bg-error"
+                                : "bg-outline-variant"
+                        )}></div>
+                        <span className={cn(
+                          "text-[9px] font-bold uppercase tracking-tighter",
+                          reqAgent.connectionState === 'connected'
+                            ? "text-tertiary"
+                            : reqAgent.connectionState === 'connecting'
+                              ? "text-warning"
+                              : reqAgent.connectionState === 'error'
+                                ? "text-error"
+                                : "text-outline"
+                        )}>
+                          {reqAgent.isStreaming ? 'Thinking...' : reqConnectionLabel()}
+                        </span>
+                      </div>
+                      {/* Action buttons */}
+                      {reqAgent.connectionState === 'disconnected' && (
+                        <button
+                          onClick={handleReqAgentStart}
+                          className="p-1 text-on-surface-variant hover:text-primary transition-colors"
+                          title={t('project.reqAgentConnect')}
+                        >
+                          <Radio size={12} />
+                        </button>
+                      )}
+                      {reqAgent.connectionState === 'connected' && (
+                        <>
+                          <button
+                            onClick={handleReqAgentNewSession}
+                            className="p-1 text-on-surface-variant hover:text-primary transition-colors"
+                            title={t('project.reqAgentNewSession')}
+                          >
+                            <MessageSquarePlus size={12} />
+                          </button>
+                          <button
+                            onClick={handleReqAgentStop}
+                            className="p-1 text-on-surface-variant hover:text-error transition-colors"
+                            title={t('project.reqAgentStop')}
+                          >
+                            <Square size={12} />
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
-                ))}
-                <div ref={chatEndRef} />
-              </div>
 
-              <div className="p-4 border-t border-outline-variant/10 bg-surface">
-                <div className="relative">
-                  <textarea
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
-                    placeholder={t('project.chatPlaceholder')}
-                    disabled={agentChat.isStreaming}
-                    className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg p-3 pr-10 text-xs text-on-surface focus:outline-none focus:border-primary/50 resize-none h-20 scroll-hide disabled:opacity-50"
-                  />
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={agentChat.isStreaming || !chatInput.trim()}
-                    className={cn(
-                      "absolute right-2 bottom-2 p-1.5 rounded-md transition-colors",
-                      agentChat.isStreaming || !chatInput.trim()
-                        ? "text-outline-variant cursor-not-allowed"
-                        : "text-primary hover:bg-primary/10"
-                    )}
-                  >
-                    {agentChat.isStreaming ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <Send size={16} />
-                    )}
-                  </button>
-                </div>
-              </div>
+                  {/* Req Agent Error Banner */}
+                  {reqAgent.error && reqAgent.connectionState === 'error' && (
+                    <div className="px-4 py-2 bg-error/10 border-b border-error/20 text-[10px] text-error flex items-center gap-2">
+                      <AlertTriangle size={10} />
+                      <span className="flex-1">{reqAgent.error}</span>
+                      <button
+                        onClick={handleReqAgentStart}
+                        className="text-primary underline text-[9px]"
+                      >
+                        {t('project.reqAgentRetry')}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Disconnected state with connect prompt */}
+                  {reqAgent.connectionState === 'disconnected' && reqAgent.messages.length <= 1 && (
+                    <div className="flex-1 flex items-center justify-center p-6">
+                      <div className="text-center space-y-4 max-w-[240px]">
+                        <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                          <WifiOff size={24} className="text-primary" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs font-bold text-on-surface">{t('project.reqAgentDisconnected')}</p>
+                          <p className="text-[10px] text-on-surface-variant leading-relaxed">
+                            {t('project.reqAgentConnectHint')}
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleReqAgentStart}
+                          className="w-full bg-primary text-on-primary py-2 rounded-lg text-[10px] font-bold hover:brightness-110 transition-all"
+                        >
+                          <div className="flex items-center justify-center gap-2">
+                            <Radio size={12} />
+                            {t('project.reqAgentConnect')}
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Chat messages (show when connected or has history) */}
+                  {(reqAgent.connectionState !== 'disconnected' || reqAgent.messages.length > 1) && (
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 scroll-hide">
+                      {reqAgent.messages.map((msg, idx) => (
+                        <div key={idx} className={cn(
+                          "flex flex-col gap-1 max-w-[85%]",
+                          msg.role === 'user' ? "ml-auto items-end" : "items-start"
+                        )}>
+                          <div className={cn(
+                            "p-3 rounded-lg text-xs leading-relaxed",
+                            msg.role === 'user'
+                              ? "bg-primary text-on-primary rounded-tr-none"
+                              : "bg-surface-container-high text-on-surface rounded-tl-none border border-outline-variant/10"
+                          )}>
+                            {msg.role === 'assistant' ? (
+                              <div className="prose prose-invert prose-xs [&_pre]:text-[10px] [&_p]:text-[10px] [&_pre]:p-2 [&_pre]:bg-surface-container-lowest [&_pre]:rounded [&_code]:text-[10px]">
+                                <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                {idx === reqAgent.messages.length - 1 && reqAgent.isStreaming && (
+                                  <span className="inline-block w-1.5 h-3 bg-primary/70 animate-pulse ml-0.5 align-middle"></span>
+                                )}
+                              </div>
+                            ) : (
+                              msg.content
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      <div ref={chatEndRef} />
+                    </div>
+                  )}
+
+                  {/* Input area */}
+                  <div className="p-4 border-t border-outline-variant/10 bg-surface">
+                    <div className="relative">
+                      <textarea
+                        value={reqChatInput}
+                        onChange={(e) => setReqChatInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleReqAgentSend())}
+                        placeholder={t('project.reqAgentPlaceholder')}
+                        disabled={reqAgent.isStreaming || reqAgent.connectionState === 'connecting'}
+                        className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg p-3 pr-10 text-xs text-on-surface focus:outline-none focus:border-primary/50 resize-none h-20 scroll-hide disabled:opacity-50"
+                      />
+                      <button
+                        onClick={handleReqAgentSend}
+                        disabled={reqAgent.isStreaming || !reqChatInput.trim() || reqAgent.connectionState === 'connecting'}
+                        className={cn(
+                          "absolute right-2 bottom-2 p-1.5 rounded-md transition-colors",
+                          reqAgent.isStreaming || !reqChatInput.trim() || reqAgent.connectionState === 'connecting'
+                            ? "text-outline-variant cursor-not-allowed"
+                            : "text-primary hover:bg-primary/10"
+                        )}
+                      >
+                        {reqAgent.isStreaming ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <Send size={16} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
