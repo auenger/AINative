@@ -189,6 +189,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
     { id: 'term-0', kind: 'bash', label: t('editor.bashTerminal') },
   ]);
   const [activeTabId, setActiveTabId] = useState('term-0');
+  const [showAddMenu, setShowAddMenu] = useState(false);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0];
 
@@ -449,27 +450,26 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
 
   const closeTab = useCallback((tabId: string) => {
     setTabs((prev) => {
+      const idx = prev.findIndex((t) => t.id === tabId);
       const next = prev.filter((t) => t.id !== tabId);
       if (next.length === 0) {
         _tabCounter += 1;
         const fallback: TerminalTab = {
           id: `term-${_tabCounter}`,
           kind: 'bash',
-          label: 'Bash Terminal',
+          label: t('editor.bashTerminal'),
         };
         setActiveTabId(fallback.id);
         return [fallback];
       }
+      // If closing the active tab, switch to the adjacent one
+      if (tabId === activeTabId) {
+        const newIdx = Math.min(idx, next.length - 1);
+        setActiveTabId(next[newIdx].id);
+      }
       return next;
     });
-    setActiveTabId((prev) => {
-      if (prev === tabId) {
-        const remaining = tabs.filter((t) => t.id !== tabId);
-        return remaining.length > 0 ? remaining[remaining.length - 1].id : prev;
-      }
-      return prev;
-    });
-  }, [tabs]);
+  }, [activeTabId, t]);
 
   const tabIcon = (kind: TerminalKind, size = 12) => {
     switch (kind) {
@@ -902,34 +902,40 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                     </button>
                   ))}
 
-                  {/* "+" button to add new terminals */}
-                  <div className="relative group">
+                  {/* "+" button to add new terminals — state-controlled dropdown */}
+                  <div
+                    className="relative"
+                    onMouseEnter={() => setShowAddMenu(true)}
+                    onMouseLeave={() => setShowAddMenu(false)}
+                  >
                     <button className="flex items-center justify-center h-full px-2 text-outline opacity-50 hover:opacity-100 transition-opacity">
                       <Plus size={14} />
                     </button>
-                    <div className="absolute left-0 top-full mt-0 bg-surface-container-high border border-outline-variant/20 rounded shadow-lg py-1 z-50 hidden group-hover:block min-w-[140px]">
-                      <button
-                        onClick={() => addTab('bash')}
-                        className="flex items-center gap-2 w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-highest transition-colors"
-                      >
-                        <TerminalIcon size={12} className="text-primary" />
-                        Bash
-                      </button>
-                      <button
-                        onClick={() => addTab('claude')}
-                        className="flex items-center gap-2 w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-highest transition-colors"
-                      >
-                        <Bot size={12} className="text-secondary" />
-                        Claude CLI
-                      </button>
-                      <button
-                        onClick={() => addTab('gemini')}
-                        className="flex items-center gap-2 w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-highest transition-colors"
-                      >
-                        <Sparkles size={12} className="text-[color:var(--t-blue-400)]" />
-                        Gemini CLI
-                      </button>
-                    </div>
+                    {showAddMenu && (
+                      <div className="absolute left-0 top-full bg-surface-container-high border border-outline-variant/20 rounded shadow-lg py-1 z-50 min-w-[140px] opacity-100">
+                        <button
+                          onClick={() => { addTab('bash'); setShowAddMenu(false); }}
+                          className="flex items-center gap-2 w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface transition-colors"
+                        >
+                          <TerminalIcon size={12} className="text-primary" />
+                          Bash
+                        </button>
+                        <button
+                          onClick={() => { addTab('claude'); setShowAddMenu(false); }}
+                          className="flex items-center gap-2 w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface transition-colors"
+                        >
+                          <Bot size={12} className="text-secondary" />
+                          Claude CLI
+                        </button>
+                        <button
+                          onClick={() => { addTab('gemini'); setShowAddMenu(false); }}
+                          className="flex items-center gap-2 w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface transition-colors"
+                        >
+                          <Sparkles size={12} className="text-[color:var(--t-blue-400)]" />
+                          Gemini CLI
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
