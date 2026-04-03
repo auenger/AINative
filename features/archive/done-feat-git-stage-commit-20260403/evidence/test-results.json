@@ -1,0 +1,33 @@
+{
+  "feature_id": "feat-git-stage-commit",
+  "verified_at": "2026-04-03T20:45:00Z",
+  "status": "pass",
+  "tasks": {
+    "total": 10,
+    "completed": 10,
+    "pending": 0
+  },
+  "code_quality": {
+    "cargo_check": "pass",
+    "warnings": ["unused import Arc (pre-existing)"],
+    "new_warnings": 0
+  },
+  "gherkin_scenarios": [
+    {
+      "name": "暂存单个文件",
+      "status": "pass",
+      "method": "code_analysis"
+    },
+    {
+      "name": "提交暂存的文件",
+      "status": "pass",
+      "method": "code_analysis"
+    },
+    {
+      "name": "未输入 message 时禁用 commit",
+      "status": "pass",
+      "method": "code_analysis"
+    }
+  ],
+  "issues": []
+}
