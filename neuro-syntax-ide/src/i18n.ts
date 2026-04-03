@@ -45,7 +45,18 @@ const resources = {
         branch: 'Branch',
         changesDetected: 'Changes Detected',
         noChanges: 'No Changes',
-        syncing: 'Syncing...'
+        syncing: 'Syncing...',
+        reqAgent: 'Req Agent',
+        reqAgentConnected: 'Connected',
+        reqAgentConnecting: 'Connecting...',
+        reqAgentDisconnected: 'Disconnected',
+        reqAgentError: 'Error',
+        reqAgentConnect: 'Connect',
+        reqAgentConnectHint: 'Connect to Claude Code CLI to start requirements analysis',
+        reqAgentNewSession: 'New Session',
+        reqAgentStop: 'Stop Session',
+        reqAgentRetry: 'Retry',
+        reqAgentPlaceholder: 'Discuss requirements with Req Agent...'
       },
       editor: {
         explorer: 'Explorer',
@@ -138,7 +149,18 @@ const resources = {
         branch: '分支',
         changesDetected: '检测到变更',
         noChanges: '无变更',
-        syncing: '正在同步...'
+        syncing: '正在同步...',
+        reqAgent: '需求分析',
+        reqAgentConnected: '已连接',
+        reqAgentConnecting: '连接中...',
+        reqAgentDisconnected: '未连接',
+        reqAgentError: '连接错误',
+        reqAgentConnect: '连接',
+        reqAgentConnectHint: '连接 Claude Code CLI 开始需求分析',
+        reqAgentNewSession: '新建会话',
+        reqAgentStop: '停止会话',
+        reqAgentRetry: '重试',
+        reqAgentPlaceholder: '与需求分析 Agent 讨论需求...'
       },
       editor: {
         explorer: '资源管理器',
