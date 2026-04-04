@@ -122,12 +122,17 @@ export function useAgentStream(options: UseAgentStreamOptions) {
     } catch { /* ignore quota errors */ }
   }, [messages, persistMessages, storageKey]);
 
-  // --- Cleanup chunk listener on unmount ---
+  // --- Cleanup chunk listener on unmount ( session mode also clears streamingTextRef )
   useEffect(() => {
     return () => {
       if (chunkUnlistenRef.current) {
         chunkUnlistenRef.current();
         chunkUnlistenRef.current = null;
+      }
+      // Also clear streamingTextRef and error for session mode
+      if (useSessions) {
+        streamingTextRef.current = '';
+        setError(null);
       }
     };
   }, []);
@@ -180,9 +185,11 @@ export function useAgentStream(options: UseAgentStreamOptions) {
             { role: 'assistant', content: '(No response received)' },
           ]);
         }
-        // Unregister after stream completes (per-request model)
-        unlisten();
-        chunkUnlistenRef.current = null;
+        // Per-request 模式才 unlisten； session 模式保持 listener 持久
+        if (!useSessions) {
+          unlisten();
+          chunkUnlistenRef.current = null;
+        }
       }
     });
 
@@ -285,8 +292,11 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       const { invoke } = await import('@tauri-apps/api/core');
       await invoke('runtime_session_stop');
     } catch { /* ignore */ }
+    // 完整清理前端状态
     setConnectionState('disconnected');
     setSessionId(null);
+    setError(null);
+    streamingTextRef.current = '';
     try { localStorage.removeItem(`${storageKey}-session`); } catch { /* ignore */ }
   }, [removeChunkListener, storageKey]);
 
@@ -353,8 +363,14 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       try {
         const { invoke } = await import('@tauri-apps/api/core');
 
-        // Register chunk listener before invoking the command (for non-session runtimes)
-        if (!useSessions) {
+        // Ensure chunk listener is registered before invoking the command
+        if (useSessions) {
+          // Session 模式： 确保 listener 存在（防止意外丢失）
+          if (!chunkUnlistenRef.current) {
+            await registerChunkListener();
+          }
+        } else {
+          // Per-request 模式： always register a fresh listener
           await registerChunkListener();
         }
 
