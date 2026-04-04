@@ -30,6 +30,14 @@ export interface PipelineTextEditorProps {
   onDelete?: (id: string) => void;
   /** Cancel handler. */
   onCancel: () => void;
+  /** External format override (for dual-mode container). */
+  externalFormat?: TextFormat;
+  /** External text override (for dual-mode container). */
+  externalText?: string;
+  /** Callback when external text changes. */
+  onExternalTextChange?: (text: string) => void;
+  /** Hide the top bar (when embedded in a container that provides its own). */
+  hideTopBar?: boolean;
 }
 
 interface ValidationError {
@@ -332,11 +340,16 @@ export const PipelineTextEditor: React.FC<PipelineTextEditorProps> = ({
   onSave,
   onDelete,
   onCancel,
+  externalFormat,
+  externalText,
+  onExternalTextChange,
+  hideTopBar = false,
 }) => {
   const isNew = !initialConfig;
 
-  // Format state
-  const [format, setFormat] = useState<TextFormat>('yaml');
+  // Format state (use external if provided)
+  const [internalFormat, setInternalFormat] = useState<TextFormat>('yaml');
+  const format = externalFormat ?? internalFormat;
 
   // Build initial text content
   const initialText = useMemo(() => {
@@ -352,7 +365,7 @@ export const PipelineTextEditor: React.FC<PipelineTextEditorProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialConfig]);
 
-  const [text, setText] = useState(() => {
+  const [internalText, setInternalText] = useState(() => {
     if (!initialConfig) {
       const defaultConfig: PipelineConfig = {
         id: '',
@@ -363,6 +376,10 @@ export const PipelineTextEditor: React.FC<PipelineTextEditorProps> = ({
     }
     return toYaml(initialConfig);
   });
+
+  // Use external text if provided, otherwise internal
+  const text = externalText ?? internalText;
+  const setText = onExternalTextChange ?? setInternalText;
 
   const [parseErrors, setParseErrors] = useState<ValidationError[]>([]);
   const [lastSavedText, setLastSavedText] = useState(text);
@@ -420,8 +437,8 @@ export const PipelineTextEditor: React.FC<PipelineTextEditorProps> = ({
       setLastSavedText(newText);
     }
 
-    setFormat(newFormat);
-  }, [format, text]);
+    setInternalFormat(newFormat);
+  }, [format, text, setText]);
 
   // Save handler
   const handleSave = useCallback(() => {
@@ -449,7 +466,8 @@ export const PipelineTextEditor: React.FC<PipelineTextEditorProps> = ({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* === Top bar === */}
+      {/* === Top bar (hidden when embedded in container) === */}
+      {!hideTopBar && (
       <div className="bg-surface-container-low border-b border-outline-variant/10 px-4 py-3 flex items-center gap-4 shrink-0">
         <div className="flex items-center gap-2">
           <Activity size={16} className="text-primary" />
@@ -526,6 +544,7 @@ export const PipelineTextEditor: React.FC<PipelineTextEditorProps> = ({
           </button>
         </div>
       </div>
+      )}
 
       {/* === Editor area === */}
       <div className="flex-1 flex overflow-hidden">
