@@ -1106,11 +1106,270 @@ impl AgentRuntime for CodexRuntime {
     }
 }
 
+// ===========================================================================
+// GeminiHttpRuntime (feat-agent-gemini-bridge)
+// ===========================================================================
+
+const GEMINI_API_URL: &str = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+const GEMINI_DEFAULT_MODEL: &str = "gemini-2.0-flash";
+
+/// HTTP-based runtime that calls the Google Gemini API directly via SSE streaming.
+/// Used by the PM Agent (and any other agent that needs Gemini without a local CLI).
+struct GeminiHttpRuntime {
+    model: String,
+}
+
+impl GeminiHttpRuntime {
+    fn new() -> Self {
+        Self {
+            model: GEMINI_DEFAULT_MODEL.to_string(),
+        }
+    }
+
+    fn new_with_model(model: String) -> Self {
+        Self { model }
+    }
+}
+
+impl AgentRuntime for GeminiHttpRuntime {
+    fn id(&self) -> &str { "gemini-http" }
+    fn name(&self) -> &str { "Gemini HTTP" }
+    fn runtime_type(&self) -> &str { "http" }
+
+    fn capabilities(&self) -> Vec<AgentCapability> {
+        vec![
+            AgentCapability::Streaming,
+            AgentCapability::StructuredOutput,
+        ]
+    }
+
+    fn install_hint(&self) -> String {
+        "Configure Gemini API Key in Settings".to_string()
+    }
+
+    /// Detect: check if a Gemini API key is configured in the keyring.
+    fn detect(&self) -> Result<Option<(String, String)>, String> {
+        match get_api_key_inner() {
+            Ok(_) => Ok(Some(("keyring".to_string(), "configured".to_string()))),
+            Err(_) => Ok(None),
+        }
+    }
+
+    /// Health check: verify the API key is present and valid by making a lightweight request.
+    fn health_check(&self) -> AgentRuntimeStatus {
+        match get_api_key_inner() {
+            Ok(_) => {
+                // Key exists — mark as Available.
+                // A full health check would call the API, but we keep it lightweight
+                // to avoid unnecessary network latency during scan_all().
+                AgentRuntimeStatus::Available
+            }
+            Err(_) => AgentRuntimeStatus::NotInstalled,
+        }
+    }
+
+    fn info(&self) -> AgentRuntimeInfo {
+        let has_key = get_api_key_inner().is_ok();
+        AgentRuntimeInfo {
+            id: self.id().to_string(),
+            name: self.name().to_string(),
+            runtime_type: self.runtime_type().to_string(),
+            status: if has_key { AgentRuntimeStatus::Available } else { AgentRuntimeStatus::NotInstalled },
+            version: None,
+            install_path: None,
+            capabilities: self.capabilities(),
+            install_hint: self.install_hint(),
+        }
+    }
+
+    fn is_ready(&self) -> bool {
+        matches!(self.health_check(), AgentRuntimeStatus::Available)
+    }
+
+    /// Execute: send a message to the Gemini API and stream the response back
+    /// via a std::sync::mpsc channel as StreamEvents.
+    fn execute(&self, params: ExecuteParams) -> Result<std::sync::mpsc::Receiver<StreamEvent>, String> {
+        let api_key = get_api_key_inner()
+            .map_err(|e| format!("API Key 未配置: {}. 请在 Settings 中设置 Gemini API Key。", e))?;
+
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        let model = self.model.clone();
+        let system_prompt_text = params.system_prompt.clone();
+        let user_message = params.message.clone();
+
+        std::thread::spawn(move || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+
+            rt.block_on(async move {
+                let client = reqwest::Client::new();
+
+                // Build messages payload
+                let mut messages_payload = Vec::new();
+
+                // System prompt (from params or default PM system prompt)
+                if let Some(sp) = &system_prompt_text {
+                    if !sp.is_empty() {
+                        messages_payload.push(serde_json::json!({
+                            "role": "system",
+                            "content": sp
+                        }));
+                    }
+                }
+
+                // Parse user message — it may contain a JSON-encoded messages array
+                // from the PM Agent frontend, or it may be a plain string.
+                // We try to parse as Vec<ChatMessage> first, then fall back to single message.
+                if let Ok(chat_msgs) = serde_json::from_str::<Vec<ChatMessage>>(&user_message) {
+                    for msg in &chat_msgs {
+                        messages_payload.push(serde_json::json!({
+                            "role": msg.role,
+                            "content": msg.content
+                        }));
+                    }
+                } else {
+                    messages_payload.push(serde_json::json!({
+                        "role": "user",
+                        "content": user_message
+                    }));
+                }
+
+                let body = serde_json::json!({
+                    "model": model,
+                    "messages": messages_payload,
+                    "stream": true
+                });
+
+                let response = match client
+                    .post(GEMINI_API_URL)
+                    .header("Authorization", format!("Bearer {}", api_key))
+                    .header("Content-Type", "application/json")
+                    .json(&body)
+                    .send()
+                    .await
+                {
+                    Ok(r) => r,
+                    Err(e) => {
+                        let _ = tx.send(StreamEvent {
+                            text: String::new(),
+                            is_done: true,
+                            error: Some(format!("连接 AI API 失败: {}", e)),
+                            msg_type: Some("error".to_string()),
+                            session_id: None,
+                        });
+                        return;
+                    }
+                };
+
+                if !response.status().is_success() {
+                    let status = response.status();
+                    let error_body = response.text().await.unwrap_or_else(|_| "Unknown error".into());
+                    let _ = tx.send(StreamEvent {
+                        text: String::new(),
+                        is_done: true,
+                        error: Some(format!("AI API 错误 ({}): {}", status, error_body)),
+                        msg_type: Some("error".to_string()),
+                        session_id: None,
+                    });
+                    return;
+                }
+
+                let mut stream = response.bytes_stream();
+                let mut buffer = String::new();
+
+                while let Some(chunk_result) = stream.next().await {
+                    match chunk_result {
+                        Ok(bytes) => {
+                            let text = String::from_utf8_lossy(&bytes);
+                            buffer.push_str(&text);
+
+                            // Process complete SSE lines
+                            while let Some(pos) = buffer.find('\n') {
+                                let line = buffer[..pos].trim().to_string();
+                                buffer = buffer[pos + 1..].to_string();
+
+                                if line.starts_with("data: ") {
+                                    let data = &line[6..];
+                                    if data == "[DONE]" {
+                                        let _ = tx.send(StreamEvent {
+                                            text: String::new(),
+                                            is_done: true,
+                                            error: None,
+                                            msg_type: Some("assistant".to_string()),
+                                            session_id: None,
+                                        });
+                                        return;
+                                    }
+
+                                    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(data) {
+                                        if let Some(choices) = parsed.get("choices") {
+                                            if let Some(first_choice) = choices.as_array().and_then(|a| a.first()) {
+                                                if let Some(delta) = first_choice.get("delta") {
+                                                    if let Some(content) = delta.get("content").and_then(|c| c.as_str()) {
+                                                        let _ = tx.send(StreamEvent {
+                                                            text: content.to_string(),
+                                                            is_done: false,
+                                                            error: None,
+                                                            msg_type: Some("assistant".to_string()),
+                                                            session_id: None,
+                                                        });
+                                                    }
+                                                }
+                                                if let Some(finish) = first_choice.get("finish_reason") {
+                                                    if finish.as_str() == Some("stop") {
+                                                        let _ = tx.send(StreamEvent {
+                                                            text: String::new(),
+                                                            is_done: true,
+                                                            error: None,
+                                                            msg_type: Some("assistant".to_string()),
+                                                            session_id: None,
+                                                        });
+                                                        return;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            let _ = tx.send(StreamEvent {
+                                text: String::new(),
+                                is_done: true,
+                                error: Some(format!("Stream 错误: {}", e)),
+                                msg_type: Some("error".to_string()),
+                                session_id: None,
+                            });
+                            return;
+                        }
+                    }
+                }
+
+                // Stream ended without [DONE] marker
+                let _ = tx.send(StreamEvent {
+                    text: String::new(),
+                    is_done: true,
+                    error: None,
+                    msg_type: Some("assistant".to_string()),
+                    session_id: None,
+                });
+            });
+        });
+
+        Ok(rx)
+    }
+}
+
 /// Helper to create the default registry with all known runtimes registered.
 fn create_default_registry() -> RuntimeRegistry {
     let mut registry = RuntimeRegistry::new();
     registry.register(Box::new(ClaudeCodeRuntime::new()));
     registry.register(Box::new(CodexRuntime::new()));
+    registry.register(Box::new(GeminiHttpRuntime::new()));
     registry
 }
 
