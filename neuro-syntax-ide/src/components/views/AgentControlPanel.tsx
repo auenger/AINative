@@ -39,6 +39,7 @@ import { useSmartRouter } from '../../lib/useSmartRouter';
 import { useAgentConfigs } from '../../lib/useAgentConfigs';
 import { PipelinePanel } from '../common/PipelinePanel';
 import { PipelineVisualEditor } from './PipelineVisualEditor';
+import { PipelineTextEditor } from './PipelineTextEditor';
 import type {
   AgentRuntimeInfo,
   AgentRuntimeStatusType,
@@ -548,10 +549,11 @@ const ExecutionHistoryItem: React.FC<ExecutionHistoryItemProps> = ({
 interface PipelineListItemProps {
   pipeline: PipelineConfig;
   onEdit: () => void;
+  onEditText: () => void;
   onDelete: () => void;
 }
 
-const PipelineListItem: React.FC<PipelineListItemProps> = ({ pipeline, onEdit, onDelete }) => {
+const PipelineListItem: React.FC<PipelineListItemProps> = ({ pipeline, onEdit, onEditText, onDelete }) => {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -594,6 +596,13 @@ const PipelineListItem: React.FC<PipelineListItemProps> = ({ pipeline, onEdit, o
             >
               <Edit3 size={10} />
               Edit
+            </button>
+            <button
+              onClick={onEditText}
+              className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-on-surface-variant hover:text-primary transition-colors"
+            >
+              <FileText size={10} />
+              Edit (Text)
             </button>
             <button
               onClick={onDelete}
@@ -735,6 +744,7 @@ export const AgentControlPanel: React.FC = () => {
   const [editingAgent, setEditingAgent] = useState<AgentConfig | null>(null);
   const [selectedExecId, setSelectedExecId] = useState<string | null>(null);
   const [editingPipeline, setEditingPipeline] = useState<PipelineConfig | null | 'new'>(null);
+  const [pipelineEditorMode, setPipelineEditorMode] = useState<'visual' | 'text'>('visual');
 
   // --- Hooks ---
   const runtimesState = useAgentRuntimes();
@@ -775,11 +785,13 @@ export const AgentControlPanel: React.FC = () => {
   const handleSavePipeline = async (config: PipelineConfig) => {
     await pipelineState.savePipeline(config);
     setEditingPipeline(null);
+    setPipelineEditorMode('visual');
   };
 
   const handleDeletePipeline = async (id: string) => {
     await pipelineState.deletePipeline(id);
     setEditingPipeline(null);
+    setPipelineEditorMode('visual');
   };
 
   return (
@@ -836,14 +848,22 @@ export const AgentControlPanel: React.FC = () => {
 
       {/* Main content */}
       <main className="flex-1 overflow-hidden flex flex-col">
-        {/* === Pipeline Visual Editor (full-screen overlay) === */}
-        {editingPipeline !== null && (
+        {/* === Pipeline Editor (full-screen overlay) === */}
+        {editingPipeline !== null && pipelineEditorMode === 'visual' && (
           <PipelineVisualEditor
             initialConfig={editingPipeline === 'new' ? null : editingPipeline}
             runtimes={runtimesState.runtimes}
             onSave={handleSavePipeline}
             onDelete={handleDeletePipeline}
-            onCancel={() => setEditingPipeline(null)}
+            onCancel={() => { setEditingPipeline(null); setPipelineEditorMode('visual'); }}
+          />
+        )}
+        {editingPipeline !== null && pipelineEditorMode === 'text' && (
+          <PipelineTextEditor
+            initialConfig={editingPipeline === 'new' ? null : editingPipeline}
+            onSave={handleSavePipeline}
+            onDelete={handleDeletePipeline}
+            onCancel={() => { setEditingPipeline(null); setPipelineEditorMode('visual'); }}
           />
         )}
 
@@ -887,11 +907,18 @@ export const AgentControlPanel: React.FC = () => {
                     New Agent
                   </button>
                   <button
-                    onClick={() => setEditingPipeline('new')}
+                    onClick={() => { setEditingPipeline('new'); setPipelineEditorMode('visual'); }}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-secondary hover:bg-secondary/10 rounded-sm transition-colors border border-secondary/30"
                   >
                     <Layers size={12} />
                     New Pipeline
+                  </button>
+                  <button
+                    onClick={() => { setEditingPipeline('new'); setPipelineEditorMode('text'); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant hover:bg-surface-container-high rounded-sm transition-colors border border-outline-variant/30"
+                  >
+                    <FileText size={12} />
+                    New Pipeline (Text)
                   </button>
                 </div>
               )}
@@ -950,13 +977,22 @@ export const AgentControlPanel: React.FC = () => {
                     Multi-stage pipeline configurations
                   </p>
                 </div>
-                <button
-                  onClick={() => setEditingPipeline('new')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-secondary hover:bg-secondary/10 rounded-sm transition-colors border border-secondary/30"
-                >
-                  <Plus size={12} />
-                  New Pipeline
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { setEditingPipeline('new'); setPipelineEditorMode('visual'); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-secondary hover:bg-secondary/10 rounded-sm transition-colors border border-secondary/30"
+                  >
+                    <Plus size={12} />
+                    New Pipeline
+                  </button>
+                  <button
+                    onClick={() => { setEditingPipeline('new'); setPipelineEditorMode('text'); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant hover:bg-surface-container-high rounded-sm transition-colors border border-outline-variant/30"
+                  >
+                    <FileText size={12} />
+                    Text
+                  </button>
+                </div>
               </div>
               <div className="flex flex-col gap-2">
                 {pipelineState.pipelineIds.map(pid => {
@@ -966,7 +1002,8 @@ export const AgentControlPanel: React.FC = () => {
                     <PipelineListItem
                       key={pid}
                       pipeline={pipeline}
-                      onEdit={() => setEditingPipeline(pipeline)}
+                      onEdit={() => { setEditingPipeline(pipeline); setPipelineEditorMode('visual'); }}
+                      onEditText={() => { setEditingPipeline(pipeline); setPipelineEditorMode('text'); }}
                       onDelete={() => handleDeletePipeline(pid)}
                     />
                   );
