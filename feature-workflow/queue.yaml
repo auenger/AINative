@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-05T14:00:00Z"
+  last_updated: "2026-04-05T14:15:00Z"
   version: 1
 
 parents:
@@ -16,14 +16,14 @@ parents:
       - feat-ai-agent-service
 
 active:
-  - id: feat-agent-runtime-execute
-    name: "AgentRuntime execute() + ClaudeCodeRuntime 实现"
+  - id: feat-pipeline-visual-editor
+    name: "Pipeline 可视化拖拽编辑器"
     priority: 80
     dependencies: []
-    parent: feat-agent-unified-exec
-    branch: feature/feat-agent-runtime-execute
-    worktree: ../NeuroSyntaxIDE-feat-agent-runtime-execute
-    started_at: "2026-04-05T14:00:00Z"
+    parent: feat-pipeline-editor
+    branch: feature/feat-pipeline-visual-editor
+    worktree: ../NeuroSyntaxIDE-feat-pipeline-visual-editor
+    started_at: "2026-04-05T14:05:00Z"
 
 pending:
   - id: feat-agent-unified-exec
@@ -58,10 +58,6 @@ pending:
       - feat-pipeline-visual-editor
       - feat-pipeline-yaml-editor
       - feat-pipeline-dual-mode
-  - id: feat-pipeline-visual-editor
-    name: "Pipeline 可视化拖拽编辑器"
-    priority: 80
-    dependencies: []
   - id: feat-pipeline-yaml-editor
     name: "Pipeline YAML/JSON 直接编辑模式"
     priority: 70
@@ -77,6 +73,11 @@ pending:
 blocked: []
 
 completed:
+  - id: feat-agent-runtime-execute
+    name: "AgentRuntime execute() + ClaudeCodeRuntime 实现"
+    completed_at: "2026-04-05T14:15:00Z"
+    tag: feat-agent-runtime-execute-20260405
+    parent: feat-agent-unified-exec
   - id: feat-agent-runtime-system
     name: "Agent Runtime 系统（多 Agent 编排引擎）"
     completed_at: "2026-04-05T13:00:00Z"
