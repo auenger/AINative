@@ -192,7 +192,7 @@ const RuntimeList: React.FC<RuntimeListProps> = ({ runtimes, scanning, onScan })
       {/* Header with scan button */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-headline text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+          <h3 className="config-section-title">
             Detected Runtimes
           </h3>
           <p className="text-[10px] text-on-surface-variant opacity-60 mt-0.5">
@@ -203,7 +203,7 @@ const RuntimeList: React.FC<RuntimeListProps> = ({ runtimes, scanning, onScan })
           onClick={onScan}
           disabled={scanning}
           className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-sm transition-colors',
+            'config-action-btn',
             scanning
               ? 'text-on-surface-variant opacity-50 cursor-not-allowed'
               : 'text-primary hover:bg-primary/10',
@@ -271,9 +271,9 @@ const AgentCreator: React.FC<AgentCreatorProps> = ({ runtimes, pipelineIds, onSa
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 bg-surface-container-low p-4 rounded-lg border border-outline-variant/10">
+    <form onSubmit={handleSubmit} className="config-card flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-headline text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+        <h3 className="config-section-title">
           {initial ? 'Edit Agent' : 'New Agent'}
         </h3>
         <button type="button" onClick={onCancel} className="text-on-surface-variant hover:text-on-surface text-xs">
@@ -283,38 +283,38 @@ const AgentCreator: React.FC<AgentCreatorProps> = ({ runtimes, pipelineIds, onSa
 
       {/* Name */}
       <label className="block">
-        <span className="text-[10px] font-bold text-outline uppercase tracking-tighter">Agent Name</span>
+        <span className="config-label">Agent Name</span>
         <input
           type="text"
           required
           value={name}
           onChange={e => setName(e.target.value)}
           placeholder="My Agent"
-          className="mt-1 w-full bg-surface-container-lowest border border-outline-variant/30 text-xs text-on-surface p-2 rounded-sm focus:ring-1 focus:ring-primary focus:outline-none"
+          className="config-input mt-1"
         />
       </label>
 
       {/* Description */}
       <label className="block">
-        <span className="text-[10px] font-bold text-outline uppercase tracking-tighter">Description</span>
+        <span className="config-label">Description</span>
         <input
           type="text"
           value={description}
           onChange={e => setDescription(e.target.value)}
           placeholder="What does this agent do?"
-          className="mt-1 w-full bg-surface-container-lowest border border-outline-variant/30 text-xs text-on-surface p-2 rounded-sm focus:ring-1 focus:ring-primary focus:outline-none"
+          className="config-input mt-1"
         />
       </label>
 
       {/* Mode selection */}
       <label className="block">
-        <span className="text-[10px] font-bold text-outline uppercase tracking-tighter">Orchestration Mode</span>
+        <span className="config-label">Orchestration Mode</span>
         <div className="mt-1 flex gap-2">
           <button
             type="button"
             onClick={() => setMode('pipeline')}
             className={cn(
-              'flex-1 flex items-center justify-center gap-2 py-2 text-[10px] font-bold uppercase tracking-wider rounded-sm border transition-colors',
+              'flex-1 flex items-center justify-center gap-2 py-2 text-[10px] font-bold uppercase tracking-wider rounded-md border transition-colors',
               mode === 'pipeline'
                 ? 'border-primary text-primary bg-primary/10'
                 : 'border-outline-variant/30 text-on-surface-variant hover:border-primary/50',
@@ -327,7 +327,7 @@ const AgentCreator: React.FC<AgentCreatorProps> = ({ runtimes, pipelineIds, onSa
             type="button"
             onClick={() => setMode('route')}
             className={cn(
-              'flex-1 flex items-center justify-center gap-2 py-2 text-[10px] font-bold uppercase tracking-wider rounded-sm border transition-colors',
+              'flex-1 flex items-center justify-center gap-2 py-2 text-[10px] font-bold uppercase tracking-wider rounded-md border transition-colors',
               mode === 'route'
                 ? 'border-primary text-primary bg-primary/10'
                 : 'border-outline-variant/30 text-on-surface-variant hover:border-primary/50',
@@ -342,12 +342,12 @@ const AgentCreator: React.FC<AgentCreatorProps> = ({ runtimes, pipelineIds, onSa
       {/* Pipeline selector (for pipeline mode) */}
       {mode === 'pipeline' && (
         <label className="block">
-          <span className="text-[10px] font-bold text-outline uppercase tracking-tighter">Pipeline</span>
+          <span className="config-label">Pipeline</span>
           <select
             value={pipelineId}
             onChange={e => setPipelineId(e.target.value)}
             required
-            className="mt-1 w-full bg-surface-container-lowest border border-outline-variant/30 text-xs text-on-surface p-2 rounded-sm focus:ring-1 focus:ring-primary focus:outline-none"
+            className="config-input mt-1"
           >
             <option value="">Select a pipeline...</option>
             {pipelineIds.map(pid => (
@@ -360,11 +360,11 @@ const AgentCreator: React.FC<AgentCreatorProps> = ({ runtimes, pipelineIds, onSa
       {/* Runtime selector (for route mode) */}
       {mode === 'route' && (
         <label className="block">
-          <span className="text-[10px] font-bold text-outline uppercase tracking-tighter">Preferred Runtime</span>
+          <span className="config-label">Preferred Runtime</span>
           <select
             value={preferredRuntime}
             onChange={e => setPreferredRuntime(e.target.value)}
-            className="mt-1 w-full bg-surface-container-lowest border border-outline-variant/30 text-xs text-on-surface p-2 rounded-sm focus:ring-1 focus:ring-primary focus:outline-none"
+            className="config-input mt-1"
           >
             <option value="">Auto (use router default)</option>
             {availableRuntimes.map(rt => (
@@ -376,20 +376,20 @@ const AgentCreator: React.FC<AgentCreatorProps> = ({ runtimes, pipelineIds, onSa
 
       {/* System prompt */}
       <label className="block">
-        <span className="text-[10px] font-bold text-outline uppercase tracking-tighter">System Prompt (optional)</span>
+        <span className="config-label">System Prompt (optional)</span>
         <textarea
           value={systemPrompt}
           onChange={e => setSystemPrompt(e.target.value)}
           rows={3}
           placeholder="Custom instructions prepended to every request..."
-          className="mt-1 w-full bg-surface-container-lowest border border-outline-variant/30 text-xs text-on-surface p-2 rounded-sm focus:ring-1 focus:ring-primary focus:outline-none font-mono resize-y"
+          className="config-input-mono mt-1 resize-y"
         />
       </label>
 
       {/* Submit */}
       <button
         type="submit"
-        className="w-full bg-primary text-on-primary font-headline text-[10px] font-bold py-2 rounded-sm uppercase tracking-widest hover:brightness-110 transition-all"
+        className="w-full bg-primary text-on-primary font-headline text-[10px] font-bold py-2 rounded-md uppercase tracking-widest hover:brightness-110 transition-all"
       >
         {initial ? 'Update Agent' : 'Create Agent'}
       </button>
@@ -691,17 +691,17 @@ const RoutingRuleEditor: React.FC<RoutingRuleEditorProps> = ({ rules, defaultRun
 
   return (
     <div className="flex flex-col gap-3">
-      <h3 className="font-headline text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+      <h3 className="config-section-title">
         Routing Rules
       </h3>
 
       {/* Default runtime */}
       <label className="block">
-        <span className="text-[10px] font-bold text-outline uppercase tracking-tighter">Default Runtime</span>
+        <span className="config-label">Default Runtime</span>
         <select
           value={defaultRuntime}
           onChange={e => onUpdate(rules, e.target.value)}
-          className="mt-1 w-full bg-surface-container-lowest border border-outline-variant/30 text-xs text-on-surface p-2 rounded-sm focus:ring-1 focus:ring-primary focus:outline-none"
+          className="config-input mt-1"
         >
           {availableRuntimes.map(rt => (
             <option key={rt.id} value={rt.id}>{rt.name}</option>
@@ -711,7 +711,7 @@ const RoutingRuleEditor: React.FC<RoutingRuleEditorProps> = ({ rules, defaultRun
 
       {/* Rules list */}
       {rules.map((rule, idx) => (
-        <div key={rule.category} className="flex items-center gap-2 p-2 bg-surface-container-lowest rounded-sm border border-outline-variant/10">
+        <div key={rule.category} className="config-card flex items-center gap-2 !p-2">
           <span className="text-[10px] font-bold text-on-surface-variant w-32 shrink-0">
             {CATEGORY_LABELS[rule.category]}
           </span>
@@ -719,7 +719,7 @@ const RoutingRuleEditor: React.FC<RoutingRuleEditorProps> = ({ rules, defaultRun
           <select
             value={rule.runtime_id}
             onChange={e => updateRule(idx, 'runtime_id', e.target.value)}
-            className="flex-1 bg-surface-container border border-outline-variant/20 text-[10px] text-on-surface p-1 rounded-sm focus:ring-1 focus:ring-primary focus:outline-none"
+            className="flex-1 bg-surface-container border border-outline-variant/20 text-[10px] text-on-surface p-1 rounded-md focus:ring-1 focus:ring-primary focus:outline-none"
           >
             {availableRuntimes.map(rt => (
               <option key={rt.id} value={rt.id}>{rt.name}</option>
@@ -812,7 +812,7 @@ export const AgentControlPanel: React.FC = () => {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'flex items-center gap-2 px-3 py-2 rounded-sm text-xs transition-colors',
+                'flex items-center gap-2 px-3 py-2 rounded-md text-xs transition-colors',
                 activeTab === tab.id
                   ? 'bg-primary/10 text-primary font-bold'
                   : 'text-on-surface-variant hover:bg-surface-container-high/50',
@@ -861,9 +861,9 @@ export const AgentControlPanel: React.FC = () => {
         {/* ==================== RUNTIMES TAB ==================== */}
         {activeTab === 'runtimes' && (
           <div className="max-w-3xl">
-            <div className="mb-6 border-b border-outline-variant pb-4">
-              <h2 className="font-headline text-2xl font-bold tracking-tight text-on-surface">Runtime Status</h2>
-              <p className="text-on-surface-variant text-sm font-label opacity-70">
+            <div className="config-page-header">
+              <h2 className="config-page-title">Runtime Status</h2>
+              <p className="config-page-subtitle">
                 Detected AI agent runtimes and their availability
               </p>
             </div>
@@ -878,10 +878,10 @@ export const AgentControlPanel: React.FC = () => {
         {/* ==================== AGENTS TAB ==================== */}
         {activeTab === 'agents' && (
           <div className="max-w-3xl">
-            <div className="mb-6 border-b border-outline-variant pb-4 flex items-end justify-between">
+            <div className="config-page-header flex items-end justify-between">
               <div>
-                <h2 className="font-headline text-2xl font-bold tracking-tight text-on-surface">Agent Configs</h2>
-                <p className="text-on-surface-variant text-sm font-label opacity-70">
+                <h2 className="config-page-title">Agent Configs</h2>
+                <p className="config-page-subtitle">
                   Create and manage custom agents with pipeline or routing orchestration
                 </p>
               </div>
@@ -889,14 +889,14 @@ export const AgentControlPanel: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setShowCreator(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10 rounded-sm transition-colors border border-primary/30"
+                    className="config-action-btn text-primary hover:bg-primary/10 border border-primary/30"
                   >
                     <Plus size={12} />
                     New Agent
                   </button>
                   <button
                     onClick={() => setEditingPipeline('new')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-secondary hover:bg-secondary/10 rounded-sm transition-colors border border-secondary/30"
+                    className="config-action-btn text-secondary hover:bg-secondary/10 border border-secondary/30"
                   >
                     <Layers size={12} />
                     New Pipeline
@@ -951,17 +951,17 @@ export const AgentControlPanel: React.FC = () => {
 
             {/* Pipeline List */}
             <div className="mt-8">
-              <div className="mb-4 flex items-end justify-between border-b border-outline-variant pb-4">
+              <div className="config-page-header flex items-end justify-between">
                 <div>
-                  <h2 className="font-headline text-xl font-bold tracking-tight text-on-surface">Pipelines</h2>
-                  <p className="text-on-surface-variant text-sm font-label opacity-70">
+                  <h2 className="config-page-title text-xl">Pipelines</h2>
+                  <p className="config-page-subtitle">
                     Multi-stage pipeline configurations
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setEditingPipeline('new')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-secondary hover:bg-secondary/10 rounded-sm transition-colors border border-secondary/30"
+                    className="config-action-btn text-secondary hover:bg-secondary/10 border border-secondary/30"
                   >
                     <Plus size={12} />
                     New Pipeline
@@ -1000,7 +1000,7 @@ export const AgentControlPanel: React.FC = () => {
             {/* Execution list */}
             <div className="w-64 shrink-0 flex flex-col bg-surface-container-low rounded-lg border border-outline-variant/10 overflow-hidden">
               <div className="p-3 border-b border-outline-variant/10">
-                <h3 className="font-headline text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                <h3 className="config-section-title">
                   Executions
                 </h3>
               </div>
@@ -1049,9 +1049,9 @@ export const AgentControlPanel: React.FC = () => {
         {/* ==================== ROUTES TAB ==================== */}
         {activeTab === 'routes' && (
           <div className="max-w-3xl flex flex-col gap-6">
-            <div className="border-b border-outline-variant pb-4">
-              <h2 className="font-headline text-2xl font-bold tracking-tight text-on-surface">Routing & Dispatch</h2>
-              <p className="text-on-surface-variant text-sm font-label opacity-70">
+            <div className="config-page-header">
+              <h2 className="config-page-title">Routing & Dispatch</h2>
+              <p className="config-page-subtitle">
                 Smart router configuration and decision history
               </p>
             </div>
@@ -1070,7 +1070,7 @@ export const AgentControlPanel: React.FC = () => {
 
             {/* Recent routing decisions */}
             <div>
-              <h3 className="font-headline text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">
+              <h3 className="config-section-title mb-3">
                 Recent Decisions
               </h3>
               {routerState.decisions.length > 0 ? (
