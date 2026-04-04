@@ -6,8 +6,8 @@ import {
   ChevronDown,
   ChevronRight,
   Terminal as TerminalIcon,
-  Play,
   Save,
+  Check,
   Search,
   MoreVertical,
   Bot,
@@ -818,25 +818,25 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
             })}
           </div>
 
-          {/* Save + Run actions */}
-          <div className="flex items-center gap-3 px-4 shrink-0">
-            <button
-              onClick={saveActiveFile}
-              disabled={!activeFile?.isDirty}
-              className={cn(
-                "flex items-center gap-1.5 text-[10px] font-bold transition-colors",
-                activeFile?.isDirty
-                  ? "text-primary hover:text-primary-container"
-                  : "text-outline/40 cursor-not-allowed"
-              )}
-            >
-              <Save size={14} />
-              {t('editor.save')}
-            </button>
-            <button className="flex items-center gap-1.5 text-[10px] font-bold text-tertiary hover:text-tertiary-container transition-colors">
-              <Play size={14} />
-              {t('editor.run')}
-            </button>
+          {/* Save status indicator / button */}
+          <div className="flex items-center px-4 shrink-0">
+            {activeFile?.isDirty ? (
+              <button
+                onClick={saveActiveFile}
+                className={cn(
+                  "flex items-center gap-1.5 text-[10px] font-bold transition-colors",
+                  "text-primary hover:text-primary-container"
+                )}
+              >
+                <Save size={14} />
+                {t('editor.save')}
+              </button>
+            ) : (
+              <span className="flex items-center gap-1.5 text-[10px] font-bold text-outline/40 cursor-default select-none">
+                <Check size={14} />
+                {t('editor.saved')}
+              </span>
+            )}
           </div>
         </div>
 
