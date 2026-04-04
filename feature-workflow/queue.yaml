@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-05T15:45:00Z"
+  last_updated: "2026-04-04T17:30:00Z"
   version: 1
 
 parents:
@@ -15,16 +15,7 @@ parents:
       - feat-hardware-monitor
       - feat-ai-agent-service
 
-active:
-  - id: feat-pipeline-yaml-editor
-    name: "Pipeline YAML/JSON 直接编辑模式"
-    priority: 70
-    dependencies:
-      - feat-pipeline-visual-editor
-    parent: feat-pipeline-editor
-    branch: feature/feat-pipeline-yaml-editor
-    worktree: ../NeuroSyntaxIDE-feat-pipeline-yaml-editor
-    started_at: "2026-04-05T15:30:00Z"
+active: []
 
 pending:
   - id: feat-agent-unified-exec
@@ -35,11 +26,6 @@ pending:
       - feat-agent-runtime-execute
       - feat-agent-gemini-bridge
       - feat-agent-unified-stream
-  - id: feat-agent-gemini-bridge
-    name: "GeminiHttpRuntime 实现 + PM Agent 迁移"
-    priority: 60
-    dependencies:
-      - feat-agent-runtime-execute
   - id: feat-agent-unified-stream
     name: "统一事件格式 + 前端 Hook 合并"
     priority: 50
@@ -48,24 +34,33 @@ pending:
   - id: feat-task-board-updated-time
     name: "Task Board Updated 时间显示优化"
     priority: 60
+
+blocked: []
+
+completed:
+  - id: feat-pipeline-dual-mode
+    name: "Pipeline 双模式切换与实时同步"
+    completed_at: "2026-04-04T17:30:00Z"
+    tag: feat-pipeline-dual-mode-20260404
+    parent: feat-pipeline-editor
   - id: feat-pipeline-editor
     name: "Pipeline 编辑器（可视化拖拽 + YAML 直接编辑 + 双模式切换）"
-    priority: 80
+    completed_at: "2026-04-04T17:30:00Z"
     split: true
     children:
       - feat-pipeline-visual-editor
       - feat-pipeline-yaml-editor
       - feat-pipeline-dual-mode
-  - id: feat-pipeline-dual-mode
-    name: "Pipeline 双模式切换与实时同步"
-    priority: 65
-    dependencies:
-      - feat-pipeline-visual-editor
-      - feat-pipeline-yaml-editor
-
-blocked: []
-
-completed:
+  - id: feat-agent-gemini-bridge
+    name: "GeminiHttpRuntime 实现 + PM Agent 迁移"
+    completed_at: "2026-04-05T17:00:00Z"
+    tag: feat-agent-gemini-bridge-20260405
+    parent: feat-agent-unified-exec
+  - id: feat-pipeline-yaml-editor
+    name: "Pipeline YAML/JSON 直接编辑模式"
+    completed_at: "2026-04-05T16:00:00Z"
+    tag: feat-pipeline-yaml-editor-20260405
+    parent: feat-pipeline-editor
   - id: feat-new-task-agent-dispatch
     name: "New Task 弹窗 Agent 分发（选择 Agent + 调用 /new-feature skill）"
     completed_at: "2026-04-05T15:45:00Z"

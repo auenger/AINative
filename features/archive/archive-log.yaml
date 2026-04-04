@@ -1,10 +1,90 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-05T15:45:00Z"
+  last_updated: "2026-04-04T17:30:00Z"
   version: 1
-  total_completed: 48
+  total_completed: 51
 
 records:
+  - id: feat-pipeline-dual-mode
+    name: "Pipeline 双模式切换与实时同步"
+    completed_at: "2026-04-04T17:30:00Z"
+    tag: feat-pipeline-dual-mode-20260404
+    merge_commit: 46de373b891c0077f5f6050a7916bbfcc8fe3b61
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-pipeline-dual-mode
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-pipeline-dual-mode
+    parent: feat-pipeline-editor
+    depends_on:
+      - feat-pipeline-visual-editor
+      - feat-pipeline-yaml-editor
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-04-04T17:00:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 4
+      insertions: 805
+      deletions: 41
+  - id: feat-agent-gemini-bridge
+    name: "GeminiHttpRuntime 实现 + PM Agent 迁移"
+    completed_at: "2026-04-05T17:00:00Z"
+    tag: feat-agent-gemini-bridge-20260405
+    merge_commit: d6d9148
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-agent-gemini-bridge
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-agent-gemini-bridge
+    parent: feat-agent-unified-exec
+    depends_on:
+      - feat-agent-runtime-execute
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-04-05T16:30:00Z"
+      duration: "30min"
+      commits: 1
+      files_changed: 2
+  - id: feat-pipeline-yaml-editor
+    name: "Pipeline YAML/JSON 直接编辑模式"
+    completed_at: "2026-04-05T16:00:00Z"
+    tag: feat-pipeline-yaml-editor-20260405
+    merge_commit: c6d95c2
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-pipeline-yaml-editor
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-pipeline-yaml-editor
+    parent: feat-pipeline-editor
+    depends_on:
+      - feat-pipeline-visual-editor
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-05T15:30:00Z"
+      duration: "30min"
+      commits: 1
+      files_changed: 2
+      insertions: 863
+      deletions: 13
   - id: feat-new-task-agent-dispatch
     name: "New Task 弹窗 Agent 分发（选择 Agent + 调用 /new-feature skill）"
     completed_at: "2026-04-05T15:45:00Z"
