@@ -857,10 +857,10 @@ export const AgentControlPanel: React.FC = () => {
 
         {/* === Normal tab content === */}
         {editingPipeline === null && (
-        <div className="flex-1 overflow-y-auto scroll-hide p-6">
+        <div className="flex-1 overflow-y-auto scroll-hide p-6 flex flex-col min-h-0">
         {/* ==================== RUNTIMES TAB ==================== */}
         {activeTab === 'runtimes' && (
-          <div className="max-w-3xl">
+          <div className="w-full">
             <div className="config-page-header">
               <h2 className="config-page-title">Runtime Status</h2>
               <p className="config-page-subtitle">
@@ -877,7 +877,7 @@ export const AgentControlPanel: React.FC = () => {
 
         {/* ==================== AGENTS TAB ==================== */}
         {activeTab === 'agents' && (
-          <div className="max-w-3xl">
+          <div className="w-full">
             <div className="config-page-header flex items-end justify-between">
               <div>
                 <h2 className="config-page-title">Agent Configs</h2>
@@ -996,7 +996,7 @@ export const AgentControlPanel: React.FC = () => {
 
         {/* ==================== EXECUTIONS TAB ==================== */}
         {activeTab === 'executions' && (
-          <div className="flex h-full gap-4" style={{ maxHeight: 'calc(100vh - 160px)' }}>
+          <div className="flex-1 min-h-0 flex gap-4">
             {/* Execution list */}
             <div className="w-64 shrink-0 flex flex-col bg-surface-container-low rounded-lg border border-outline-variant/10 overflow-hidden">
               <div className="p-3 border-b border-outline-variant/10">
@@ -1048,7 +1048,7 @@ export const AgentControlPanel: React.FC = () => {
 
         {/* ==================== ROUTES TAB ==================== */}
         {activeTab === 'routes' && (
-          <div className="max-w-3xl flex flex-col gap-6">
+          <div className="w-full flex flex-col gap-6">
             <div className="config-page-header">
               <h2 className="config-page-title">Routing & Dispatch</h2>
               <p className="config-page-subtitle">
