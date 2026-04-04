@@ -32,14 +32,14 @@ import {
   ChevronRight,
   GripVertical,
   Box,
+  FileCheck,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import ReactMarkdown from 'react-markdown';
-import { useAgentChat } from '../../lib/useAgentChat';
-import type { FeaturePlanOutput } from '../../lib/useAgentChat';
-import { useReqAgentChat } from '../../lib/useReqAgentChat';
+import { useAgentStream } from '../../lib/useAgentStream';
+import type { FeaturePlanOutput } from '../../lib/useAgentStream';
 import { useGitStatus } from '../../lib/useGitStatus';
 import { useGitDetail } from '../../lib/useGitDetail';
 import type { GitModalTab } from '../../types';
@@ -59,8 +59,30 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ workspace }) => {
   const { t } = useTranslation();
   const { workspacePath, loading: workspaceLoading, error: workspaceError, selectWorkspace } = workspace;
 
-  const agentChat = useAgentChat();
-  const reqAgent = useReqAgentChat();
+  const pmAgent = useAgentStream({
+    runtimeId: 'gemini-http',
+    systemPrompt: `You are the PM Agent for Neuro Syntax IDE, an AI-native desktop IDE. Your role is to help users define and manage their project context, plan features, and answer questions about software architecture.
+
+When users ask you to create a feature, respond with a clear plan that includes:
+1. Feature ID (feat- prefix, kebab-case)
+2. Feature name
+3. Priority and size estimate
+4. Dependencies
+5. Description
+6. Key user value points
+7. Task breakdown
+
+Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
+    greetingMessage: "Hello! I'm your PM Agent. I'll help you define and maintain the project context. What are we building today?",
+  });
+
+  const reqAgent = useAgentStream({
+    runtimeId: 'claude-code',
+    greetingMessage: "你好！我是需求分析 Agent。我可以帮你分析和文档化软件需求。告诉我你想构建什么功能？",
+    useSessions: true,
+    persistMessages: true,
+    storageKey: 'req_agent_messages',
+  });
   const gitStatus = useGitStatus(workspacePath);
   const gitDetail = useGitDetail();
 
@@ -115,15 +137,15 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
 `);
 
   const handleSendMessage = () => {
-    if (!chatInput.trim() || agentChat.isStreaming) return;
-    agentChat.sendMessage(chatInput);
+    if (!chatInput.trim() || pmAgent.isStreaming) return;
+    pmAgent.sendMessage(chatInput);
     setChatInput('');
   };
 
   // Auto-scroll chat to bottom when new messages arrive
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [agentChat.messages]);
+  }, [pmAgent.messages]);
 
   // Auto-scroll req agent chat
   useEffect(() => {
@@ -279,14 +301,14 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
   };
 
   const handleGenerateTasks = async () => {
-    if (!agentChat.apiKeyConfigured) {
+    if (!pmAgent.apiKeyConfigured) {
       setShowApiKeyModal(true);
       return;
     }
     setIsGenerating(true);
     setGeneratedPlan(null);
 
-    const plan = await agentChat.generateFeaturePlan(
+    const plan = await pmAgent.generateFeaturePlan(
       'Analyze the current project and create a new feature plan based on the project context and recent discussion.'
     );
 
@@ -298,7 +320,7 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
 
   const handleCreateFeature = async () => {
     if (!generatedPlan) return;
-    const featureId = await agentChat.createFeature(
+    const featureId = await pmAgent.createFeature(
       'epic-neuro-syntax-ide-roadmap',
       generatedPlan
     );
@@ -310,7 +332,7 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
 
   const handleStoreApiKey = () => {
     if (!apiKeyInput.trim()) return;
-    agentChat.configureApiKey(apiKeyInput);
+    pmAgent.configureApiKey(apiKeyInput);
     setApiKeyInput('');
     setShowApiKeyModal(false);
   };
@@ -409,7 +431,7 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
       </AnimatePresence>
 
       {/* API Key prompt banner */}
-      {workspacePath && agentChat.apiKeyConfigured === false && !agentChat.isStreaming && (
+      {workspacePath && pmAgent.apiKeyConfigured === false && !pmAgent.isStreaming && (
         <div className="px-6 py-2 bg-warning/10 border-b border-warning/20 text-xs text-warning flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Key size={12} />
@@ -422,11 +444,11 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
       )}
 
       {/* Agent error banner */}
-      {workspacePath && agentChat.error && (
+      {workspacePath && pmAgent.error && (
         <div className="px-6 py-2 bg-error/10 border-b border-error/20 text-xs text-error flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertTriangle size={12} />
-            {agentChat.error}
+            {pmAgent.error}
           </div>
           <button onClick={() => setShowApiKeyModal(true)} className="text-primary underline text-[10px]">
             Configure API Key
@@ -515,19 +537,19 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                     <div className="flex items-center gap-2">
                       <div className={cn(
                         "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
-                        agentChat.apiKeyConfigured
+                        pmAgent.apiKeyConfigured
                           ? "bg-tertiary/10"
                           : "bg-outline-variant/10"
                       )}>
                         <div className={cn(
                           "w-1.5 h-1.5 rounded-full",
-                          agentChat.apiKeyConfigured ? "bg-tertiary animate-pulse" : "bg-outline-variant"
+                          pmAgent.apiKeyConfigured ? "bg-tertiary animate-pulse" : "bg-outline-variant"
                         )}></div>
                         <span className={cn(
                           "text-[9px] font-bold uppercase tracking-tighter",
-                          agentChat.apiKeyConfigured ? "text-tertiary" : "text-outline"
+                          pmAgent.apiKeyConfigured ? "text-tertiary" : "text-outline"
                         )}>
-                          {agentChat.isStreaming ? 'Thinking...' : agentChat.apiKeyConfigured ? 'Active' : 'No Key'}
+                          {pmAgent.isStreaming ? 'Thinking...' : pmAgent.apiKeyConfigured ? 'Active' : 'No Key'}
                         </span>
                       </div>
                       <button
@@ -541,7 +563,7 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-4 space-y-4 scroll-hide">
-                    {agentChat.messages.map((msg, idx) => (
+                    {pmAgent.messages.map((msg, idx) => (
                       <div key={idx} className={cn(
                         "flex flex-col gap-1 max-w-[85%]",
                         msg.role === 'user' ? "ml-auto items-end" : "items-start"
@@ -555,7 +577,7 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                           {msg.role === 'assistant' ? (
                             <div className="prose prose-invert prose-xs [&_pre]:text-[10px] [&_p]:text-[10px] [&_pre]:p-2 [&_pre]:bg-surface-container-lowest [&_pre]:rounded [&_code]:text-[10px]">
                               <ReactMarkdown>{msg.content}</ReactMarkdown>
-                              {idx === agentChat.messages.length - 1 && agentChat.isStreaming && (
+                              {idx === pmAgent.messages.length - 1 && pmAgent.isStreaming && (
                                 <span className="inline-block w-1.5 h-3 bg-primary/70 animate-pulse ml-0.5 align-middle"></span>
                               )}
                             </div>
@@ -575,20 +597,20 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                         onChange={(e) => setChatInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
                         placeholder={t('project.chatPlaceholder')}
-                        disabled={agentChat.isStreaming}
+                        disabled={pmAgent.isStreaming}
                         className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg p-3 pr-10 text-xs text-on-surface focus:outline-none focus:border-primary/50 resize-none h-20 scroll-hide disabled:opacity-50"
                       />
                       <button
                         onClick={handleSendMessage}
-                        disabled={agentChat.isStreaming || !chatInput.trim()}
+                        disabled={pmAgent.isStreaming || !chatInput.trim()}
                         className={cn(
                           "absolute right-2 bottom-2 p-1.5 rounded-md transition-colors",
-                          agentChat.isStreaming || !chatInput.trim()
+                          pmAgent.isStreaming || !chatInput.trim()
                             ? "text-outline-variant cursor-not-allowed"
                             : "text-primary hover:bg-primary/10"
                         )}
                       >
-                        {agentChat.isStreaming ? (
+                        {pmAgent.isStreaming ? (
                           <Loader2 size={16} className="animate-spin" />
                         ) : (
                           <Send size={16} />
@@ -1550,17 +1572,17 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
               <div className="p-6 space-y-4">
                 <div className={cn(
                   "flex items-center gap-3 p-3 rounded-lg border",
-                  agentChat.apiKeyConfigured
+                  pmAgent.apiKeyConfigured
                     ? "bg-tertiary/10 border-tertiary/20"
                     : "bg-warning/10 border-warning/20"
                 )}>
-                  {agentChat.apiKeyConfigured ? (
+                  {pmAgent.apiKeyConfigured ? (
                     <CheckCircle2 size={16} className="text-tertiary" />
                   ) : (
                     <AlertTriangle size={16} className="text-warning" />
                   )}
                   <span className="text-xs text-on-surface-variant">
-                    {agentChat.apiKeyConfigured
+                    {pmAgent.apiKeyConfigured
                       ? 'API Key is configured and stored securely in your OS Keyring.'
                       : 'No API Key configured. AI features require a Gemini API key.'}
                   </span>
@@ -1585,9 +1607,9 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
               </div>
 
               <div className="p-4 bg-surface-container-high/30 border-t border-outline-variant/10 flex gap-3">
-                {agentChat.apiKeyConfigured && (
+                {pmAgent.apiKeyConfigured && (
                   <button
-                    onClick={() => agentChat.removeApiKey()}
+                    onClick={() => pmAgent.removeApiKey()}
                     className="px-4 py-2 bg-error/10 text-error rounded-lg text-xs font-bold hover:bg-error/20 transition-all border border-error/20"
                   >
                     Delete Key

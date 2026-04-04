@@ -1,0 +1,563 @@
+import { useState, useCallback, useRef, useEffect } from 'react';
+
+// ---------------------------------------------------------------------------
+// Types matching Rust StreamEvent (agent://chunk) / FeaturePlanOutput / TaskGroup
+// ---------------------------------------------------------------------------
+
+export interface AgentStreamEvent {
+  text: string;
+  is_done: boolean;
+  error?: string;
+  /** Stream message type: "assistant", "system", "raw", "tool_use", "result", "stderr", "disconnect", "timeout", "process_exit" */
+  type?: string;
+  /** Session ID from the runtime */
+  session_id?: string;
+}
+
+export interface TaskGroup {
+  group_name: string;
+  items: string[];
+}
+
+export interface FeaturePlanOutput {
+  id: string;
+  name: string;
+  priority: number;
+  size: string;
+  dependencies: string[];
+  description: string;
+  value_points: string[];
+  tasks: TaskGroup[];
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+export type Connection_State = 'disconnected' | 'connecting' | 'connected' | 'error';
+
+export interface FsChangeEvent {
+  paths: string[];
+  kind: string;
+}
+
+export interface FeatureCreatedNotification {
+  featureId: string;
+  featureDir: string;
+  timestamp: number;
+}
+
+export interface UseAgentStreamOptions {
+  /** The runtime to use: 'claude-code' | 'gemini-http' | etc. */
+  runtimeId: string;
+  /** Optional system prompt prepended to messages. */
+  systemPrompt?: string;
+  /** Greeting message shown at start of conversation. */
+  greetingMessage?: string;
+  /** Whether this runtime requires session management (connect/disconnect). Default: false. */
+  useSessions?: boolean;
+  /** Whether to persist messages to localStorage. Default: false. */
+  persistMessages?: boolean;
+  /** localStorage key for message persistence. Default: 'agent-stream-{runtimeId}'. */
+  storageKey?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
+
+export function useAgentStream(options: UseAgentStreamOptions) {
+  const {
+    runtimeId,
+    systemPrompt = null,
+    greetingMessage = '',
+    useSessions = false,
+    persistMessages = false,
+    storageKey = `agent-stream-${runtimeId}`,
+  } = options;
+
+  // --- State ---
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (persistMessages && isTauri) {
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          const parsed = JSON.parse(stored) as ChatMessage[];
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch { /* ignore */ }
+    }
+    return greetingMessage
+      ? [{ role: 'assistant', content: greetingMessage }]
+      : [];
+  });
+
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [apiKeyConfigured, setApiKeyConfigured] = useState<boolean | null>(null);
+  const streamingTextRef = useRef<string>('');
+  const chunkUnlistenRef = useRef<(() => void) | null>(null);
+
+  // Session-related state (only used when useSessions is true)
+  const [connectionState, setConnectionState] = useState<Connection_State>(useSessions ? 'disconnected' : 'connected');
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [lastCreatedFeature, setLastCreatedFeature] = useState<FeatureCreatedNotification | null>(null);
+
+  // Ref to track current runtimeId in sendMessage closures
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
+  // --- Persist messages to localStorage ---
+  useEffect(() => {
+    if (!persistMessages || !isTauri) return;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(messages));
+    } catch { /* ignore quota errors */ }
+  }, [messages, persistMessages, storageKey]);
+
+  // --- Cleanup chunk listener on unmount ---
+  useEffect(() => {
+    return () => {
+      if (chunkUnlistenRef.current) {
+        chunkUnlistenRef.current();
+        chunkUnlistenRef.current = null;
+      }
+    };
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Chunk listener
+  // ---------------------------------------------------------------------------
+
+  /** Register the agent://chunk listener for streaming responses. */
+  const registerChunkListener = useCallback(async () => {
+    // Remove any previous listener
+    if (chunkUnlistenRef.current) {
+      chunkUnlistenRef.current();
+      chunkUnlistenRef.current = null;
+    }
+
+    const { listen } = await import('@tauri-apps/api/event');
+    const unlisten = await listen<AgentStreamEvent>('agent://chunk', (event) => {
+      const chunk = event.payload;
+
+      // Handle error chunks (but not stderr -- those are just diagnostics)
+      if (chunk.error && chunk.type !== 'stderr') {
+        setError(chunk.error);
+        if (chunk.is_done) {
+          setIsStreaming(false);
+          if (useSessions && (chunk.type === 'disconnect' || chunk.type === 'timeout')) {
+            setConnectionState('error');
+          }
+        }
+        return;
+      }
+
+      // Stream text from assistant/system/raw messages
+      if (chunk.text && (chunk.type === 'assistant' || chunk.type === 'system' || chunk.type === 'raw' || !chunk.type)) {
+        streamingTextRef.current += chunk.text;
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === 'assistant') {
+            return [...prev.slice(0, -1), { ...last, content: streamingTextRef.current }];
+          }
+          return [...prev, { role: 'assistant', content: streamingTextRef.current }];
+        });
+      }
+
+      if (chunk.is_done) {
+        setIsStreaming(false);
+        if (!streamingTextRef.current) {
+          setMessages((prev) => [
+            ...prev,
+            { role: 'assistant', content: '(No response received)' },
+          ]);
+        }
+        // Unregister after stream completes (per-request model)
+        unlisten();
+        chunkUnlistenRef.current = null;
+      }
+    });
+
+    chunkUnlistenRef.current = unlisten;
+  }, [useSessions]);
+
+  /** Remove the chunk listener. */
+  const removeChunkListener = useCallback(() => {
+    if (chunkUnlistenRef.current) {
+      chunkUnlistenRef.current();
+      chunkUnlistenRef.current = null;
+    }
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // API Key management (for gemini-http runtime)
+  // ---------------------------------------------------------------------------
+
+  /** Check if API key is configured */
+  const checkApiKey = useCallback(async () => {
+    if (!isTauri) {
+      setApiKeyConfigured(false);
+      return;
+    }
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const hasKey: boolean = await invoke('has_api_key');
+      setApiKeyConfigured(hasKey);
+    } catch {
+      setApiKeyConfigured(false);
+    }
+  }, []);
+
+  /** Store API key via Rust backend (keyring) */
+  const configureApiKey = useCallback(async (key: string) => {
+    if (!isTauri) return;
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('store_api_key', { key });
+      setApiKeyConfigured(true);
+      setError(null);
+    } catch (e: any) {
+      setError(e?.toString() ?? 'Failed to store API key');
+    }
+  }, []);
+
+  /** Delete stored API key */
+  const removeApiKey = useCallback(async () => {
+    if (!isTauri) return;
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('delete_api_key');
+      setApiKeyConfigured(false);
+    } catch (e: any) {
+      setError(e?.toString() ?? 'Failed to delete API key');
+    }
+  }, []);
+
+  // Check API key on mount (for gemini-http runtime)
+  useEffect(() => {
+    if (runtimeId === 'gemini-http') {
+      checkApiKey();
+    }
+  }, [checkApiKey, runtimeId]);
+
+  // ---------------------------------------------------------------------------
+  // Session management (for runtimes like claude-code)
+  // ---------------------------------------------------------------------------
+
+  /** Start a new agent session */
+  const startSession = useCallback(async (_resumeSessionId?: string) => {
+    if (!isTauri) {
+      setConnectionState('connected');
+      return;
+    }
+    setConnectionState('connecting');
+    setError(null);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const sid: string = await invoke('runtime_session_start', { runtimeId });
+      setSessionId(sid);
+      setConnectionState('connected');
+      try { localStorage.setItem(`${storageKey}-session`, sid); } catch { /* ignore */ }
+      await registerChunkListener();
+    } catch (e: any) {
+      setError(e?.toString() ?? 'Failed to start agent session');
+      setConnectionState('error');
+    }
+  }, [registerChunkListener, runtimeId, storageKey]);
+
+  /** Stop the current agent session */
+  const stopSession = useCallback(async () => {
+    if (!isTauri) {
+      setConnectionState('disconnected');
+      setSessionId(null);
+      return;
+    }
+    removeChunkListener();
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('runtime_session_stop');
+    } catch { /* ignore */ }
+    setConnectionState('disconnected');
+    setSessionId(null);
+    try { localStorage.removeItem(`${storageKey}-session`); } catch { /* ignore */ }
+  }, [removeChunkListener, storageKey]);
+
+  /** Check agent status (used on mount for auto-restore) */
+  const checkStatus = useCallback(async () => {
+    if (!isTauri || !useSessions) return;
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const status: { running: boolean; session_id: string | null } = await invoke('req_agent_status');
+      if (status.running && status.session_id) {
+        setSessionId(status.session_id);
+        setConnectionState('connected');
+        await registerChunkListener();
+      } else {
+        setConnectionState('disconnected');
+      }
+    } catch {
+      setConnectionState('disconnected');
+    }
+  }, [useSessions, registerChunkListener]);
+
+  // Check status on mount (for session-based runtimes)
+  useEffect(() => {
+    if (useSessions) {
+      checkStatus();
+    }
+  }, [useSessions, checkStatus]);
+
+  // ---------------------------------------------------------------------------
+  // Message sending
+  // ---------------------------------------------------------------------------
+
+  /** Send a message and receive streaming response via runtime_execute */
+  const sendMessage = useCallback(
+    async (input: string) => {
+      if (!input.trim()) return;
+
+      // If session-based and not connected, start a fresh session first
+      if (useSessions && connectionState !== 'connected') {
+        await startSession();
+      }
+
+      const userMessage: ChatMessage = { role: 'user', content: input };
+      setMessages((prev) => [...prev, userMessage]);
+      setError(null);
+
+      if (!isTauri) {
+        // Dev fallback: simulate response
+        setTimeout(() => {
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: 'assistant',
+              content: `[${runtimeId}] I've analyzed your request: "${input}". Here's my response...`,
+            },
+          ]);
+        }, 1000);
+        return;
+      }
+
+      setIsStreaming(true);
+      streamingTextRef.current = '';
+
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+
+        // Register chunk listener before invoking the command (for non-session runtimes)
+        if (!useSessions) {
+          await registerChunkListener();
+        }
+
+        // Build message payload
+        let messagePayload: string;
+        if (runtimeId === 'gemini-http') {
+          // Gemini runtime expects full conversation history as JSON
+          const chatMessages = [...messages, userMessage]
+            .filter((m) => !(m.role === 'assistant' && m.content.includes(greetingMessage)))
+            .map((m) => ({ role: m.role, content: m.content }));
+          messagePayload = JSON.stringify(chatMessages);
+        } else {
+          messagePayload = input;
+        }
+
+        await invoke('runtime_execute', {
+          runtimeId,
+          message: messagePayload,
+          sessionId: sessionId,
+          systemPrompt: systemPrompt,
+        });
+      } catch (e: any) {
+        setError(e?.toString() ?? 'Failed to send message');
+        setIsStreaming(false);
+        if (useSessions) setConnectionState('error');
+      }
+    },
+    [connectionState, startSession, sessionId, messages, registerChunkListener, runtimeId, systemPrompt, greetingMessage, useSessions],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Feature plan helpers (for PM Agent / gemini-http runtime)
+  // ---------------------------------------------------------------------------
+
+  /** Ask the AI to generate a Feature plan (structured JSON) */
+  const generateFeaturePlan = useCallback(
+    async (description: string): Promise<FeaturePlanOutput | null> => {
+      if (!isTauri) {
+        return {
+          id: 'feat-mock-feature',
+          name: 'Mock Feature',
+          priority: 50,
+          size: 'M',
+          dependencies: [],
+          description,
+          value_points: ['VP1: User benefit', 'VP2: Efficiency', 'VP3: Quality'],
+          tasks: [
+            { group_name: 'Core', items: ['Implement core logic', 'Add error handling'] },
+            { group_name: 'UI', items: ['Design component', 'Wire up state'] },
+          ],
+        };
+      }
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const plan: FeaturePlanOutput = await invoke('agent_generate_feature_plan', {
+          request: {
+            messages: [{ role: 'user', content: description }],
+            model: 'gemini-2.0-flash',
+          },
+        });
+        return plan;
+      } catch (e: any) {
+        setError(e?.toString() ?? 'Failed to generate feature plan');
+        return null;
+      }
+    },
+    [],
+  );
+
+  /** Create a Feature from a plan in the filesystem */
+  const createFeature = useCallback(
+    async (parentId: string, plan: FeaturePlanOutput): Promise<string | null> => {
+      if (!isTauri) return null;
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const featureId: string = await invoke('create_feature_from_agent', {
+          request: { parentId, plan },
+        });
+        return featureId;
+      } catch (e: any) {
+        setError(e?.toString() ?? 'Failed to create feature');
+        return null;
+      }
+    },
+    [],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Session lifecycle (for session-based runtimes)
+  // ---------------------------------------------------------------------------
+
+  /** Start a new session (clear history) */
+  const newSession = useCallback(async () => {
+    if (useSessions) {
+      await stopSession();
+    }
+    setMessages(
+      greetingMessage
+        ? [{ role: 'assistant', content: greetingMessage }]
+        : []
+    );
+    streamingTextRef.current = '';
+    setError(null);
+    try {
+      localStorage.removeItem(`${storageKey}-session`);
+      localStorage.removeItem(storageKey);
+    } catch { /* ignore */ }
+  }, [useSessions, stopSession, greetingMessage, storageKey]);
+
+  /** Resume a previous session -- always starts fresh for reliability */
+  const resumeSession = useCallback(async () => {
+    if (useSessions) {
+      await startSession();
+    }
+  }, [useSessions, startSession]);
+
+  // ---------------------------------------------------------------------------
+  // Feature creation event listener (for REQ Agent / claude-code runtime)
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (!isTauri || !useSessions) return;
+    let unlisten: (() => void) | null = null;
+    (async () => {
+      try {
+        const { listen } = await import('@tauri-apps/api/event');
+        unlisten = await listen<FsChangeEvent>('fs://workspace-changed', (event) => {
+          const change = event.payload;
+          if (change.kind === 'agent-feature-created') {
+            for (const p of change.paths) {
+              const match = p.match(/features\/pending-([^/]+)/);
+              if (match) {
+                setLastCreatedFeature({
+                  featureId: match[1],
+                  featureDir: p,
+                  timestamp: Date.now(),
+                });
+                break;
+              }
+            }
+          }
+        });
+      } catch { /* Ignore */ }
+    })();
+    return () => { unlisten?.(); };
+  }, [useSessions]);
+
+  /** Clear the last feature creation notification */
+  const clearFeatureNotification = useCallback(() => {
+    setLastCreatedFeature(null);
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // General
+  // ---------------------------------------------------------------------------
+
+  /** Clear the chat history */
+  const clearChat = useCallback(() => {
+    setMessages(
+      greetingMessage
+        ? [{ role: 'assistant', content: greetingMessage }]
+        : []
+    );
+    streamingTextRef.current = '';
+    setError(null);
+  }, [greetingMessage]);
+
+  // ---------------------------------------------------------------------------
+  // Return
+  // ---------------------------------------------------------------------------
+
+  return {
+    // Core chat state
+    messages,
+    isStreaming,
+    error,
+    sendMessage,
+    clearChat,
+
+    // API Key management (available for all runtimes, used by gemini-http)
+    apiKeyConfigured,
+    configureApiKey,
+    removeApiKey,
+    checkApiKey,
+
+    // Session management (available when useSessions is true)
+    connectionState,
+    sessionId,
+    startSession,
+    stopSession,
+    newSession,
+    resumeSession,
+    checkStatus,
+
+    // Feature plan helpers (for PM Agent)
+    generateFeaturePlan,
+    createFeature,
+
+    // Feature creation notification (for REQ Agent)
+    lastCreatedFeature,
+    clearFeatureNotification,
+
+    // Identity
+    runtimeId,
+  };
+}
