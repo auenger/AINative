@@ -153,6 +153,12 @@ export function useAgentStream(options: UseAgentStreamOptions) {
     const unlisten = await listen<AgentStreamEvent>('agent://chunk', (event) => {
       const chunk = event.payload;
 
+      // Capture real session_id from CLI response (first message establishes the session)
+      if (chunk.session_id) {
+        setSessionId(chunk.session_id);
+        try { localStorage.setItem(`${optionsRef.current.storageKey ?? `agent-stream-${optionsRef.current.runtimeId}`}-session`, chunk.session_id); } catch { /* ignore */ }
+      }
+
       // Handle error chunks (but not stderr -- those are just diagnostics)
       if (chunk.error && chunk.type !== 'stderr') {
         setError(chunk.error);
@@ -269,10 +275,10 @@ export function useAgentStream(options: UseAgentStreamOptions) {
     setError(null);
     try {
       const { invoke } = await import('@tauri-apps/api/core');
-      const sid: string = await invoke('runtime_session_start', { runtimeId });
-      setSessionId(sid);
+      // Validate runtime is ready (don't store the fake UUID as sessionId)
+      await invoke('runtime_session_start', { runtimeId });
+      // sessionId stays null — will be captured from the first response chunk
       setConnectionState('connected');
-      try { localStorage.setItem(`${storageKey}-session`, sid); } catch { /* ignore */ }
       await registerChunkListener();
     } catch (e: any) {
       setError(e?.toString() ?? 'Failed to start agent session');
