@@ -29,6 +29,8 @@ import {
   AlertCircle,
   Route,
   Settings2,
+  Edit3,
+  Layers,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAgentRuntimes } from '../../lib/useAgentRuntimes';
@@ -36,11 +38,13 @@ import { usePipelineEngine } from '../../lib/usePipelineEngine';
 import { useSmartRouter } from '../../lib/useSmartRouter';
 import { useAgentConfigs } from '../../lib/useAgentConfigs';
 import { PipelinePanel } from '../common/PipelinePanel';
+import { PipelineVisualEditor } from './PipelineVisualEditor';
 import type {
   AgentRuntimeInfo,
   AgentRuntimeStatusType,
   AgentConfig,
   AgentOrchestrationMode,
+  PipelineConfig,
   PipelineExecution,
   RoutingDecision,
   RoutingRule,
@@ -538,6 +542,74 @@ const ExecutionHistoryItem: React.FC<ExecutionHistoryItemProps> = ({
 };
 
 // ---------------------------------------------------------------------------
+// PipelineListItem component
+// ---------------------------------------------------------------------------
+
+interface PipelineListItemProps {
+  pipeline: PipelineConfig;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+const PipelineListItem: React.FC<PipelineListItemProps> = ({ pipeline, onEdit, onDelete }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="glass-panel rounded-sm overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface-container-high/30 transition-colors"
+      >
+        <Layers size={14} className="text-primary" />
+        <div className="flex-1 text-left">
+          <span className="text-xs font-medium text-on-surface">{pipeline.name}</span>
+          <span className="text-[9px] text-on-surface-variant ml-2 font-mono">{pipeline.id}</span>
+        </div>
+        <span className="text-[9px] text-on-surface-variant">
+          {pipeline.stages.length} stage{pipeline.stages.length !== 1 ? 's' : ''}
+        </span>
+        {expanded ? <ChevronDown size={12} className="text-outline" /> : <ChevronRight size={12} className="text-outline" />}
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-3 border-t border-outline-variant/10 pt-2 space-y-2">
+          {pipeline.description && (
+            <p className="text-[10px] text-on-surface-variant">{pipeline.description}</p>
+          )}
+          <div className="flex flex-col gap-1">
+            {pipeline.stages.map((stage, idx) => (
+              <div key={stage.id} className="flex items-center gap-2 text-[9px] font-mono">
+                <span className="text-outline">{idx + 1}.</span>
+                <span className="text-on-surface-variant">{stage.name}</span>
+                {stage.runtime_id && (
+                  <span className="text-primary ml-auto">{stage.runtime_id}</span>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={onEdit}
+              className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-secondary hover:text-primary transition-colors"
+            >
+              <Edit3 size={10} />
+              Edit
+            </button>
+            <button
+              onClick={onDelete}
+              className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-error/60 hover:text-error transition-colors"
+            >
+              <Trash2 size={10} />
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // RoutingDecisionCard component
 // ---------------------------------------------------------------------------
 
@@ -662,6 +734,7 @@ export const AgentControlPanel: React.FC = () => {
   const [showCreator, setShowCreator] = useState(false);
   const [editingAgent, setEditingAgent] = useState<AgentConfig | null>(null);
   const [selectedExecId, setSelectedExecId] = useState<string | null>(null);
+  const [editingPipeline, setEditingPipeline] = useState<PipelineConfig | null | 'new'>(null);
 
   // --- Hooks ---
   const runtimesState = useAgentRuntimes();
@@ -696,6 +769,17 @@ export const AgentControlPanel: React.FC = () => {
 
   const handleDeleteAgent = async (id: string) => {
     await agentConfigsState.deleteAgent(id);
+  };
+
+  // --- Pipeline handlers ---
+  const handleSavePipeline = async (config: PipelineConfig) => {
+    await pipelineState.savePipeline(config);
+    setEditingPipeline(null);
+  };
+
+  const handleDeletePipeline = async (id: string) => {
+    await pipelineState.deletePipeline(id);
+    setEditingPipeline(null);
   };
 
   return (
@@ -751,7 +835,21 @@ export const AgentControlPanel: React.FC = () => {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto scroll-hide p-6">
+      <main className="flex-1 overflow-hidden flex flex-col">
+        {/* === Pipeline Visual Editor (full-screen overlay) === */}
+        {editingPipeline !== null && (
+          <PipelineVisualEditor
+            initialConfig={editingPipeline === 'new' ? null : editingPipeline}
+            runtimes={runtimesState.runtimes}
+            onSave={handleSavePipeline}
+            onDelete={handleDeletePipeline}
+            onCancel={() => setEditingPipeline(null)}
+          />
+        )}
+
+        {/* === Normal tab content === */}
+        {editingPipeline === null && (
+        <div className="flex-1 overflow-y-auto scroll-hide p-6">
         {/* ==================== RUNTIMES TAB ==================== */}
         {activeTab === 'runtimes' && (
           <div className="max-w-3xl">
@@ -780,13 +878,22 @@ export const AgentControlPanel: React.FC = () => {
                 </p>
               </div>
               {!showCreator && !editingAgent && (
-                <button
-                  onClick={() => setShowCreator(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10 rounded-sm transition-colors border border-primary/30"
-                >
-                  <Plus size={12} />
-                  New Agent
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowCreator(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10 rounded-sm transition-colors border border-primary/30"
+                  >
+                    <Plus size={12} />
+                    New Agent
+                  </button>
+                  <button
+                    onClick={() => setEditingPipeline('new')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-secondary hover:bg-secondary/10 rounded-sm transition-colors border border-secondary/30"
+                  >
+                    <Layers size={12} />
+                    New Pipeline
+                  </button>
+                </div>
               )}
             </div>
 
@@ -832,6 +939,46 @@ export const AgentControlPanel: React.FC = () => {
                   <p className="text-[10px] mt-1">Click "New Agent" to create your first agent</p>
                 </div>
               )}
+            </div>
+
+            {/* Pipeline List */}
+            <div className="mt-8">
+              <div className="mb-4 flex items-end justify-between border-b border-outline-variant pb-4">
+                <div>
+                  <h2 className="font-headline text-xl font-bold tracking-tight text-on-surface">Pipelines</h2>
+                  <p className="text-on-surface-variant text-sm font-label opacity-70">
+                    Multi-stage pipeline configurations
+                  </p>
+                </div>
+                <button
+                  onClick={() => setEditingPipeline('new')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-secondary hover:bg-secondary/10 rounded-sm transition-colors border border-secondary/30"
+                >
+                  <Plus size={12} />
+                  New Pipeline
+                </button>
+              </div>
+              <div className="flex flex-col gap-2">
+                {pipelineState.pipelineIds.map(pid => {
+                  const pipeline = pipelineState.pipelines[pid];
+                  if (!pipeline) return null;
+                  return (
+                    <PipelineListItem
+                      key={pid}
+                      pipeline={pipeline}
+                      onEdit={() => setEditingPipeline(pipeline)}
+                      onDelete={() => handleDeletePipeline(pid)}
+                    />
+                  );
+                })}
+                {pipelineState.pipelineIds.length === 0 && (
+                  <div className="text-center py-8 text-on-surface-variant opacity-50">
+                    <Layers size={24} className="mx-auto mb-2 opacity-30" />
+                    <p className="text-xs">No pipelines configured</p>
+                    <p className="text-[10px] mt-1">Click "New Pipeline" to create your first pipeline</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -929,6 +1076,8 @@ export const AgentControlPanel: React.FC = () => {
               )}
             </div>
           </div>
+        )}
+        </div>
         )}
       </main>
     </div>
