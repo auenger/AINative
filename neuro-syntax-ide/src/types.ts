@@ -128,6 +128,21 @@ export interface GitBranch {
   latest_commit_hash: string;
 }
 
+/** File change info for a specific tag's diff (feat-git-tag-expand). */
+export interface TagFileChange {
+  path: string;
+  status: 'added' | 'modified' | 'removed' | 'renamed';
+  additions: number;
+  deletions: number;
+}
+
+/** Detailed information for an expanded tag (feat-git-tag-expand). */
+export interface TagDetail {
+  tag_name: string;
+  commits: GitCommit[];
+  file_changes: TagFileChange[];
+}
+
 /** Tab identifiers for the Git modal sidebar navigation. */
 export type GitModalTab = 'overview' | 'branches' | 'tags' | 'history' | 'changes' | 'features';
 

@@ -2932,6 +2932,322 @@ async fn fetch_git_branches(
 }
 
 // ===========================================================================
+// Tauri commands - Tag detail expand (feat-git-tag-expand)
+// ===========================================================================
+
+/// File change entry for tag diff results.
+#[derive(Debug, Serialize, Clone)]
+pub struct TagFileChangeInfo {
+    pub path: String,
+    pub status: String, // "added" | "modified" | "removed" | "renamed"
+    pub additions: usize,
+    pub deletions: usize,
+}
+
+/// Result for fetch_tag_commits: commits between two tags.
+#[derive(Debug, Serialize, Clone)]
+pub struct TagCommitsResult {
+    pub tag_name: String,
+    pub commits: Vec<GitCommitDetail>,
+}
+
+/// Result for fetch_tag_diff: file changes for a tag.
+#[derive(Debug, Serialize, Clone)]
+pub struct TagDiffResult {
+    pub tag_name: String,
+    pub file_changes: Vec<TagFileChangeInfo>,
+}
+
+/// Helper: resolve a tag name to its target commit OID.
+fn resolve_tag_to_commit_oid(repo: &git2::Repository, tag_name: &str) -> Result<git2::Oid, String> {
+    // Try refs/tags/<name> first (annotated tags)
+    if let Ok(ref_name) = repo.find_reference(&format!("refs/tags/{}", tag_name)) {
+        if let Ok(commit) = ref_name.peel_to_commit() {
+            return Ok(commit.id());
+        }
+        // If peel_to_commit fails, try the target directly
+        if let Some(target) = ref_name.target() {
+            // Could be a tag object pointing to a commit
+            if let Ok(obj) = repo.find_object(target, None) {
+                if let Ok(commit) = obj.peel_to_commit() {
+                    return Ok(commit.id());
+                }
+            }
+        }
+    }
+
+    Err(format!("Tag '{}' not found or cannot be resolved to a commit", tag_name))
+}
+
+/// Fetch commits between a tag and the previous tag (or repo root if first tag).
+/// Returns the commit list in reverse chronological order (newest first).
+#[tauri::command]
+async fn fetch_tag_commits(
+    state: tauri::State<'_, AppState>,
+    tag_name: String,
+) -> Result<TagCommitsResult, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo_path = PathBuf::from(&workspace);
+    let repo = git2::Repository::discover(&repo_path)
+        .map_err(|e| format!("Not a git repository: {}", e))?;
+
+    // Resolve the target tag to a commit OID
+    let tag_oid = resolve_tag_to_commit_oid(&repo, &tag_name)?;
+
+    // Collect all tags sorted by date (ascending) to find the previous tag
+    let mut all_tags: Vec<(String, git2::Oid, i64)> = Vec::new();
+    repo.tag_foreach(|oid, name_bytes| {
+        let name = String::from_utf8_lossy(name_bytes)
+            .strip_prefix("refs/tags/")
+            .unwrap_or("")
+            .to_string();
+
+        let date = repo.find_tag(oid).ok().and_then(|tag| {
+            let target_id = tag.target_id();
+            repo.find_commit(target_id).ok().map(|c| c.time().seconds())
+        }).or_else(|| {
+            repo.find_object(oid, None).ok().and_then(|obj| {
+                obj.peel_to_commit().ok().map(|c| c.time().seconds())
+            })
+        }).unwrap_or(0);
+
+        // Resolve each tag to its commit OID
+        let commit_oid = repo.find_tag(oid).ok().and_then(|tag| {
+            Some(tag.target_id())
+        }).or_else(|| {
+            repo.find_object(oid, None).ok().and_then(|obj| {
+                obj.peel_to_commit().ok().map(|c| c.id())
+            })
+        });
+
+        if let Some(c_oid) = commit_oid {
+            all_tags.push((name, c_oid, date));
+        }
+        true
+    }).map_err(|e| format!("Failed to iterate tags: {}", e))?;
+
+    // Sort by date ascending (oldest first)
+    all_tags.sort_by(|a, b| a.2.cmp(&b.2));
+
+    // Find the index of our target tag
+    let target_idx = all_tags.iter().position(|(n, oid, _)| *n == tag_name && *oid == tag_oid)
+        .ok_or_else(|| format!("Tag '{}' not found in tag list", tag_name))?;
+
+    // Previous tag OID (if exists)
+    let prev_oid = if target_idx > 0 {
+        Some(all_tags[target_idx - 1].1)
+    } else {
+        None
+    };
+
+    // Walk commits from tag_oid back to prev_oid (exclusive)
+    let mut commits: Vec<GitCommitDetail> = Vec::new();
+    let mut revwalk = repo.revwalk()
+        .map_err(|e| format!("Failed to create revwalk: {}", e))?;
+    revwalk.push(tag_oid)
+        .map_err(|e| format!("Failed to push tag ref: {}", e))?;
+
+    if let Some(prev) = prev_oid {
+        // Hide the previous tag so we stop at it (exclusive)
+        let _ = revwalk.hide(prev);
+    }
+
+    for oid in revwalk {
+        let oid = oid.map_err(|e| format!("Revwalk error: {}", e))?;
+        let commit = repo.find_commit(oid)
+            .map_err(|e| format!("Failed to find commit: {}", e))?;
+
+        let hash = oid.to_string();
+        let short_hash = format!("{}", &hash[..7]);
+        let message = commit.message()
+            .unwrap_or("(no message)")
+            .lines()
+            .next()
+            .unwrap_or("")
+            .to_string();
+        let author = commit.author().name().unwrap_or("unknown").to_string();
+        let timestamp = commit.time().seconds();
+        let time_ago = format_time_ago(timestamp);
+
+        commits.push(GitCommitDetail {
+            hash,
+            short_hash,
+            message,
+            author,
+            timestamp,
+            time_ago,
+        });
+    }
+
+    Ok(TagCommitsResult {
+        tag_name,
+        commits,
+    })
+}
+
+/// Fetch file changes (diff stat) for a tag compared to the previous tag.
+/// If no previous tag exists, compares against an empty tree.
+#[tauri::command]
+async fn fetch_tag_diff(
+    state: tauri::State<'_, AppState>,
+    tag_name: String,
+) -> Result<TagDiffResult, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo_path = PathBuf::from(&workspace);
+    let repo = git2::Repository::discover(&repo_path)
+        .map_err(|e| format!("Not a git repository: {}", e))?;
+
+    // Resolve the target tag to a commit OID
+    let tag_oid = resolve_tag_to_commit_oid(&repo, &tag_name)?;
+    let tag_commit = repo.find_commit(tag_oid)
+        .map_err(|e| format!("Failed to find commit for tag '{}': {}", tag_name, e))?;
+    let tag_tree = tag_commit.tree()
+        .map_err(|e| format!("Failed to get tree for tag commit: {}", e))?;
+
+    // Collect all tags sorted by date to find the previous tag
+    let mut all_tags: Vec<(String, git2::Oid, i64)> = Vec::new();
+    repo.tag_foreach(|oid, name_bytes| {
+        let name = String::from_utf8_lossy(name_bytes)
+            .strip_prefix("refs/tags/")
+            .unwrap_or("")
+            .to_string();
+
+        let date = repo.find_tag(oid).ok().and_then(|tag| {
+            let target_id = tag.target_id();
+            repo.find_commit(target_id).ok().map(|c| c.time().seconds())
+        }).or_else(|| {
+            repo.find_object(oid, None).ok().and_then(|obj| {
+                obj.peel_to_commit().ok().map(|c| c.time().seconds())
+            })
+        }).unwrap_or(0);
+
+        let commit_oid = repo.find_tag(oid).ok().and_then(|tag| {
+            Some(tag.target_id())
+        }).or_else(|| {
+            repo.find_object(oid, None).ok().and_then(|obj| {
+                obj.peel_to_commit().ok().map(|c| c.id())
+            })
+        });
+
+        if let Some(c_oid) = commit_oid {
+            all_tags.push((name, c_oid, date));
+        }
+        true
+    }).map_err(|e| format!("Failed to iterate tags: {}", e))?;
+
+    all_tags.sort_by(|a, b| a.2.cmp(&b.2));
+
+    let target_idx = all_tags.iter().position(|(n, oid, _)| *n == tag_name && *oid == tag_oid)
+        .ok_or_else(|| format!("Tag '{}' not found in tag list", tag_name))?;
+
+    // Get previous tag's tree (or empty tree for the first tag)
+    let diff = if target_idx > 0 {
+        let prev_oid = all_tags[target_idx - 1].1;
+        let prev_commit = repo.find_commit(prev_oid)
+            .map_err(|e| format!("Failed to find previous tag commit: {}", e))?;
+        let prev_tree = prev_commit.tree()
+            .map_err(|e| format!("Failed to get previous tag tree: {}", e))?;
+        repo.diff_tree_to_tree(Some(&prev_tree), Some(&tag_tree), None)
+            .map_err(|e| format!("Failed to diff trees: {}", e))?
+    } else {
+        // First tag: diff against empty tree
+        let empty_tree = repo.find_tree(
+            repo.treebuilder(None).and_then(|mut tb| tb.write())
+                .map_err(|e| format!("Failed to create empty tree: {}", e))?
+        ).map_err(|e| format!("Failed to find empty tree: {}", e))?;
+        repo.diff_tree_to_tree(Some(&empty_tree), Some(&tag_tree), None)
+            .map_err(|e| format!("Failed to diff against empty tree: {}", e))?
+    };
+
+    // Extract file changes with stats
+    let mut file_changes: Vec<TagFileChangeInfo> = Vec::new();
+
+    for delta in diff.deltas() {
+        let path = delta.new_file().path()
+            .or_else(|| delta.old_file().path())
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
+
+        let status = match delta.status() {
+            git2::Delta::Added => "added",
+            git2::Delta::Deleted => "removed",
+            git2::Delta::Modified => "modified",
+            git2::Delta::Renamed => "renamed",
+            git2::Delta::Copied => "modified",
+            _ => "modified",
+        }.to_string();
+
+        file_changes.push(TagFileChangeInfo {
+            path,
+            status,
+            additions: 0,
+            deletions: 0,
+        });
+    }
+
+    // Count line additions/deletions per file using diff print
+    let file_count = file_changes.len();
+    let additions_map: Arc<Mutex<HashMap<usize, (usize, usize)>>> = Arc::new(Mutex::new(HashMap::new()));
+    let additions_map_clone = Arc::clone(&additions_map);
+    let mut current_file_idx: Option<usize> = None;
+    let mut current_adds: usize = 0;
+    let mut current_dels: usize = 0;
+
+    let _ = diff.print(git2::DiffFormat::Patch, |delta, _hunk, line| {
+        let path = delta.new_file().path()
+            .or_else(|| delta.old_file().path())
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
+
+        // Find file index
+        if let Some(idx) = (0..file_count).find(|&i| file_changes[i].path == path) {
+            if current_file_idx != Some(idx) {
+                // Flush previous
+                if let Some(prev_idx) = current_file_idx {
+                    additions_map_clone.lock().unwrap().insert(prev_idx, (current_adds, current_dels));
+                }
+                current_file_idx = Some(idx);
+                current_adds = 0;
+                current_dels = 0;
+            }
+            let origin = line.origin();
+            if origin == '+' {
+                current_adds += 1;
+            } else if origin == '-' {
+                current_dels += 1;
+            }
+        }
+        true
+    });
+
+    // Flush last
+    if let Some(idx) = current_file_idx {
+        additions_map.lock().unwrap().insert(idx, (current_adds, current_dels));
+    }
+
+    let stats_map = additions_map.lock().unwrap();
+    for (idx, (adds, dels)) in stats_map.iter() {
+        if *idx < file_changes.len() {
+            file_changes[*idx].additions = *adds;
+            file_changes[*idx].deletions = *dels;
+        }
+    }
+
+    Ok(TagDiffResult {
+        tag_name,
+        file_changes,
+    })
+}
+
+// ===========================================================================
 // Tauri commands - Git stage & commit (feat-git-stage-commit)
 // ===========================================================================
 
@@ -4693,6 +5009,9 @@ pub fn run() {
             fetch_git_tags,
             fetch_git_log,
             fetch_git_branches,
+            // Tag detail expand (feat-git-tag-expand)
+            fetch_tag_commits,
+            fetch_tag_diff,
             // Git stage & commit (feat-git-stage-commit)
             git_stage_file,
             git_stage_all,

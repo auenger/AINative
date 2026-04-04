@@ -1064,19 +1064,118 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                           ) : gitDetail.tags.map((tag) => {
                             const isFeatureTag = tag.name.startsWith('feat-') || tag.name.startsWith('fix-');
                             const dateStr = tag.date > 0 ? new Date(tag.date * 1000).toLocaleDateString() : '—';
+                            const isExpanded = gitDetail.expandedTags.has(tag.name);
+                            const isLoading = gitDetail.tagLoading.has(tag.name);
+                            const detail = gitDetail.tagDetails.get(tag.name);
                             return (
-                              <div key={tag.name} className="flex items-center gap-3 p-3 bg-surface-container-lowest/50 rounded-lg border border-outline-variant/5">
-                                <Tag size={14} className={cn("shrink-0", isFeatureTag ? "text-tertiary" : "text-outline")} />
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <p className="text-xs font-bold truncate font-mono">{tag.name}</p>
-                                    {isFeatureTag && (
-                                      <span className="text-[8px] bg-tertiary/10 text-tertiary px-1.5 py-0.5 rounded font-bold uppercase">Feature</span>
+                              <div key={tag.name} className="bg-surface-container-lowest/50 rounded-lg border border-outline-variant/5 overflow-hidden">
+                                {/* Tag header row */}
+                                <div
+                                  className="flex items-center gap-2 p-3 cursor-pointer hover:bg-surface-container-low/30 transition-colors"
+                                  onClick={() => gitDetail.toggleTagExpand(tag.name)}
+                                >
+                                  {/* Expand/collapse chevron */}
+                                  <div className="shrink-0 text-outline">
+                                    {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                  </div>
+                                  <Tag size={14} className={cn("shrink-0", isFeatureTag ? "text-tertiary" : "text-outline")} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <p className="text-xs font-bold truncate font-mono">{tag.name}</p>
+                                      {isFeatureTag && (
+                                        <span className="text-[8px] bg-tertiary/10 text-tertiary px-1.5 py-0.5 rounded font-bold uppercase">Feature</span>
+                                      )}
+                                    </div>
+                                    <p className="text-[9px] text-outline truncate mt-0.5">{tag.message || tag.commit_hash.slice(0, 7)}</p>
+                                  </div>
+                                  <span className="text-[9px] text-on-surface-variant shrink-0">{dateStr}</span>
+                                </div>
+
+                                {/* Expanded detail area */}
+                                {isExpanded && (
+                                  <div className="border-t border-outline-variant/10 px-3 pb-3 pt-2 space-y-3">
+                                    {/* Loading skeleton */}
+                                    {isLoading && !detail && (
+                                      <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                          <div className="h-3 w-16 bg-outline-variant/10 rounded animate-pulse" />
+                                          <div className="h-3 w-24 bg-outline-variant/10 rounded animate-pulse" />
+                                        </div>
+                                        {[1, 2, 3].map((i) => (
+                                          <div key={i} className="flex items-center gap-2 py-1.5">
+                                            <div className="h-2.5 w-8 bg-outline-variant/10 rounded animate-pulse" />
+                                            <div className="h-2.5 flex-1 bg-outline-variant/10 rounded animate-pulse" />
+                                            <div className="h-2.5 w-12 bg-outline-variant/10 rounded animate-pulse" />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* Loaded content */}
+                                    {detail && (
+                                      <>
+                                        {/* Commits section */}
+                                        {detail.commits.length > 0 && (
+                                          <div>
+                                            <p className="text-[9px] font-bold uppercase tracking-wider text-outline mb-1.5">
+                                              Commits ({detail.commits.length})
+                                            </p>
+                                            <div className="space-y-1 max-h-40 overflow-y-auto">
+                                              {detail.commits.map((c) => (
+                                                <div key={c.hash} className="flex items-center gap-2 py-1">
+                                                  <span className="text-[8px] font-mono text-on-surface-variant bg-surface-container-high/50 px-1 rounded shrink-0">{c.short_hash}</span>
+                                                  <span className="text-[10px] truncate flex-1">{c.message}</span>
+                                                  <span className="text-[8px] text-on-surface-variant shrink-0">{c.time_ago}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {/* File changes section */}
+                                        {detail.file_changes.length > 0 && (
+                                          <div>
+                                            <p className="text-[9px] font-bold uppercase tracking-wider text-outline mb-1.5">
+                                              Files Changed ({detail.file_changes.length > 50 ? '50+' : detail.file_changes.length})
+                                            </p>
+                                            <div className="space-y-1 max-h-40 overflow-y-auto">
+                                              {detail.file_changes.slice(0, 50).map((fc, idx) => (
+                                                <div key={idx} className="flex items-center gap-2 py-0.5">
+                                                  <span className={cn(
+                                                    "text-[7px] font-bold uppercase px-1 py-0.5 rounded shrink-0 w-14 text-center",
+                                                    fc.status === 'added' && "bg-green-500/10 text-green-400",
+                                                    fc.status === 'modified' && "bg-blue-500/10 text-blue-400",
+                                                    fc.status === 'removed' && "bg-red-500/10 text-red-400",
+                                                    fc.status === 'renamed' && "bg-yellow-500/10 text-yellow-400",
+                                                  )}>
+                                                    {fc.status}
+                                                  </span>
+                                                  <span className="text-[9px] truncate flex-1 font-mono">{fc.path}</span>
+                                                  <span className="text-[8px] shrink-0 space-x-1.5">
+                                                    {fc.additions > 0 && <span className="text-green-400">+{fc.additions}</span>}
+                                                    {fc.deletions > 0 && <span className="text-red-400">-{fc.deletions}</span>}
+                                                  </span>
+                                                </div>
+                                              ))}
+                                              {detail.file_changes.length > 50 && (
+                                                <p className="text-[8px] text-on-surface-variant text-center py-1">
+                                                  +{detail.file_changes.length - 50} more files...
+                                                </p>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {/* Empty state */}
+                                        {detail.commits.length === 0 && detail.file_changes.length === 0 && (
+                                          <p className="text-[9px] text-on-surface-variant text-center py-2 opacity-60">
+                                            No changes found for this tag
+                                          </p>
+                                        )}
+                                      </>
                                     )}
                                   </div>
-                                  <p className="text-[9px] text-outline truncate mt-0.5">{tag.message || tag.commit_hash.slice(0, 7)}</p>
-                                </div>
-                                <span className="text-[9px] text-on-surface-variant shrink-0">{dateStr}</span>
+                                )}
                               </div>
                             );
                           })}
