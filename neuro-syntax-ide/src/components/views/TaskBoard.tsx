@@ -27,6 +27,51 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useQueueData, FeatureNode, QueueName } from '../../lib/useQueueData';
+
+/** 智能时间格式化：返回相对时间与绝对时间 */
+function formatUpdatedTime(date: Date): { relative: string; absolute: string } {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+
+  // 绝对时间格式（用于 tooltip）
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const absolute = `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+
+  // 60 秒内：刚刚
+  if (diffSec < 60) {
+    return { relative: '刚刚', absolute };
+  }
+
+  // 60 分钟内：X 分钟前
+  if (diffMin < 60) {
+    return { relative: `${diffMin} 分钟前`, absolute };
+  }
+
+  // 判断是否今天 / 昨天
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterdayStart = new Date(todayStart.getTime() - 86400000);
+  const dateDayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const timeStr = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+
+  if (dateDayStart.getTime() === todayStart.getTime()) {
+    return { relative: `今天 ${timeStr}`, absolute };
+  }
+
+  if (dateDayStart.getTime() === yesterdayStart.getTime()) {
+    return { relative: `昨天 ${timeStr}`, absolute };
+  }
+
+  // 今年内：MM/DD HH:mm
+  if (date.getFullYear() === now.getFullYear()) {
+    const monthDay = `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${timeStr}`;
+    return { relative: monthDay, absolute };
+  }
+
+  // 往年：YYYY/MM/DD HH:mm
+  return { relative: absolute.replace(/:\d{2}$/, ''), absolute };
+}
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { NewTaskModal } from './NewTaskModal';
 
@@ -497,11 +542,14 @@ export const TaskBoard: React.FC = () => {
               List
             </button>
           </div>
-          {queueState && (
-            <span className="text-[9px] text-outline">
-              {queueState.meta.last_updated && `Updated: ${new Date(queueState.meta.last_updated).toLocaleTimeString()}`}
-            </span>
-          )}
+          {queueState && queueState.meta.last_updated && (() => {
+            const { relative, absolute } = formatUpdatedTime(new Date(queueState.meta.last_updated));
+            return (
+              <span className="text-[9px] text-outline cursor-default" title={absolute}>
+                队列更新于 {relative}
+              </span>
+            );
+          })()}
         </div>
         <div className="flex items-center gap-3">
           <button
