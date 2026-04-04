@@ -13,14 +13,14 @@ export interface FeatureCreatedNotification {
 }
 
 // ---------------------------------------------------------------------------
-// Types matching Rust ReqAgentChunkEvent / ReqAgentStatus
+// Types matching Rust StreamEvent (agent://chunk) / ReqAgentStatus
 // ---------------------------------------------------------------------------
 
 export interface ReqAgentChunkEvent {
   text: string;
   is_done: boolean;
   error?: string;
-  /** stream-json message type: "assistant", "result", "system", "tool_use", "raw", "disconnect", "stderr" */
+  /** stream-json message type: "assistant", "result", "system", "tool_use", "raw", "disconnect", "stderr", "timeout", "process_exit" */
   type?: string;
   /** Session ID from the Claude CLI */
   session_id?: string;
@@ -98,8 +98,9 @@ export function useReqAgentChat() {
   // Persistent chunk listener
   // ---------------------------------------------------------------------------
 
-  /** Register the persistent req_agent_chunk listener.
-   *  Called once after startSession succeeds; stays active until stopSession or unmount. */
+  /** Register the persistent agent://chunk listener.
+   *  Called once after startSession succeeds; stays active until stopSession or unmount.
+   *  Listens on the unified `agent://chunk` event from runtime_execute. */
   const registerChunkListener = useCallback(async () => {
     // Remove any previous listener
     if (chunkUnlistenRef.current) {
@@ -108,7 +109,7 @@ export function useReqAgentChat() {
     }
 
     const { listen } = await import('@tauri-apps/api/event');
-    const unlisten = await listen<ReqAgentChunkEvent>('req_agent_chunk', (event) => {
+    const unlisten = await listen<ReqAgentChunkEvent>('agent://chunk', (event) => {
       const chunk = event.payload;
 
       // Handle error chunks (but not stderr — those are just diagnostics)
@@ -117,8 +118,8 @@ export function useReqAgentChat() {
         if (chunk.is_done) {
           setIsStreaming(false);
           // Keep connectionState as 'connected' so user can send another message
-          // Only set to 'error' for non-result errors
-          if (chunk.type === 'disconnect') {
+          // Only set to 'error' for disconnect or timeout
+          if (chunk.type === 'disconnect' || chunk.type === 'timeout') {
             setConnectionState('error');
           }
         }
@@ -174,7 +175,7 @@ export function useReqAgentChat() {
   // ---------------------------------------------------------------------------
 
   /** Start a new agent session.
-   *  Always creates a fresh session ID (ignores resumeSessionId for reliability). */
+   *  Uses runtime_session_start for the unified execute layer. */
   const startSession = useCallback(async (_resumeSessionId?: string) => {
     if (!isTauri) {
       setConnectionState('connected');
@@ -186,9 +187,9 @@ export function useReqAgentChat() {
 
     try {
       const { invoke } = await import('@tauri-apps/api/core');
-      // Always start a fresh session (no resume)
-      const sid: string = await invoke('req_agent_start', {
-        sessionId: null,
+      // Use runtime_session_start (unified execute layer)
+      const sid: string = await invoke('runtime_session_start', {
+        runtimeId: 'claude-code',
       });
       setSessionId(sid);
       setConnectionState('connected');
@@ -222,7 +223,7 @@ export function useReqAgentChat() {
 
     try {
       const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('req_agent_stop');
+      await invoke('runtime_session_stop');
     } catch {
       // ignore stop errors
     }
@@ -261,7 +262,8 @@ export function useReqAgentChat() {
   // ---------------------------------------------------------------------------
 
   /** Send a message to the agent.
-   *  Uses the persistent listener for responses — no self-registered listener. */
+   *  Uses runtime_execute for the unified execute layer.
+   *  The persistent agent://chunk listener receives all response events. */
   const sendMessage = useCallback(
     async (input: string) => {
       if (!input.trim()) return;
@@ -295,16 +297,21 @@ export function useReqAgentChat() {
 
       try {
         const { invoke } = await import('@tauri-apps/api/core');
-        // Call the per-message command (spawns a new CLI process)
-        await invoke('req_agent_send_message', { message: input });
-        // The persistent chunk listener will receive all response events
+        // Call runtime_execute (unified execute layer)
+        await invoke('runtime_execute', {
+          runtimeId: 'claude-code',
+          message: input,
+          sessionId: sessionId,
+          systemPrompt: null,
+        });
+        // The persistent agent://chunk listener will receive all response events
       } catch (e: any) {
         setError(e?.toString() ?? 'Failed to send message');
         setIsStreaming(false);
         setConnectionState('error');
       }
     },
-    [connectionState, startSession],
+    [connectionState, startSession, sessionId],
   );
 
   // ---------------------------------------------------------------------------

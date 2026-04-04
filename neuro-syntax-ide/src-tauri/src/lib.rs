@@ -448,6 +448,43 @@ pub struct AgentRuntimeInfo {
     pub install_hint: String,
 }
 
+// ===========================================================================
+// Agent execution types (feat-agent-runtime-execute)
+// ===========================================================================
+
+/// Parameters for executing a message on an AgentRuntime.
+#[derive(Debug, Clone)]
+pub struct ExecuteParams {
+    /// The user message to send to the agent
+    pub message: String,
+    /// Optional session ID for resuming a conversation
+    pub session_id: Option<String>,
+    /// Optional workspace directory for the agent to operate in
+    pub workspace: Option<String>,
+    /// Optional system prompt to append
+    pub system_prompt: Option<String>,
+    /// Maximum execution time in seconds before timeout
+    pub timeout_secs: u64,
+}
+
+/// A streaming event produced by an AgentRuntime during execution.
+#[derive(Debug, Clone, Serialize)]
+pub struct StreamEvent {
+    /// Text content of the event (assistant text, system message, raw output)
+    pub text: String,
+    /// Whether this is the final event for this execution
+    pub is_done: bool,
+    /// Error message if something went wrong
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    /// The type of this event: "assistant", "result", "system", "tool_use", "raw", "stderr", "timeout"
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub msg_type: Option<String>,
+    /// Session ID from the CLI
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+}
+
 /// Trait that all agent runtimes must implement.
 /// Each runtime wraps a specific AI coding CLI tool.
 pub trait AgentRuntime: Send + Sync {
@@ -467,6 +504,13 @@ pub trait AgentRuntime: Send + Sync {
     fn health_check(&self) -> AgentRuntimeStatus;
     /// Get the current runtime info (id, name, status, version, etc.)
     fn info(&self) -> AgentRuntimeInfo;
+
+    /// Execute a message and return a receiver for streaming events.
+    /// The caller reads events from the channel until is_done is received.
+    fn execute(&self, params: ExecuteParams) -> Result<std::sync::mpsc::Receiver<StreamEvent>, String>;
+
+    /// Check if the runtime is ready for execution (CLI detected & available).
+    fn is_ready(&self) -> bool;
 }
 
 // ===========================================================================
@@ -655,6 +699,15 @@ impl RuntimeRegistry {
     fn available_count(&self) -> usize {
         self.detected.len()
     }
+
+    /// Get a reference to a registered runtime instance by id.
+    /// Returns a reference to the trait object for calling execute() etc.
+    fn get_runtime_instance(&self, id: &str) -> Result<&dyn AgentRuntime, String> {
+        self.runtimes.iter()
+            .find(|rt| rt.id() == id)
+            .map(|rt| rt.as_ref())
+            .ok_or_else(|| format!("Runtime '{}' not found in registry", id))
+    }
 }
 
 /// Detector utility: checks if a CLI command exists on PATH and gets its version.
@@ -779,6 +832,199 @@ impl AgentRuntime for ClaudeCodeRuntime {
             },
         }
     }
+
+    fn is_ready(&self) -> bool {
+        matches!(self.health_check(), AgentRuntimeStatus::Available)
+    }
+
+    fn execute(&self, params: ExecuteParams) -> Result<std::sync::mpsc::Receiver<StreamEvent>, String> {
+        use std::time::Duration;
+
+        // Pre-flight: verify CLI is available
+        if !self.is_ready() {
+            return Err(
+                "Claude Code CLI not found or not healthy. Please install: npm install -g @anthropic-ai/claude-code".to_string()
+            );
+        }
+
+        // Build CLI arguments
+        let mut args: Vec<String> = vec![
+            "--print".to_string(),
+            "--output-format".to_string(),
+            "stream-json".to_string(),
+            "--dangerously-skip-permissions".to_string(),
+        ];
+
+        if let Some(ref sid) = params.session_id {
+            args.push("--resume".to_string());
+            args.push("--session-id".to_string());
+            args.push(sid.clone());
+        }
+
+        if let Some(ref sp) = params.system_prompt {
+            args.push("--append-system-prompt".to_string());
+            args.push(sp.clone());
+        }
+
+        if let Some(ref ws) = params.workspace {
+            if !ws.is_empty() {
+                args.push("--add-dir".to_string());
+                args.push(ws.clone());
+            }
+        }
+
+        args.push("--".to_string());
+        args.push(params.message.clone());
+
+        // Spawn CLI process
+        let mut child = Command::new("claude")
+            .args(&args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Failed to spawn Claude CLI: {}", e))?;
+
+        let stdout_handle = child.stdout.take()
+            .ok_or_else(|| "Failed to get stdout handle".to_string())?;
+        let stderr_handle = child.stderr.take()
+            .ok_or_else(|| "Failed to get stderr handle".to_string())?;
+
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        // --- stdout reader thread ---
+        let tx_stdout = tx.clone();
+        std::thread::spawn(move || {
+            let reader = BufReader::new(stdout_handle);
+            for line in reader.lines() {
+                match line {
+                    Ok(text) => {
+                        let trimmed = text.trim();
+                        if trimmed.is_empty() { continue; }
+
+                        // Try to parse as JSON (stream-json format)
+                        match serde_json::from_str::<serde_json::Value>(trimmed) {
+                            Ok(json_obj) => {
+                                let msg_type = json_obj.get("type")
+                                    .and_then(|t| t.as_str())
+                                    .unwrap_or("unknown")
+                                    .to_string();
+
+                                let response_session_id = json_obj.get("session_id")
+                                    .and_then(|s| s.as_str())
+                                    .map(|s| s.to_string());
+
+                                let is_result = msg_type == "result";
+
+                                // Extract text content based on message type
+                                let text = if msg_type == "assistant" {
+                                    json_obj.get("content")
+                                        .and_then(|c| c.as_str())
+                                        .unwrap_or("")
+                                        .to_string()
+                                } else if is_result {
+                                    String::new()
+                                } else if msg_type == "system" {
+                                    json_obj.get("content")
+                                        .and_then(|c| c.as_str())
+                                        .unwrap_or("")
+                                        .to_string()
+                                } else {
+                                    trimmed.to_string()
+                                };
+
+                                // Check for error in result messages
+                                let error = if is_result {
+                                    let subtype = json_obj.get("subtype")
+                                        .and_then(|s| s.as_str())
+                                        .unwrap_or("");
+                                    if subtype == "error" {
+                                        json_obj.get("error")
+                                            .and_then(|e| e.as_str())
+                                            .map(|s| s.to_string())
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                };
+
+                                let event = StreamEvent {
+                                    text,
+                                    is_done: is_result,
+                                    error,
+                                    msg_type: Some(msg_type),
+                                    session_id: response_session_id,
+                                };
+
+                                if tx_stdout.send(event).is_err() { break; }
+                            }
+                            Err(_) => {
+                                // Non-JSON line, emit as raw text
+                                let event = StreamEvent {
+                                    text: trimmed.to_string(),
+                                    is_done: false,
+                                    error: None,
+                                    msg_type: Some("raw".to_string()),
+                                    session_id: None,
+                                };
+                                if tx_stdout.send(event).is_err() { break; }
+                            }
+                        }
+                    }
+                    Err(_) => break, // EOF
+                }
+            }
+
+            // Process exited — send final is_done event if no result message was received
+            let _ = tx_stdout.send(StreamEvent {
+                text: String::new(),
+                is_done: true,
+                error: None,
+                msg_type: Some("process_exit".to_string()),
+                session_id: None,
+            });
+        });
+
+        // --- stderr reader thread ---
+        let tx_stderr = tx.clone();
+        std::thread::spawn(move || {
+            let reader = BufReader::new(stderr_handle);
+            for line in reader.lines() {
+                match line {
+                    Ok(text) => {
+                        if !text.trim().is_empty() {
+                            let event = StreamEvent {
+                                text: String::new(),
+                                is_done: false,
+                                error: Some(format!("CLI stderr: {}", text)),
+                                msg_type: Some("stderr".to_string()),
+                                session_id: None,
+                            };
+                            if tx_stderr.send(event).is_err() { break; }
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
+
+        // --- timeout watcher thread ---
+        let timeout_secs = params.timeout_secs;
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_secs(timeout_secs));
+            // If the channel is still open after timeout, send timeout event
+            let _ = tx.send(StreamEvent {
+                text: String::new(),
+                is_done: true,
+                error: Some(format!("Timeout: CLI process exceeded {} second limit", timeout_secs)),
+                msg_type: Some("timeout".to_string()),
+                session_id: None,
+            });
+        });
+
+        Ok(rx)
+    }
 }
 
 /// OpenAI Codex CLI runtime implementation.
@@ -849,6 +1095,14 @@ impl AgentRuntime for CodexRuntime {
                 install_hint: self.install_hint(),
             },
         }
+    }
+
+    fn is_ready(&self) -> bool {
+        matches!(self.health_check(), AgentRuntimeStatus::Available)
+    }
+
+    fn execute(&self, _params: ExecuteParams) -> Result<std::sync::mpsc::Receiver<StreamEvent>, String> {
+        Err("Codex runtime execute() is not yet implemented".to_string())
     }
 }
 
@@ -3721,6 +3975,108 @@ fn get_runtime_status(
 }
 
 // ===========================================================================
+// Tauri commands - Runtime Execute (feat-agent-runtime-execute)
+// ===========================================================================
+
+/// Execute a message on a specific runtime.
+/// Spawns the CLI process, reads stdout/stderr in background threads,
+/// and emits `agent://chunk` events to the frontend as StreamEvents arrive.
+#[tauri::command]
+async fn runtime_execute(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+    runtime_id: String,
+    message: String,
+    session_id: Option<String>,
+    system_prompt: Option<String>,
+) -> Result<(), String> {
+    // Get runtime instance
+    let workspace = {
+        let registry = state.agent_runtime_registry.lock().map_err(|e| e.to_string())?;
+        let _instance = registry.get_runtime_instance(&runtime_id)?;
+        let ws = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+        // We can't hold the mutex lock across threads, so drop it here.
+        // The runtime instances are static (boxed trait objects) and won't be removed,
+        // so we re-acquire in the spawned thread.
+        let _ = _instance;
+        ws
+    };
+
+    // Build execution parameters
+    let params = ExecuteParams {
+        message,
+        session_id,
+        workspace: if workspace.is_empty() { None } else { Some(workspace) },
+        system_prompt,
+        timeout_secs: 120,
+    };
+
+    // We need to call execute() while holding the registry lock briefly
+    let receiver = {
+        let registry = state.agent_runtime_registry.lock().map_err(|e| e.to_string())?;
+        let runtime = registry.get_runtime_instance(&runtime_id)?;
+        runtime.execute(params)?
+    };
+
+    // Spawn thread to forward events to frontend via Tauri events
+    std::thread::spawn(move || {
+        while let Ok(event) = receiver.recv() {
+            let _ = app.emit("agent://chunk", &event);
+            if event.is_done { break; }
+        }
+    });
+
+    Ok(())
+}
+
+/// Start a new runtime session (creates a fresh session ID).
+#[tauri::command]
+async fn runtime_session_start(
+    state: tauri::State<'_, AppState>,
+    runtime_id: String,
+) -> Result<String, String> {
+    // Verify the runtime exists and is ready
+    {
+        let registry = state.agent_runtime_registry.lock().map_err(|e| e.to_string())?;
+        let runtime = registry.get_runtime_instance(&runtime_id)?;
+        if !runtime.is_ready() {
+            return Err(format!("Runtime '{}' is not ready (CLI not found or unhealthy)", runtime_id));
+        }
+    }
+
+    // Generate a new session ID
+    let session_id = Uuid::new_v4().to_string();
+
+    // Store the session ID in req_agent state for backward compatibility
+    {
+        let mut agent = state.req_agent.lock().map_err(|e| e.to_string())?;
+        agent.session_id = Some(session_id.clone());
+    }
+
+    Ok(session_id)
+}
+
+/// Stop a runtime session (kills any running process and clears state).
+#[tauri::command]
+fn runtime_session_stop(
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut agent = state.req_agent.lock().map_err(|e| e.to_string())?;
+
+    // Kill any running CLI process
+    if let Some(ref mut child) = agent.process {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+
+    agent.process = None;
+    agent.stdin = None;
+    agent.session_id = None;
+
+    Ok(())
+}
+
+// ===========================================================================
 // Tauri commands - Smart Router (feat-agent-runtime-router)
 // ===========================================================================
 
@@ -4102,6 +4458,10 @@ pub fn run() {
             list_agent_runtimes,
             scan_agent_runtimes,
             get_runtime_status,
+            // Runtime Execute (feat-agent-runtime-execute)
+            runtime_execute,
+            runtime_session_start,
+            runtime_session_stop,
             // Smart Router (feat-agent-runtime-router)
             submit_task,
             get_routing_rules,
