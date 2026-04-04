@@ -87,7 +87,7 @@ function GeneralPanel({
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="config-card">
         <h3 className="text-sm font-headline font-bold text-on-surface mb-1 flex items-center gap-2">
           <RefreshCw size={14} className="text-primary" />
           {t('settings.autoRefresh')}
@@ -229,14 +229,14 @@ function LlmPanel({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-headline font-bold text-on-surface flex items-center gap-2">
+        <h3 className="config-section-title flex items-center gap-2 !text-sm !tracking-normal !opacity-100 !text-on-surface !mb-0">
           <Zap size={14} className="text-primary" />
           {t('settings.llmProviders')}
         </h3>
         <button
           type="button"
           onClick={addProvider}
-          className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-bold transition-colors"
+          className="config-action-btn text-primary hover:bg-primary/10 border border-primary/30"
         >
           <Plus size={14} /> {t('settings.addProvider')}
         </button>
@@ -258,10 +258,10 @@ function LlmPanel({
           <div
             key={name}
             className={cn(
-              'border rounded-lg p-4 space-y-3 transition-all',
+              'config-card transition-all',
               isActive
                 ? 'border-primary/40 bg-primary/5'
-                : 'border-outline-variant/20 bg-surface-container-low',
+                : '',
             )}
           >
             {/* Header row */}
@@ -296,8 +296,8 @@ function LlmPanel({
             </div>
 
             {/* API Base */}
-            <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant opacity-60 mb-1 block">
+            <div className="mt-3">
+              <label className="config-label">
                 API Base URL
               </label>
               <input
@@ -305,13 +305,13 @@ function LlmPanel({
                 value={config.api_base}
                 onChange={(e) => updateProvider(name, 'api_base', e.target.value)}
                 placeholder="https://api.openai.com/v1"
-                className="w-full text-xs bg-surface-container-highest/50 border border-outline-variant/20 rounded px-3 py-2 outline-none focus:border-primary transition-colors font-mono"
+                className="config-input-mono"
               />
             </div>
 
             {/* API Key */}
-            <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant opacity-60 mb-1 block">
+            <div className="mt-3">
+              <label className="config-label">
                 API Key
               </label>
               <div className="relative">
@@ -320,7 +320,7 @@ function LlmPanel({
                   value={config.api_key}
                   onChange={(e) => updateProvider(name, 'api_key', e.target.value)}
                   placeholder="sk-..."
-                  className="w-full text-xs bg-surface-container-highest/50 border border-outline-variant/20 rounded px-3 py-2 pr-8 outline-none focus:border-primary transition-colors font-mono"
+                  className="config-input-mono pr-8"
                 />
                 <button
                   type="button"
@@ -333,15 +333,15 @@ function LlmPanel({
             </div>
 
             {/* Test Connection */}
-            <div className="flex items-center gap-3">
+            <div className="mt-3 flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => testConnection(name)}
                 disabled={test?.loading || !config.api_base || !config.api_key}
                 className={cn(
-                  'flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded transition-all',
+                  'config-action-btn',
                   test?.loading
-                    ? 'text-on-surface-variant opacity-50'
+                    ? 'text-on-surface-variant opacity-50 cursor-not-allowed'
                     : 'text-primary hover:bg-primary/10',
                 )}
               >
@@ -371,10 +371,10 @@ function LlmPanel({
 
             {/* Model select (only for active provider) */}
             {isActive && (
-              <div className="pt-2 border-t border-outline-variant/10">
+              <div className="mt-4 pt-3 border-t border-outline-variant/10">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant opacity-60 mb-1 block">
+                    <label className="config-label">
                       {t('settings.model')}
                     </label>
                     <input
@@ -382,27 +382,25 @@ function LlmPanel({
                       value={settings.llm.model}
                       onChange={(e) => onUpdate({ llm: { ...settings.llm, model: e.target.value } })}
                       placeholder="gpt-4o / glm-4"
-                      className="w-full text-xs bg-surface-container-highest/50 border border-outline-variant/20 rounded px-3 py-2 outline-none focus:border-primary transition-colors font-mono"
+                      className="config-input-mono"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant opacity-60 mb-1 block">
+                    <label className="config-label">
                       {t('settings.temperature')}
                     </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min={0}
-                        max={2}
-                        step={0.1}
-                        value={settings.llm.temperature}
-                        onChange={(e) => onUpdate({ llm: { ...settings.llm, temperature: Number(e.target.value) } })}
-                        className="w-full text-xs bg-surface-container-highest/50 border border-outline-variant/20 rounded px-3 py-2 outline-none focus:border-primary transition-colors font-mono"
-                      />
-                    </div>
+                    <input
+                      type="number"
+                      min={0}
+                      max={2}
+                      step={0.1}
+                      value={settings.llm.temperature}
+                      onChange={(e) => onUpdate({ llm: { ...settings.llm, temperature: Number(e.target.value) } })}
+                      className="config-input-mono"
+                    />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant opacity-60 mb-1 block">
+                    <label className="config-label">
                       {t('settings.maxTokens')}
                     </label>
                     <input
@@ -412,11 +410,11 @@ function LlmPanel({
                       step={100}
                       value={settings.llm.max_tokens}
                       onChange={(e) => onUpdate({ llm: { ...settings.llm, max_tokens: Number(e.target.value) } })}
-                      className="w-full text-xs bg-surface-container-highest/50 border border-outline-variant/20 rounded px-3 py-2 outline-none focus:border-primary transition-colors font-mono"
+                      className="config-input-mono"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant opacity-60 mb-1 block">
+                    <label className="config-label">
                       {t('settings.contextWindow')}
                     </label>
                     <input
@@ -426,7 +424,7 @@ function LlmPanel({
                       step={1000}
                       value={settings.llm.context_window_tokens}
                       onChange={(e) => onUpdate({ llm: { ...settings.llm, context_window_tokens: Number(e.target.value) } })}
-                      className="w-full text-xs bg-surface-container-highest/50 border border-outline-variant/20 rounded px-3 py-2 outline-none focus:border-primary transition-colors font-mono"
+                      className="config-input-mono"
                     />
                   </div>
                 </div>
@@ -463,67 +461,70 @@ export const SettingsView: React.FC = () => {
   return (
     <div className="flex-1 p-6 overflow-y-auto scroll-hide bg-surface">
       {/* Header */}
-      <div className="flex items-end justify-between mb-6 border-b border-outline-variant pb-4">
-        <div>
-          <h1 className="font-headline text-3xl font-bold tracking-tight text-on-surface flex items-center gap-3">
-            <SettingsIcon size={28} className="text-primary" />
-            {t('settings.title')}
-          </h1>
-          <p className="text-on-surface-variant text-sm font-label opacity-70 mt-1">
-            {t('settings.subtitle')}
-          </p>
+      <div className="max-w-3xl mx-auto">
+        <div className="config-page-header flex items-end justify-between">
+          <div>
+            <h1 className="config-page-title text-3xl flex items-center gap-3">
+              <SettingsIcon size={28} className="text-primary" />
+              {t('settings.title')}
+            </h1>
+            <p className="config-page-subtitle">
+              {t('settings.subtitle')}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={loading || !dirty}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all',
+              dirty && !loading
+                ? 'bg-primary text-on-primary hover:bg-primary/90'
+                : 'bg-surface-container-highest text-on-surface-variant opacity-50 cursor-not-allowed',
+            )}
+          >
+            {loading ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : saveSuccess ? (
+              <CheckCircle2 size={14} className="text-green-400" />
+            ) : (
+              <Save size={14} />
+            )}
+            {saveSuccess ? t('settings.saved') : t('settings.save')}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={loading || !dirty}
-          className={cn(
-            'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all',
-            dirty && !loading
-              ? 'bg-primary text-on-primary hover:bg-primary/90'
-              : 'bg-surface-container-highest text-on-surface-variant opacity-50 cursor-not-allowed',
-          )}
-        >
-          {loading ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : saveSuccess ? (
-            <CheckCircle2 size={14} className="text-green-400" />
-          ) : (
-            <Save size={14} />
-          )}
-          {saveSuccess ? t('settings.saved') : t('settings.save')}
-        </button>
       </div>
 
       {/* Error banner */}
       {error && (
-        <div className="mb-4 px-4 py-2 bg-error/10 border border-error/20 rounded text-xs text-error">
-          {error}
+        <div className="max-w-3xl mx-auto mb-4">
+          <div className="px-4 py-2 bg-error/10 border border-error/20 rounded-md text-xs text-error">
+            {error}
+          </div>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-t-lg transition-all border-b-2',
-              activeTab === tab.id
-                ? 'text-primary border-primary bg-surface-container-low'
-                : 'text-on-surface-variant opacity-60 border-transparent hover:opacity-100',
-            )}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
+      <div className="max-w-3xl mx-auto">
+        <div className="flex gap-1 mb-6">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                activeTab === tab.id ? 'config-tab-active' : 'config-tab-inactive',
+              )}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Tab content */}
-      <div className="max-w-2xl">
+      <div className="max-w-3xl mx-auto">
         {activeTab === 'general' && (
           <GeneralPanel settings={settings} onUpdate={update} />
         )}
