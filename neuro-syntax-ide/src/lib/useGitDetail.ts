@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
-import type { GitTag, GitCommit, GitBranch } from '../types';
+import type { GitTag, GitCommit, GitBranch, TagDetail, TagFileChange } from '../types';
 
 /**
  * Hook that fetches extended Git repository details: tags, commit log, branches.
  * Used by the enhanced Git modal (feat-git-modal-enhance).
+ * Extended with tag detail expand (feat-git-tag-expand).
  */
 export function useGitDetail() {
   const [tags, setTags] = useState<GitTag[]>([]);
@@ -11,6 +12,11 @@ export function useGitDetail() {
   const [branches, setBranches] = useState<GitBranch[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Tag expand state (feat-git-tag-expand)
+  const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set());
+  const [tagDetails, setTagDetails] = useState<Map<string, TagDetail>>(new Map());
+  const [tagLoading, setTagLoading] = useState<Set<string>>(new Set());
 
   const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
@@ -76,5 +82,82 @@ export function useGitDetail() {
     }
   }, [isTauri]);
 
-  return { tags, commits, branches, loading, error, refreshAll, loadMoreCommits };
+  /** Toggle tag expansion. Fetches data on first expand, caches for subsequent. */
+  const toggleTagExpand = useCallback(async (tagName: string) => {
+    // If already expanded, just collapse
+    if (expandedTags.has(tagName)) {
+      setExpandedTags(prev => {
+        const next = new Set(prev);
+        next.delete(tagName);
+        return next;
+      });
+      return;
+    }
+
+    // If already cached, just expand
+    if (tagDetails.has(tagName)) {
+      setExpandedTags(prev => new Set(prev).add(tagName));
+      return;
+    }
+
+    // Mark as loading
+    setTagLoading(prev => new Set(prev).add(tagName));
+
+    try {
+      if (!isTauri) {
+        // Dev fallback: mock tag detail data
+        const mockDetail: TagDetail = {
+          tag_name: tagName,
+          commits: Array.from({ length: 3 }, (_, i) => ({
+            hash: `mock${i.toString().padStart(7, '0')}`,
+            short_hash: `mock${i}`,
+            message: `Commit for ${tagName} #${3 - i}`,
+            author: 'developer',
+            timestamp: Date.now() / 1000 - i * 3600,
+            time_ago: i === 0 ? 'just now' : `${i}h ago`,
+          })),
+          file_changes: [
+            { path: 'src/components/App.tsx', status: 'modified', additions: 12, deletions: 3 },
+            { path: 'src/lib/utils.ts', status: 'added', additions: 45, deletions: 0 },
+            { path: 'src/old-module.ts', status: 'removed', additions: 0, deletions: 28 },
+          ],
+        };
+        setTagDetails(prev => new Map(prev).set(tagName, mockDetail));
+        setExpandedTags(prev => new Set(prev).add(tagName));
+        return;
+      }
+
+      const { invoke } = await import('@tauri-apps/api/core');
+
+      // Fetch commits and diff in parallel
+      const [commitsResult, diffResult] = await Promise.all([
+        invoke<{ tag_name: string; commits: GitCommit[] }>('fetch_tag_commits', { tagName }),
+        invoke<{ tag_name: string; file_changes: TagFileChange[] }>('fetch_tag_diff', { tagName }),
+      ]);
+
+      const detail: TagDetail = {
+        tag_name: tagName,
+        commits: commitsResult.commits,
+        file_changes: diffResult.file_changes,
+      };
+
+      setTagDetails(prev => new Map(prev).set(tagName, detail));
+      setExpandedTags(prev => new Set(prev).add(tagName));
+    } catch (e: unknown) {
+      console.error(`Failed to load tag detail for ${tagName}:`, e);
+    } finally {
+      setTagLoading(prev => {
+        const next = new Set(prev);
+        next.delete(tagName);
+        return next;
+      });
+    }
+  }, [isTauri, expandedTags, tagDetails]);
+
+  return {
+    tags, commits, branches, loading, error,
+    refreshAll, loadMoreCommits,
+    // Tag expand (feat-git-tag-expand)
+    expandedTags, tagDetails, tagLoading, toggleTagExpand,
+  };
 }
