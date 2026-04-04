@@ -1,10 +1,56 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-05T14:15:00Z"
+  last_updated: "2026-04-05T15:45:00Z"
   version: 1
-  total_completed: 46
+  total_completed: 48
 
 records:
+  - id: feat-new-task-agent-dispatch
+    name: "New Task 弹窗 Agent 分发（选择 Agent + 调用 /new-feature skill）"
+    completed_at: "2026-04-05T15:45:00Z"
+    tag: feat-new-task-agent-dispatch-20260405
+    merge_commit: 263f852
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-new-task-agent-dispatch
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-new-task-agent-dispatch
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-05T15:35:00Z"
+      duration: "10min"
+      commits: 1
+      files_changed: 2
+  - id: feat-pipeline-visual-editor
+    name: "Pipeline 可视化拖拽编辑器"
+    completed_at: "2026-04-05T15:00:00Z"
+    tag: feat-pipeline-visual-editor-20260405
+    merge_commit: ceb0a95
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-pipeline-visual-editor
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-pipeline-visual-editor
+    parent: feat-pipeline-editor
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 5
+      scenarios_passed: 5
+    stats:
+      started: "2026-04-05T14:05:00Z"
+      duration: "55min"
+      commits: 1
+      files_changed: 3
+
   - id: feat-agent-runtime-execute
     name: "AgentRuntime execute() + ClaudeCodeRuntime 实现"
     completed_at: "2026-04-05T14:15:00Z"

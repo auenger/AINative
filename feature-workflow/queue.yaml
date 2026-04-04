@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-05T14:15:00Z"
+  last_updated: "2026-04-05T15:45:00Z"
   version: 1
 
 parents:
@@ -16,14 +16,15 @@ parents:
       - feat-ai-agent-service
 
 active:
-  - id: feat-pipeline-visual-editor
-    name: "Pipeline 可视化拖拽编辑器"
-    priority: 80
-    dependencies: []
+  - id: feat-pipeline-yaml-editor
+    name: "Pipeline YAML/JSON 直接编辑模式"
+    priority: 70
+    dependencies:
+      - feat-pipeline-visual-editor
     parent: feat-pipeline-editor
-    branch: feature/feat-pipeline-visual-editor
-    worktree: ../NeuroSyntaxIDE-feat-pipeline-visual-editor
-    started_at: "2026-04-05T14:05:00Z"
+    branch: feature/feat-pipeline-yaml-editor
+    worktree: ../NeuroSyntaxIDE-feat-pipeline-yaml-editor
+    started_at: "2026-04-05T15:30:00Z"
 
 pending:
   - id: feat-agent-unified-exec
@@ -44,9 +45,6 @@ pending:
     priority: 50
     dependencies:
       - feat-agent-gemini-bridge
-  - id: feat-new-task-agent-dispatch
-    name: "New Task 弹窗 Agent 分发（选择 Agent + 调用 /new-feature skill）"
-    priority: 70
   - id: feat-task-board-updated-time
     name: "Task Board Updated 时间显示优化"
     priority: 60
@@ -58,11 +56,6 @@ pending:
       - feat-pipeline-visual-editor
       - feat-pipeline-yaml-editor
       - feat-pipeline-dual-mode
-  - id: feat-pipeline-yaml-editor
-    name: "Pipeline YAML/JSON 直接编辑模式"
-    priority: 70
-    dependencies:
-      - feat-pipeline-visual-editor
   - id: feat-pipeline-dual-mode
     name: "Pipeline 双模式切换与实时同步"
     priority: 65
@@ -73,6 +66,15 @@ pending:
 blocked: []
 
 completed:
+  - id: feat-new-task-agent-dispatch
+    name: "New Task 弹窗 Agent 分发（选择 Agent + 调用 /new-feature skill）"
+    completed_at: "2026-04-05T15:45:00Z"
+    tag: feat-new-task-agent-dispatch-20260405
+  - id: feat-pipeline-visual-editor
+    name: "Pipeline 可视化拖拽编辑器"
+    completed_at: "2026-04-05T15:00:00Z"
+    tag: feat-pipeline-visual-editor-20260405
+    parent: feat-pipeline-editor
   - id: feat-agent-runtime-execute
     name: "AgentRuntime execute() + ClaudeCodeRuntime 实现"
     completed_at: "2026-04-05T14:15:00Z"
