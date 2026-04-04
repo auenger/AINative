@@ -28,6 +28,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useQueueData, FeatureNode, QueueName } from '../../lib/useQueueData';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
+import { NewTaskModal } from './NewTaskModal';
 
 // ---------------------------------------------------------------------------
 // Board column config
@@ -761,37 +762,14 @@ export const TaskBoard: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* New Task Modal (placeholder) */}
+      {/* New Task Modal — Agent dispatch for feature creation */}
       <AnimatePresence>
         {showNewTaskModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowNewTaskModal(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-md bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl overflow-hidden p-8"
-            >
-              <div className="text-center space-y-6">
-                <div className="space-y-2">
-                  <h3 className="text-xl font-bold text-on-surface">Create New Feature</h3>
-                  <p className="text-xs text-on-surface-variant opacity-70">Create a new feature in the workspace features/ directory</p>
-                </div>
-                <button
-                  onClick={() => setShowNewTaskModal(false)}
-                  className="w-full py-2 text-xs font-bold text-outline hover:text-on-surface transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </motion.div>
-          </div>
+          <NewTaskModal
+            open={showNewTaskModal}
+            onClose={() => setShowNewTaskModal(false)}
+            onFeatureCreated={refresh}
+          />
         )}
       </AnimatePresence>
     </div>
