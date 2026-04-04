@@ -54,7 +54,22 @@
 - `feat-agent-runtime-ui` (completed) — Agent 控制面板 UI
 
 ## Technical Solution
-<!-- To be filled during implementation -->
+- Created PipelineVisualEditor component with 3-column layout: Stage template library (left), visual canvas (center), property panel (right)
+- Canvas uses CSS grid background + SVG bezier curves for stage connections
+- StageNodeCard supports drag-to-reposition via mouse events
+- StagePropertyPanel provides form editing for all PipelineStageConfig fields
+- AgentControlPanel integrated with pipeline list, "New Pipeline" button, and editor overlay mode
+- Pipeline save/delete uses existing usePipelineEngine.savePipeline()/deletePipeline() hooks
+
+### Merge Record
+- **Completed**: 2026-04-05T15:00:00Z
+- **Merged Branch**: feature/feat-pipeline-visual-editor
+- **Merge Commit**: ceb0a95
+- **Archive Tag**: feat-pipeline-visual-editor-20260405
+- **Conflicts**: None (clean fast-forward merge)
+- **Verification**: PASS (5/5 Gherkin scenarios verified)
+- **Files Changed**: 3 (2 new, 1 modified)
+- **Lines Added**: 1240
 
 ## Acceptance Criteria (Gherkin)
 ### User Story
