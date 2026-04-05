@@ -896,6 +896,7 @@ impl AgentRuntime for ClaudeCodeRuntime {
         let tx_stdout = tx.clone();
         std::thread::spawn(move || {
             let reader = BufReader::new(stdout_handle);
+            let mut got_result = false; // Track if we received a "result" message
             for line in reader.lines() {
                 match line {
                     Ok(text) => {
@@ -915,6 +916,7 @@ impl AgentRuntime for ClaudeCodeRuntime {
                                     .map(|s| s.to_string());
 
                                 let is_result = msg_type == "result";
+                                if is_result { got_result = true; }
 
                                 // Extract text content based on message type
                                 let text = if msg_type == "assistant" {
@@ -976,14 +978,18 @@ impl AgentRuntime for ClaudeCodeRuntime {
                 }
             }
 
-            // Process exited — send final is_done event if no result message was received
-            let _ = tx_stdout.send(StreamEvent {
-                text: String::new(),
-                is_done: true,
-                error: None,
-                msg_type: Some("process_exit".to_string()),
-                session_id: None,
-            });
+            // Process exited — only send process_exit is_done if we never received a result.
+            // If a result was received, the forwarding thread already broke on is_done=true,
+            // and sending another is_done here would be a stale event for the next request.
+            if !got_result {
+                let _ = tx_stdout.send(StreamEvent {
+                    text: String::new(),
+                    is_done: true,
+                    error: None,
+                    msg_type: Some("process_exit".to_string()),
+                    session_id: None,
+                });
+            }
         });
 
         // --- stderr reader thread ---
@@ -993,11 +999,14 @@ impl AgentRuntime for ClaudeCodeRuntime {
             for line in reader.lines() {
                 match line {
                     Ok(text) => {
-                        if !text.trim().is_empty() {
+                        let trimmed = text.trim();
+                        if !trimmed.is_empty() {
+                            // Log to server-side console for debugging
+                            eprintln!("[ClaudeCodeRuntime] stderr: {}", trimmed);
                             let event = StreamEvent {
                                 text: String::new(),
                                 is_done: false,
-                                error: Some(format!("CLI stderr: {}", text)),
+                                error: Some(format!("CLI stderr: {}", trimmed)),
                                 msg_type: Some("stderr".to_string()),
                                 session_id: None,
                             };
@@ -4756,11 +4765,18 @@ async fn runtime_execute(
     // Build execution parameters
     let params = ExecuteParams {
         message,
-        session_id,
+        session_id: session_id.clone(),
         workspace: if workspace.is_empty() { None } else { Some(workspace) },
         system_prompt,
         timeout_secs: 120,
     };
+
+    // Diagnostic log for debugging multi-turn issues
+    eprintln!("[runtime_execute] runtimeId={}, has_session_id={}, session_id={:?}",
+        runtime_id,
+        session_id.is_some(),
+        session_id.as_deref().map(|s| if s.len() > 8 { &s[..8] } else { s })
+    );
 
     // We need to call execute() while holding the registry lock briefly
     let receiver = {

@@ -179,9 +179,9 @@ And sessionId 使用最新值
 ```
 
 ### General Checklist
-- [ ] 首轮对话流式响应正常
-- [ ] 多轮对话上下文保持（--resume 生效）
-- [ ] CLI 错误信息可见（不再被静默吞掉）
-- [ ] sessionId 使用 ref 避免闭包过期
-- [ ] process_exit 事件不干扰后续对话
-- [ ] 手动 CLI 验证 session resume 可行
+- [x] 首轮对话流式响应正常
+- [x] 多轮对话上下文保持（--resume 生效）
+- [x] CLI 错误信息可见（不再被静默吞掉）
+- [x] sessionId 使用 ref 避免闭包过期
+- [x] process_exit 事件不干扰后续对话
+- [ ] 手动 CLI 验证 session resume 可行（需手动测试）
