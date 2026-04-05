@@ -339,28 +339,38 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
   const [generatedPlan, setGeneratedPlan] = useState<FeaturePlanOutput | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const [projectContext] = useState(`
-# Project Context: Neuro Syntax IDE
+  // --- Project Context: dynamic file loading ---
+  const [projectContext, setProjectContext] = useState<string | null>(null);
+  const [pcLoading, setPcLoading] = useState(false);
+  const [pcError, setPcError] = useState<string | null>(null);
 
-## Overview
-A next-generation, AI-first IDE designed for rapid prototyping and development.
+  const loadProjectContext = useCallback(async () => {
+    if (!workspacePath) return;
+    setPcLoading(true);
+    setPcError(null);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const content = await invoke<string>('read_file', {
+        path: `${workspacePath}/project-context.md`,
+      });
+      setProjectContext(content);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setPcError(msg);
+      setProjectContext(null);
+    } finally {
+      setPcLoading(false);
+    }
+  }, [workspacePath]);
 
-## Core Features
-- **AI-Agent Orchestration**: Native support for Gemini and Claude.
-- **Task-Driven Workflow**: Integrated task board and AI task generation.
-- **Mission Control**: Real-time monitoring of system health and AI activity.
-
-## Tech Stack
-- **Frontend**: React, TypeScript, Tailwind CSS, Motion.
-- **Backend**: Express (optional), Node.js.
-- **AI**: Google Gemini API, Anthropic Claude API.
-
-## Roadmap
-1. [x] Basic IDE Layout
-2. [x] Internationalization
-3. [ ] Real-time Collaboration
-4. [ ] Integrated Debugger
-`);
+  useEffect(() => {
+    if (workspacePath) {
+      loadProjectContext();
+    } else {
+      setProjectContext(null);
+      setPcError(null);
+    }
+  }, [workspacePath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSendMessage = () => {
     if (!chatInput.trim() || pmAgent.isStreaming) return;
@@ -1194,14 +1204,98 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                   {t('project.projectContext')}
                 </span>
               </div>
-              <button className="text-[10px] font-bold text-primary hover:underline uppercase tracking-widest">
-                {t('project.initProject')}
-              </button>
+              <div className="flex items-center gap-2">
+                {projectContext && (
+                  <button
+                    onClick={loadProjectContext}
+                    disabled={pcLoading}
+                    className={cn(
+                      "p-1 rounded transition-colors",
+                      pcLoading
+                        ? "text-outline-variant cursor-not-allowed"
+                        : "text-on-surface-variant hover:text-primary hover:bg-primary/10"
+                    )}
+                    title="Refresh Project Context"
+                  >
+                    <RefreshCw size={12} className={cn(pcLoading && "animate-spin")} />
+                  </button>
+                )}
+                <button
+                  onClick={loadProjectContext}
+                  className="text-[10px] font-bold text-primary hover:underline uppercase tracking-widest"
+                >
+                  {t('project.initProject')}
+                </button>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-10 scroll-hide">
-              <div className="max-w-3xl mx-auto prose prose-invert prose-sm">
-                <ReactMarkdown>{projectContext}</ReactMarkdown>
-              </div>
+              {/* Loading state: shimmer skeleton */}
+              {pcLoading && (
+                <div className="max-w-3xl mx-auto space-y-4">
+                  <div className="h-6 w-48 bg-outline-variant/10 rounded animate-pulse" />
+                  <div className="h-4 w-full bg-outline-variant/10 rounded animate-pulse" />
+                  <div className="h-4 w-5/6 bg-outline-variant/10 rounded animate-pulse" />
+                  <div className="h-4 w-4/6 bg-outline-variant/10 rounded animate-pulse" />
+                  <div className="mt-6 h-5 w-32 bg-outline-variant/10 rounded animate-pulse" />
+                  <div className="h-4 w-full bg-outline-variant/10 rounded animate-pulse" />
+                  <div className="h-4 w-3/4 bg-outline-variant/10 rounded animate-pulse" />
+                  <div className="mt-6 h-5 w-40 bg-outline-variant/10 rounded animate-pulse" />
+                  <div className="h-4 w-full bg-outline-variant/10 rounded animate-pulse" />
+                  <div className="h-4 w-2/3 bg-outline-variant/10 rounded animate-pulse" />
+                </div>
+              )}
+
+              {/* File not found: empty state with guide */}
+              {!pcLoading && pcError && pcError.includes('does not exist') && (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center space-y-4 max-w-sm">
+                    <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                      <FileText size={24} className="text-primary" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-bold text-on-surface">No Project Context Found</p>
+                      <p className="text-xs text-on-surface-variant leading-relaxed">
+                        Create a <code className="text-primary bg-primary/10 px-1 rounded text-[10px]">project-context.md</code> file in your project root to display project context here.
+                      </p>
+                    </div>
+                    <button
+                      onClick={loadProjectContext}
+                      className="bg-primary text-on-primary px-4 py-2 rounded-lg text-xs font-bold hover:brightness-110 transition-all"
+                    >
+                      {t('project.initProject')}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Other error state */}
+              {!pcLoading && pcError && !pcError.includes('does not exist') && (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center space-y-4 max-w-sm">
+                    <div className="w-14 h-14 bg-error/10 rounded-full flex items-center justify-center mx-auto">
+                      <AlertTriangle size={24} className="text-error" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-bold text-error">Failed to Load</p>
+                      <p className="text-xs text-on-surface-variant leading-relaxed">{pcError}</p>
+                    </div>
+                    <button
+                      onClick={loadProjectContext}
+                      className="bg-primary text-on-primary px-4 py-2 rounded-lg text-xs font-bold hover:brightness-110 transition-all flex items-center gap-2 mx-auto"
+                    >
+                      <RefreshCw size={12} />
+                      Retry
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Loaded: render markdown */}
+              {!pcLoading && !pcError && projectContext && (
+                <div className="max-w-3xl mx-auto prose prose-invert prose-sm">
+                  <ReactMarkdown>{projectContext}</ReactMarkdown>
+                </div>
+              )}
             </div>
           </div>
         </div>
