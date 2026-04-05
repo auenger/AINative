@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   FolderOpen,
   Github,
@@ -43,6 +43,7 @@ import { useAgentStream } from '../../lib/useAgentStream';
 import type { FeaturePlanOutput } from '../../lib/useAgentStream';
 import { useGitStatus } from '../../lib/useGitStatus';
 import { useGitDetail } from '../../lib/useGitDetail';
+import { useSettings } from '../../lib/useSettings';
 import type { GitModalTab, BranchGraphNode, BranchGraphEdge } from '../../types';
 
 interface WorkspaceHook {
@@ -442,8 +443,25 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ workspace }) => {
   const { t } = useTranslation();
   const { workspacePath, loading: workspaceLoading, error: workspaceError, selectWorkspace } = workspace;
 
+  // --- Settings & Provider management ---
+  const { settings } = useSettings();
+  const defaultProvider = settings.llm.provider || 'gemini-http';
+
+  // Independent provider overrides per agent tab (null = use settings default)
+  const [pmProviderOverride, setPmProviderOverride] = useState<string | null>(null);
+  const [reqProviderOverride, setReqProviderOverride] = useState<string | null>(null);
+
+  // Derived runtime IDs
+  const pmRuntimeId = pmProviderOverride ?? defaultProvider;
+  const reqRuntimeId = reqProviderOverride ?? 'claude-code';
+
+  // Build provider list from settings (for dropdown)
+  const providerList = useMemo(() => {
+    return Object.keys(settings.providers || {});
+  }, [settings.providers]);
+
   const pmAgent = useAgentStream({
-    runtimeId: 'gemini-http',
+    runtimeId: pmRuntimeId,
     systemPrompt: `You are the PM Agent for Neuro Syntax IDE, an AI-native desktop IDE. Your role is to help users define and manage their project context, plan features, and answer questions about software architecture.
 
 When users ask you to create a feature, respond with a clear plan that includes:
@@ -460,12 +478,44 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
   });
 
   const reqAgent = useAgentStream({
-    runtimeId: 'claude-code',
+    runtimeId: reqRuntimeId,
     greetingMessage: "你好！我是需求分析 Agent。我可以帮你分析和文档化软件需求。告诉我你想构建什么功能？",
     useSessions: true,
     persistMessages: true,
     storageKey: 'req_agent_messages',
   });
+
+  // Sync runtimeId changes from provider override to agent hooks
+  useEffect(() => {
+    pmAgent.setRuntimeId(pmRuntimeId);
+  }, [pmRuntimeId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    reqAgent.setRuntimeId(reqRuntimeId);
+  }, [reqRuntimeId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Provider dropdown open state
+  const [showPmProviderDropdown, setShowPmProviderDropdown] = useState(false);
+  const [showReqProviderDropdown, setShowReqProviderDropdown] = useState(false);
+
+  /** Check if a provider has an API key configured */
+  const hasProviderApiKey = useCallback((providerId: string): boolean => {
+    const provider = settings.providers?.[providerId];
+    return !!provider?.api_key;
+  }, [settings.providers]);
+
+  /** Handle PM provider switch */
+  const handlePmProviderSwitch = useCallback((providerId: string) => {
+    setPmProviderOverride(providerId === defaultProvider ? null : providerId);
+    setShowPmProviderDropdown(false);
+  }, [defaultProvider]);
+
+  /** Handle Req provider switch */
+  const handleReqProviderSwitch = useCallback((providerId: string) => {
+    setReqProviderOverride(providerId === 'claude-code' ? null : providerId);
+    setShowReqProviderDropdown(false);
+  }, []);
+
   const gitStatus = useGitStatus(workspacePath);
   const gitDetail = useGitDetail();
 
@@ -525,6 +575,23 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
     pmAgent.sendMessage(chatInput);
     setChatInput('');
   };
+
+  // Close provider dropdowns when clicking outside
+  useEffect(() => {
+    if (!showPmProviderDropdown && !showReqProviderDropdown) return;
+    const handleClick = () => {
+      setShowPmProviderDropdown(false);
+      setShowReqProviderDropdown(false);
+    };
+    // Use setTimeout to avoid closing on the same click that opened it
+    const timer = setTimeout(() => {
+      document.addEventListener('click', handleClick, { once: true });
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('click', handleClick);
+    };
+  }, [showPmProviderDropdown, showReqProviderDropdown]);
 
   // Auto-scroll chat to bottom when new messages arrive
   useEffect(() => {
@@ -880,7 +947,7 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
               {/* Tab Bar */}
               <div className="flex border-b border-outline-variant/10 bg-surface-container-low">
                 <button
-                  onClick={() => setActiveChatTab('pm')}
+                  onClick={() => { setActiveChatTab('pm'); setShowPmProviderDropdown(false); setShowReqProviderDropdown(false); }}
                   className={cn(
                     "flex-1 flex items-center justify-center gap-2 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all border-b-2",
                     activeChatTab === 'pm'
@@ -892,7 +959,7 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                   {t('project.pmAgent')}
                 </button>
                 <button
-                  onClick={() => setActiveChatTab('req')}
+                  onClick={() => { setActiveChatTab('req'); setShowPmProviderDropdown(false); setShowReqProviderDropdown(false); }}
                   className={cn(
                     "flex-1 flex items-center justify-center gap-2 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all border-b-2",
                     activeChatTab === 'req'
@@ -919,6 +986,56 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      {/* Provider selector dropdown */}
+                      <div className="relative">
+                        <button
+                          onClick={() => { setShowPmProviderDropdown(!showPmProviderDropdown); setShowReqProviderDropdown(false); }}
+                          className={cn(
+                            "flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-tighter transition-all",
+                            pmProviderOverride ? "bg-secondary/10 text-secondary" : "bg-outline-variant/10 text-on-surface-variant",
+                            showPmProviderDropdown && "ring-1 ring-primary/30"
+                          )}
+                          title="Switch LLM Provider"
+                        >
+                          <span>{pmAgent.runtimeId}</span>
+                          <ChevronDown size={8} className={cn("transition-transform", showPmProviderDropdown && "rotate-180")} />
+                        </button>
+                        {showPmProviderDropdown && (
+                          <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] bg-surface-container-high border border-outline-variant/20 rounded-lg shadow-xl py-1">
+                            {providerList.map((pId) => {
+                              const isSelected = pId === pmAgent.runtimeId;
+                              const hasKey = hasProviderApiKey(pId);
+                              return (
+                                <button
+                                  key={pId}
+                                  onClick={() => handlePmProviderSwitch(pId)}
+                                  className={cn(
+                                    "w-full flex items-center gap-2 px-3 py-1.5 text-[10px] transition-colors",
+                                    isSelected ? "bg-primary/10 text-primary font-bold" : "text-on-surface-variant hover:bg-surface-container-highest/50"
+                                  )}
+                                >
+                                  <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", hasKey ? "bg-tertiary" : "bg-warning")} />
+                                  <span className="flex-1 text-left">{pId}</span>
+                                  {!hasKey && (
+                                    <AlertTriangle size={9} className="text-warning shrink-0" />
+                                  )}
+                                  {isSelected && (
+                                    <CheckCircle2 size={9} className="text-primary shrink-0" />
+                                  )}
+                                </button>
+                              );
+                            })}
+                            {providerList.length === 0 && (
+                              <div className="px-3 py-2 text-[9px] text-on-surface-variant opacity-60 text-center">No providers configured</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {/* API Key warning for current provider */}
+                      {!hasProviderApiKey(pmAgent.runtimeId) && settings.providers?.[pmAgent.runtimeId] && (
+                        <span className="text-[8px] text-warning bg-warning/10 px-1.5 py-0.5 rounded whitespace-nowrap">No Key</span>
+                      )}
+                      {/* Connection status */}
                       <div className={cn(
                         "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
                         pmAgent.apiKeyConfigured
@@ -1019,6 +1136,67 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      {/* Provider selector dropdown */}
+                      <div className="relative">
+                        <button
+                          onClick={() => { setShowReqProviderDropdown(!showReqProviderDropdown); setShowPmProviderDropdown(false); }}
+                          className={cn(
+                            "flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-tighter transition-all",
+                            reqProviderOverride ? "bg-primary/15 text-primary" : "bg-outline-variant/10 text-on-surface-variant",
+                            showReqProviderDropdown && "ring-1 ring-primary/30"
+                          )}
+                          title="Switch LLM Provider"
+                        >
+                          <span>{reqAgent.runtimeId}</span>
+                          <ChevronDown size={8} className={cn("transition-transform", showReqProviderDropdown && "rotate-180")} />
+                        </button>
+                        {showReqProviderDropdown && (
+                          <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] bg-surface-container-high border border-outline-variant/20 rounded-lg shadow-xl py-1">
+                            {/* Claude Code built-in option */}
+                            <button
+                              onClick={() => handleReqProviderSwitch('claude-code')}
+                              className={cn(
+                                "w-full flex items-center gap-2 px-3 py-1.5 text-[10px] transition-colors",
+                                reqAgent.runtimeId === 'claude-code' ? "bg-primary/10 text-primary font-bold" : "text-on-surface-variant hover:bg-surface-container-highest/50"
+                              )}
+                            >
+                              <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-tertiary" />
+                              <span className="flex-1 text-left">claude-code</span>
+                              {reqAgent.runtimeId === 'claude-code' && (
+                                <CheckCircle2 size={9} className="text-primary shrink-0" />
+                              )}
+                            </button>
+                            {/* Configured providers */}
+                            {providerList.map((pId) => {
+                              const isSelected = pId === reqAgent.runtimeId;
+                              const hasKey = hasProviderApiKey(pId);
+                              return (
+                                <button
+                                  key={pId}
+                                  onClick={() => handleReqProviderSwitch(pId)}
+                                  className={cn(
+                                    "w-full flex items-center gap-2 px-3 py-1.5 text-[10px] transition-colors",
+                                    isSelected ? "bg-primary/10 text-primary font-bold" : "text-on-surface-variant hover:bg-surface-container-highest/50"
+                                  )}
+                                >
+                                  <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", hasKey ? "bg-tertiary" : "bg-warning")} />
+                                  <span className="flex-1 text-left">{pId}</span>
+                                  {!hasKey && (
+                                    <AlertTriangle size={9} className="text-warning shrink-0" />
+                                  )}
+                                  {isSelected && (
+                                    <CheckCircle2 size={9} className="text-primary shrink-0" />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      {/* API Key warning for current provider */}
+                      {reqAgent.runtimeId !== 'claude-code' && !hasProviderApiKey(reqAgent.runtimeId) && settings.providers?.[reqAgent.runtimeId] && (
+                        <span className="text-[8px] text-warning bg-warning/10 px-1.5 py-0.5 rounded whitespace-nowrap">No Key</span>
+                      )}
                       {/* Connection status indicator */}
                       <div className={cn(
                         "flex items-center gap-1.5 px-2 py-0.5 rounded-full",

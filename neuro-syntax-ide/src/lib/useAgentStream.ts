@@ -75,19 +75,23 @@ const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 
 export function useAgentStream(options: UseAgentStreamOptions) {
   const {
-    runtimeId,
+    runtimeId: initialRuntimeId,
     systemPrompt = null,
     greetingMessage = '',
     useSessions = false,
     persistMessages = false,
-    storageKey = `agent-stream-${runtimeId}`,
+    storageKey: storageKeyProp,
   } = options;
+
+  // --- Dynamic runtimeId state (supports external override) ---
+  const [runtimeId, setRuntimeId] = useState<string>(initialRuntimeId);
+  const storageKey = storageKeyProp ?? `agent-stream-${runtimeId}`;
 
   // --- State ---
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     if (persistMessages && isTauri) {
       try {
-        const stored = localStorage.getItem(storageKey);
+        const stored = localStorage.getItem(storageKeyProp ?? `agent-stream-${initialRuntimeId}`);
         if (stored) {
           const parsed = JSON.parse(stored) as ChatMessage[];
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -114,6 +118,10 @@ export function useAgentStream(options: UseAgentStreamOptions) {
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
+  // Ref to track current runtimeId for closures that need the live value
+  const runtimeIdRef = useRef(runtimeId);
+  runtimeIdRef.current = runtimeId;
+
   // --- Persist messages to localStorage ---
   useEffect(() => {
     if (!persistMessages || !isTauri) return;
@@ -136,6 +144,42 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       }
     };
   }, []);
+
+  // Track previous runtimeId to detect actual changes (skip mount)
+  const prevRuntimeIdRef = useRef<string | null>(null);
+
+  // --- Handle runtimeId change: disconnect old session, clear streaming state (preserve messages) ---
+  useEffect(() => {
+    // On first mount, just record the value and skip
+    if (prevRuntimeIdRef.current === null) {
+      prevRuntimeIdRef.current = runtimeId;
+      return;
+    }
+
+    // Skip if runtimeId hasn't actually changed
+    if (prevRuntimeIdRef.current === runtimeId) return;
+    prevRuntimeIdRef.current = runtimeId;
+
+    // Cancel any ongoing streaming
+    setIsStreaming(false);
+    streamingTextRef.current = '';
+    setError(null);
+
+    // Remove chunk listener to stop receiving stale events
+    if (chunkUnlistenRef.current) {
+      chunkUnlistenRef.current();
+      chunkUnlistenRef.current = null;
+    }
+
+    // For session-based runtimes, disconnect
+    if (useSessions) {
+      setConnectionState('disconnected');
+      setSessionId(null);
+    }
+
+    // Re-check API key for the new runtime
+    checkApiKey();
+  }, [runtimeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------------------------------------------------------------------------
   // Chunk listener
@@ -276,7 +320,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
     try {
       const { invoke } = await import('@tauri-apps/api/core');
       // Validate runtime is ready (don't store the fake UUID as sessionId)
-      await invoke('runtime_session_start', { runtimeId });
+      await invoke('runtime_session_start', { runtimeId: runtimeIdRef.current });
       // sessionId stays null — will be captured from the first response chunk
       setConnectionState('connected');
       await registerChunkListener();
@@ -284,7 +328,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       setError(e?.toString() ?? 'Failed to start agent session');
       setConnectionState('error');
     }
-  }, [registerChunkListener, runtimeId, storageKey]);
+  }, [registerChunkListener]);
 
   /** Stop the current agent session */
   const stopSession = useCallback(async () => {
@@ -340,6 +384,8 @@ export function useAgentStream(options: UseAgentStreamOptions) {
     async (input: string) => {
       if (!input.trim()) return;
 
+      const currentRuntimeId = runtimeIdRef.current;
+
       // If session-based and not connected, start a fresh session first
       if (useSessions && connectionState !== 'connected') {
         await startSession();
@@ -356,7 +402,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
             ...prev,
             {
               role: 'assistant',
-              content: `[${runtimeId}] I've analyzed your request: "${input}". Here's my response...`,
+              content: `[${currentRuntimeId}] I've analyzed your request: "${input}". Here's my response...`,
             },
           ]);
         }, 1000);
@@ -382,7 +428,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
 
         // Build message payload
         let messagePayload: string;
-        if (runtimeId === 'gemini-http') {
+        if (currentRuntimeId === 'gemini-http') {
           // Gemini runtime expects full conversation history as JSON
           const chatMessages = [...messages, userMessage]
             .filter((m) => !(m.role === 'assistant' && m.content.includes(greetingMessage)))
@@ -393,7 +439,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
         }
 
         await invoke('runtime_execute', {
-          runtimeId,
+          runtimeId: currentRuntimeId,
           message: messagePayload,
           sessionId: sessionId,
           systemPrompt: systemPrompt,
@@ -404,7 +450,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
         if (useSessions) setConnectionState('error');
       }
     },
-    [connectionState, startSession, sessionId, messages, registerChunkListener, runtimeId, systemPrompt, greetingMessage, useSessions],
+    [connectionState, startSession, sessionId, messages, registerChunkListener, systemPrompt, greetingMessage, useSessions],
   );
 
   // ---------------------------------------------------------------------------
@@ -581,5 +627,6 @@ export function useAgentStream(options: UseAgentStreamOptions) {
 
     // Identity
     runtimeId,
+    setRuntimeId,
   };
 }
