@@ -147,25 +147,33 @@ export interface TagDetail {
 export type GitModalTab = 'overview' | 'branches' | 'tags' | 'history' | 'changes' | 'features' | 'graph';
 
 // ---------------------------------------------------------------------------
-// Branch graph types (feat-git-branch-graph)
+// Commit graph types (git-log style timeline)
 // ---------------------------------------------------------------------------
 
-/** A node in the branch topology graph. */
-export interface BranchGraphNode {
-  id: string;           // branch name
-  type: 'branch' | 'merge' | 'fork';
-  latest_commit: string;
-  latest_message: string;
-  feature_id?: string;  // matched feature ID from queue.yaml
-  x?: number;           // layout coordinate (frontend-computed)
-  y?: number;
+export interface CommitGraphNode {
+  hash: string;
+  short_hash: string;
+  message: string;
+  author: string;
+  timestamp: number;
+  time_ago: string;
+  lane: number;
+  is_merge: boolean;
+  branch_labels: string[];
+  tag_labels: string[];
 }
 
-/** An edge connecting two nodes in the branch graph. */
-export interface BranchGraphEdge {
-  from: string;         // source branch name
-  to: string;           // target branch name
-  type: 'fork' | 'merge' | 'linear';
+export interface GraphConnector {
+  row: number;
+  from_lane: number;
+  to_lane: number;
+  connector_type: string;
+}
+
+export interface CommitGraphResult {
+  commits: CommitGraphNode[];
+  connectors: GraphConnector[];
+  lane_count: number;
 }
 
 // ---------------------------------------------------------------------------

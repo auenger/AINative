@@ -44,7 +44,7 @@ import type { FeaturePlanOutput } from '../../lib/useAgentStream';
 import { useGitStatus } from '../../lib/useGitStatus';
 import { useGitDetail } from '../../lib/useGitDetail';
 import { useSettings } from '../../lib/useSettings';
-import type { GitModalTab, BranchGraphNode, BranchGraphEdge } from '../../types';
+import type { GitModalTab, CommitGraphResult } from '../../types';
 
 interface WorkspaceHook {
   workspacePath: string;
@@ -58,382 +58,174 @@ interface ProjectViewProps {
 }
 
 // ---------------------------------------------------------------------------
-// BranchGraphTab — SVG topology visualization (feat-git-branch-graph)
+// CommitGraphTab — git-log style vertical timeline visualization
 // ---------------------------------------------------------------------------
 
-interface BranchGraphTabProps {
-  nodes: BranchGraphNode[];
-  edges: BranchGraphEdge[];
-  branches: { name: string; is_current: boolean; latest_commit: string; latest_commit_hash: string }[];
-  hoveredNode: string | null;
-  onHoverNode: (id: string | null) => void;
+interface CommitGraphTabProps {
+  graphData: CommitGraphResult;
+  hoveredCommit: string | null;
+  onHoverCommit: (hash: string | null) => void;
 }
 
-/** Layout constants for the graph visualization. */
-const GRAPH_NODE_RADIUS = 22;
-const GRAPH_COL_GAP = 180;
-const GRAPH_ROW_GAP = 90;
-const GRAPH_PAD_X = 60;
-const GRAPH_PAD_Y = 50;
+const ROW_HEIGHT = 28;
+const LANE_WIDTH = 20;
+const DOT_RADIUS = 4;
+const PAD_LEFT = 8;
+const PAD_TOP = 8;
+const MSG_X_OFFSET = 14;
 
-/** Compute layout positions for branch graph nodes.
- *  - main goes to column 0, row 0
- *  - Other branches are placed left-to-right, top-to-bottom
- */
-function computeLayout(nodes: BranchGraphNode[], edges: BranchGraphEdge[]): BranchGraphNode[] {
-  if (nodes.length === 0) return [];
+const LANE_COLORS = [
+  '#58a6ff', '#a78bfa', '#34d399', '#f97316',
+  '#f472b6', '#fbbf24', '#6ee7b7', '#67e8f9',
+];
 
-  // Build adjacency: for each node, which nodes point to it (from edges where it is "to")
-  const incoming = new Map<string, string[]>();
-  const outgoing = new Map<string, string[]>();
-  for (const e of edges) {
-    if (!incoming.has(e.to)) incoming.set(e.to, []);
-    incoming.get(e.to)!.push(e.from);
-    if (!outgoing.has(e.from)) outgoing.set(e.from, []);
-    outgoing.get(e.from)!.push(e.to);
-  }
+function laneX(lane: number): number { return PAD_LEFT + lane * LANE_WIDTH + LANE_WIDTH / 2; }
+function rowY(row: number): number { return PAD_TOP + row * ROW_HEIGHT + ROW_HEIGHT / 2; }
 
-  // Find main node
-  const mainIdx = nodes.findIndex(n => n.id === 'main');
-  const mainNode = mainIdx >= 0 ? nodes[mainIdx] : nodes[0];
+const CommitGraphTab: React.FC<CommitGraphTabProps> = ({ graphData, hoveredCommit, onHoverCommit }) => {
+  const { commits, connectors, lane_count } = graphData;
 
-  // BFS from main to assign columns (distance from main)
-  const colMap = new Map<string, number>();
-  const queue: string[] = [mainNode.id];
-  colMap.set(mainNode.id, 0);
-
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    const currentCol = colMap.get(current) ?? 0;
-    // Follow outgoing edges
-    for (const target of (outgoing.get(current) ?? [])) {
-      if (!colMap.has(target)) {
-        colMap.set(target, currentCol + 1);
-        queue.push(target);
-      }
-    }
-    // Follow incoming edges (reverse)
-    for (const source of (incoming.get(current) ?? [])) {
-      if (!colMap.has(source)) {
-        colMap.set(source, Math.max(0, currentCol - 1));
-        queue.push(source);
-      }
-    }
-  }
-
-  // Assign any remaining nodes that weren't reached
-  let maxCol = Math.max(0, ...Array.from(colMap.values()));
-  for (const node of nodes) {
-    if (!colMap.has(node.id)) {
-      maxCol++;
-      colMap.set(node.id, maxCol);
-    }
-  }
-
-  // Group nodes by column and assign rows within each column
-  const colGroups = new Map<number, BranchGraphNode[]>();
-  for (const node of nodes) {
-    const col = colMap.get(node.id) ?? 0;
-    if (!colGroups.has(col)) colGroups.set(col, []);
-    colGroups.get(col)!.push(node);
-  }
-
-  // Sort each column: current branch first, then alphabetical
-  for (const [, group] of colGroups) {
-    group.sort((a, b) => {
-      const aCurrent = a.id === nodes.find(n => n.type === 'branch')?.id ? 0 : 1;
-      // Actually use branches data from props for is_current check — but we don't have it here.
-      // Just sort alphabetically, with main first
-      if (a.id === 'main') return -1;
-      if (b.id === 'main') return 1;
-      return a.id.localeCompare(b.id);
-    });
-  }
-
-  // Assign coordinates
-  const positioned = nodes.map(node => {
-    const col = colMap.get(node.id) ?? 0;
-    const group = colGroups.get(col) ?? [];
-    const row = group.indexOf(node);
-    return {
-      ...node,
-      x: GRAPH_PAD_X + col * GRAPH_COL_GAP,
-      y: GRAPH_PAD_Y + row * GRAPH_ROW_GAP,
-    };
-  });
-
-  return positioned;
-}
-
-const BranchGraphTab: React.FC<BranchGraphTabProps> = ({ nodes, edges, branches, hoveredNode, onHoverNode }) => {
-  if (nodes.length === 0) {
+  if (commits.length === 0) {
     return (
       <div className="flex items-center justify-center py-12 text-xs text-on-surface-variant opacity-60">
-        No branch data available
+        No commit history available
       </div>
     );
   }
 
-  const layoutNodes = computeLayout(nodes, edges);
+  const graphAreaWidth = PAD_LEFT + lane_count * LANE_WIDTH + MSG_X_OFFSET;
+  const totalHeight = PAD_TOP + commits.length * ROW_HEIGHT;
 
-  // Build a quick lookup for branch current status
-  const currentBranch = branches.find(b => b.is_current)?.name;
+  // Group connectors by row
+  const connectorsByRow = new Map<number, typeof connectors>();
+  for (const c of connectors) {
+    if (!connectorsByRow.has(c.row)) connectorsByRow.set(c.row, []);
+    connectorsByRow.get(c.row)!.push(c);
+  }
 
-  // Compute SVG dimensions
-  const maxX = Math.max(...layoutNodes.map(n => (n.x ?? 0) + GRAPH_NODE_RADIUS + GRAPH_PAD_X));
-  const maxY = Math.max(...layoutNodes.map(n => (n.y ?? 0) + GRAPH_NODE_RADIUS + GRAPH_PAD_Y));
-  const svgWidth = Math.max(400, maxX);
-  const svgHeight = Math.max(300, maxY);
-
-  // Build edge paths with bezier curves
-  const edgePaths = edges.map((edge, idx) => {
-    const fromNode = layoutNodes.find(n => n.id === edge.from);
-    const toNode = layoutNodes.find(n => n.id === edge.to);
-    if (!fromNode || !toNode || fromNode.x == null || fromNode.y == null || toNode.x == null || toNode.y == null) return null;
-
-    const isHighlighted = hoveredNode === edge.from || hoveredNode === edge.to;
-    const x1 = fromNode.x;
-    const y1 = fromNode.y;
-    const x2 = toNode.x;
-    const y2 = toNode.y;
-
-    // Bezier control points for smooth curves
-    const midX = (x1 + x2) / 2;
-    const midY = (y1 + y2) / 2;
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-
-    // Create a nice curve
-    let path: string;
-    if (Math.abs(dx) > Math.abs(dy)) {
-      // Horizontal-ish: curve with control points offset vertically
-      const cx1 = x1 + dx * 0.4;
-      const cy1 = y1;
-      const cx2 = x1 + dx * 0.6;
-      const cy2 = y2;
-      path = `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`;
-    } else {
-      // Vertical-ish: simple curve
-      const cx1 = x1;
-      const cy1 = y1 + dy * 0.4;
-      const cx2 = x2;
-      const cy2 = y1 + dy * 0.6;
-      path = `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`;
+  // Collect active lanes per row for pass-through lines
+  const activeLanesPerRow: Set<number>[] = [];
+  for (let r = 0; r < commits.length; r++) {
+    const active = new Set<number>();
+    active.add(commits[r].lane);
+    for (const c of (connectorsByRow.get(r) ?? [])) {
+      active.add(c.from_lane);
+      active.add(c.to_lane);
     }
-
-    const color = edge.type === 'fork' ? '#a78bfa' : edge.type === 'merge' ? '#34d399' : '#64748b';
-
-    return (
-      <path
-        key={`edge-${idx}`}
-        d={path}
-        fill="none"
-        stroke={isHighlighted ? color : `${color}66`}
-        strokeWidth={isHighlighted ? 2.5 : 1.5}
-        strokeDasharray={edge.type === 'merge' ? '6 3' : undefined}
-      />
-    );
-  });
+    activeLanesPerRow.push(active);
+  }
 
   return (
     <div className="relative w-full h-full overflow-auto">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Branch Topology</span>
-        <span className="text-[10px] text-on-surface-variant">{nodes.length} nodes, {edges.length} edges</span>
-      </div>
-
-      {/* Legend */}
-      <div className="flex items-center gap-4 mb-3">
-        <div className="flex items-center gap-1.5">
-          <div className="w-6 h-0.5 bg-[#64748b]"></div>
-          <span className="text-[9px] text-on-surface-variant">Linear</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-6 h-0.5 bg-[#a78bfa]"></div>
-          <span className="text-[9px] text-on-surface-variant">Fork</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-6 h-0.5 bg-[#34d399]" style={{ borderTop: '1px dashed #34d399' }}></div>
-          <span className="text-[9px] text-on-surface-variant">Merge</span>
-        </div>
+      <div className="flex items-center justify-between mb-2 px-1">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Commit Graph</span>
+        <span className="text-[10px] text-on-surface-variant">{commits.length} commits</span>
       </div>
 
       <svg
-        width={svgWidth}
-        height={svgHeight}
-        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-        className="bg-surface-container-lowest/30 rounded-lg border border-outline-variant/5"
+        width={graphAreaWidth + 500}
+        height={totalHeight}
+        viewBox={`0 0 ${graphAreaWidth + 500} ${totalHeight}`}
+        className="font-mono"
       >
-        {/* Edges */}
-        {edgePaths}
-
-        {/* Nodes */}
-        {layoutNodes.map((node) => {
-          const isCurrent = node.id === currentBranch;
-          const isMain = node.id === 'main';
-          const isHovered = hoveredNode === node.id;
-          const hasFeature = !!node.feature_id;
-          const x = node.x ?? 0;
-          const y = node.y ?? 0;
-
-          // Determine node color
-          let fillColor = '#334155'; // slate-700
-          let strokeColor = '#64748b'; // slate-500
-          if (isMain) {
-            fillColor = '#1e3a5f';
-            strokeColor = '#3b82f6'; // blue
-          } else if (isCurrent) {
-            fillColor = '#1a3326';
-            strokeColor = '#22c55e'; // green
-          } else if (hasFeature) {
-            fillColor = '#2d1a4e';
-            strokeColor = '#a78bfa'; // purple
-          }
+        {commits.map((commit, rowIdx) => {
+          const isHovered = hoveredCommit === commit.hash;
+          const laneColor = LANE_COLORS[commit.lane % LANE_COLORS.length];
+          const cx = laneX(commit.lane);
+          const cy = rowY(rowIdx);
+          const rowConnectors = connectorsByRow.get(rowIdx) ?? [];
+          const dimmed = hoveredCommit !== null && !isHovered;
 
           return (
             <g
-              key={node.id}
-              onMouseEnter={() => onHoverNode(node.id)}
-              onMouseLeave={() => onHoverNode(null)}
+              key={commit.hash}
+              onMouseEnter={() => onHoverCommit(commit.hash)}
+              onMouseLeave={() => onHoverCommit(null)}
               className="cursor-pointer"
+              opacity={dimmed ? 0.35 : 1}
             >
-              {/* Glow effect for hovered/current */}
-              {(isHovered || isCurrent) && (
-                <circle
-                  cx={x}
-                  cy={y}
-                  r={GRAPH_NODE_RADIUS + 6}
-                  fill="none"
-                  stroke={strokeColor}
-                  strokeWidth={1}
-                  opacity={0.3}
-                  filter="url(#glow)"
-                />
+              {/* Vertical pass-through lines for other active lanes */}
+              {Array.from(activeLanesPerRow[rowIdx] ?? []).filter(l => l !== commit.lane).map(lane => (
+                <line key={`v-${lane}`} x1={laneX(lane)} y1={rowY(rowIdx) - ROW_HEIGHT / 2} x2={laneX(lane)} y2={rowY(rowIdx) + ROW_HEIGHT / 2} stroke={LANE_COLORS[lane % LANE_COLORS.length]} strokeWidth={1.5} opacity={0.5} />
+              ))}
+
+              {/* Commit's own lane pass-through */}
+              {rowConnectors.length === 0 && (
+                <line x1={cx} y1={cy - ROW_HEIGHT / 2} x2={cx} y2={cy + ROW_HEIGHT / 2} stroke={laneColor} strokeWidth={1.5} opacity={0.5} />
               )}
 
-              {/* Main node circle */}
-              <circle
-                cx={x}
-                cy={y}
-                r={GRAPH_NODE_RADIUS}
-                fill={fillColor}
-                stroke={strokeColor}
-                strokeWidth={isHovered ? 2.5 : isCurrent ? 2 : 1.5}
-              />
+              {/* Connector curves */}
+              {rowConnectors.map((conn, ci) => {
+                const fromX = laneX(conn.from_lane);
+                const toX = laneX(conn.to_lane);
+                const y1 = rowY(rowIdx) - ROW_HEIGHT / 2;
+                const y2 = rowY(rowIdx) + ROW_HEIGHT / 2;
+                const midY = (y1 + y2) / 2;
+                const fromColor = LANE_COLORS[conn.from_lane % LANE_COLORS.length];
+                const toColor = LANE_COLORS[conn.to_lane % LANE_COLORS.length];
 
-              {/* Branch name label (inside or below) */}
-              <text
-                x={x}
-                y={y - 2}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill="#e2e8f0"
-                fontSize={9}
-                fontWeight="bold"
-                fontFamily="monospace"
-              >
-                {node.id.length > 12
-                  ? '...' + node.id.slice(-10)
-                  : node.id}
+                if (conn.connector_type === 'straight') {
+                  return <line key={`c-${ci}`} x1={fromX} y1={y1} x2={toX} y2={y2} stroke={fromColor} strokeWidth={1.5} opacity={0.5} />;
+                }
+                const d = `M ${fromX} ${y1} C ${fromX} ${midY}, ${toX} ${midY}, ${toX} ${y2}`;
+                return <path key={`c-${ci}`} d={d} fill="none" stroke={conn.connector_type === 'merge' ? toColor : fromColor} strokeWidth={1.5} opacity={0.6} />;
+              })}
+
+              {/* Commit dot */}
+              <circle cx={cx} cy={cy} r={commit.is_merge ? DOT_RADIUS + 1.5 : DOT_RADIUS} fill={laneColor} stroke={isHovered ? '#fff' : laneColor} strokeWidth={isHovered ? 2 : 0} opacity={0.9} />
+              {commit.is_merge && <circle cx={cx} cy={cy} r={DOT_RADIUS + 3} fill="none" stroke={laneColor} strokeWidth={1} opacity={0.4} />}
+
+              {/* Branch labels */}
+              {commit.branch_labels.map((label, li) => {
+                const isRemote = label.includes('/');
+                const shortLabel = label.length > 18 ? '…' + label.slice(-16) : label;
+                const labelW = shortLabel.length * 5.5 + 8;
+                const labelX = cx - labelW / 2;
+                const labelY = cy - DOT_RADIUS - 10 - li * 14;
+                return (
+                  <g key={`bl-${li}`}>
+                    <rect x={labelX} y={labelY} width={labelW} height={11} rx={3} fill={isRemote ? '#334155' : '#1e3a5f'} stroke={isRemote ? '#64748b' : '#3b82f6'} strokeWidth={0.5} />
+                    <text x={cx} y={labelY + 5.5} textAnchor="middle" dominantBaseline="middle" fill={isRemote ? '#94a3b8' : '#93c5fd'} fontSize={7} fontWeight="bold">{shortLabel}</text>
+                  </g>
+                );
+              })}
+
+              {/* Tag labels */}
+              {commit.tag_labels.map((tag, ti) => {
+                const shortTag = tag.length > 20 ? '…' + tag.slice(-18) : tag;
+                const tagW = shortTag.length * 5 + 10;
+                const tagX = cx - tagW / 2;
+                const tagY = cy - DOT_RADIUS - 10 - commit.branch_labels.length * 14 - ti * 14;
+                return (
+                  <g key={`tl-${ti}`}>
+                    <rect x={tagX} y={tagY} width={tagW} height={11} rx={3} fill="#422006" stroke="#f59e0b" strokeWidth={0.5} />
+                    <text x={cx} y={tagY + 5.5} textAnchor="middle" dominantBaseline="middle" fill="#fcd34d" fontSize={7} fontWeight="bold">{shortTag}</text>
+                  </g>
+                );
+              })}
+
+              {/* Message text */}
+              <text x={graphAreaWidth + 4} y={cy + 1} dominantBaseline="middle" fill={isHovered ? '#f1f5f9' : '#94a3b8'} fontSize={10}>
+                <tspan fill={laneColor} fontSize={9}>{commit.short_hash}</tspan>
+                <tspan dx={6} fill={isHovered ? '#e2e8f0' : '#cbd5e1'} fontSize={9}>{commit.message.length > 45 ? commit.message.slice(0, 45) + '…' : commit.message}</tspan>
+                <tspan dx={8} fill="#64748b" fontSize={8}>{commit.time_ago}</tspan>
               </text>
-
-              {/* Commit hash below name */}
-              <text
-                x={x}
-                y={y + 9}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill="#94a3b8"
-                fontSize={7}
-                fontFamily="monospace"
-              >
-                {node.latest_commit.slice(0, 7)}
-              </text>
-
-              {/* Feature label badge */}
-              {hasFeature && (
-                <>
-                  <rect
-                    x={x - 20}
-                    y={y - GRAPH_NODE_RADIUS - 14}
-                    width={40}
-                    height={12}
-                    rx={3}
-                    fill="#7c3aed"
-                    opacity={0.9}
-                  />
-                  <text
-                    x={x}
-                    y={y - GRAPH_NODE_RADIUS - 7}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fill="white"
-                    fontSize={6}
-                    fontWeight="bold"
-                  >
-                    feature
-                  </text>
-                </>
-              )}
 
               {/* Hover tooltip */}
               {isHovered && (
                 <g>
-                  <rect
-                    x={x + GRAPH_NODE_RADIUS + 8}
-                    y={y - 30}
-                    width={220}
-                    height={60}
-                    rx={6}
-                    fill="#1e293b"
-                    stroke="#334155"
-                    strokeWidth={1}
-                    opacity={0.95}
-                  />
-                  <text
-                    x={x + GRAPH_NODE_RADIUS + 16}
-                    y={y - 14}
-                    fill="#e2e8f0"
-                    fontSize={10}
-                    fontWeight="bold"
-                    fontFamily="monospace"
-                  >
-                    {node.id}
+                  <rect x={graphAreaWidth + 4} y={cy + 10} width={320} height={32} rx={4} fill="#1e293b" stroke="#334155" strokeWidth={0.5} opacity={0.95} />
+                  <text x={graphAreaWidth + 10} y={cy + 24} fill="#94a3b8" fontSize={7}>
+                    <tspan fill="#64748b">{commit.hash.slice(0, 12)}</tspan>
+                    <tspan dx={6} fill="#94a3b8">by {commit.author}</tspan>
+                    <tspan dx={6} fill="#64748b">{new Date(commit.timestamp * 1000).toLocaleDateString()}</tspan>
                   </text>
-                  <text
-                    x={x + GRAPH_NODE_RADIUS + 16}
-                    y={y + 2}
-                    fill="#94a3b8"
-                    fontSize={8}
-                  >
-                    {node.latest_message.slice(0, 35)}{node.latest_message.length > 35 ? '...' : ''}
-                  </text>
-                  <text
-                    x={x + GRAPH_NODE_RADIUS + 16}
-                    y={y + 16}
-                    fill="#64748b"
-                    fontSize={7}
-                    fontFamily="monospace"
-                  >
-                    {node.latest_commit}
-                    {hasFeature ? ` | ${node.feature_id}` : ''}
-                  </text>
+                  <text x={graphAreaWidth + 10} y={cy + 36} fill="#cbd5e1" fontSize={8}>{commit.message}</text>
                 </g>
               )}
             </g>
           );
         })}
-
-        {/* SVG filter definitions */}
-        <defs>
-          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
       </svg>
     </div>
   );
@@ -1968,14 +1760,12 @@ A next-generation, AI-first IDE designed for rapid prototyping and development.
                         </div>
                       )}
 
-                      {/* ── Graph Tab (branch topology visualization) ── */}
+                      {/* ── Graph Tab (commit timeline visualization) ── */}
                       {gitModalTab === 'graph' && (
-                        <BranchGraphTab
-                          nodes={gitDetail.graphNodes}
-                          edges={gitDetail.graphEdges}
-                          branches={gitDetail.branches}
-                          hoveredNode={hoveredGraphNode}
-                          onHoverNode={setHoveredGraphNode}
+                        <CommitGraphTab
+                          graphData={gitDetail.commitGraph}
+                          hoveredCommit={hoveredGraphNode}
+                          onHoverCommit={setHoveredGraphNode}
                         />
                       )}
                     </>

@@ -2932,41 +2932,43 @@ async fn fetch_git_branches(
 }
 
 // ===========================================================================
-// Tauri commands - Branch graph (feat-git-branch-graph)
+// Tauri commands - Commit graph (git-log style timeline)
 // ===========================================================================
 
-/// A node in the branch topology graph returned by fetch_branch_graph.
+/// A single commit in the DAG timeline graph, pre-laid-out with lane assignments.
 #[derive(Debug, Serialize, Clone)]
-pub struct BranchGraphData {
-    #[serde(rename = "id")]
-    pub name: String,
-    pub r#type: String, // "branch" | "merge" | "fork"
-    pub latest_commit: String,
-    pub latest_message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub feature_id: Option<String>,
+pub struct CommitGraphNode {
+    pub hash: String,
+    pub short_hash: String,
+    pub message: String,
+    pub author: String,
+    pub timestamp: i64,
+    pub time_ago: String,
+    pub lane: usize,
+    pub is_merge: bool,
+    pub branch_labels: Vec<String>,
+    pub tag_labels: Vec<String>,
 }
 
-/// An edge in the branch topology graph.
 #[derive(Debug, Serialize, Clone)]
-pub struct BranchGraphEdgeData {
-    pub from: String,
-    pub to: String,
-    pub r#type: String, // "fork" | "merge" | "linear"
+pub struct GraphConnector {
+    pub row: usize,
+    pub from_lane: usize,
+    pub to_lane: usize,
+    pub connector_type: String,
 }
 
-/// Result of fetch_branch_graph: nodes + edges.
 #[derive(Debug, Serialize, Clone)]
-pub struct BranchGraphResult {
-    pub nodes: Vec<BranchGraphData>,
-    pub edges: Vec<BranchGraphEdgeData>,
+pub struct CommitGraphResult {
+    pub commits: Vec<CommitGraphNode>,
+    pub connectors: Vec<GraphConnector>,
+    pub lane_count: usize,
 }
 
-/// Fetch branch topology graph data for the /// Returns all local branches with fork/merge relationships and/// and matches feature tags from queue.yaml completed features.
 #[tauri::command]
-async fn fetch_branch_graph(
+async fn fetch_commit_graph(
     state: tauri::State<'_, AppState>,
-) -> Result<BranchGraphResult, String> {
+) -> Result<CommitGraphResult, String> {
     let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
     if workspace.is_empty() {
         return Err("No workspace loaded".into());
@@ -2976,187 +2978,133 @@ async fn fetch_branch_graph(
     let repo = git2::Repository::discover(&repo_path)
         .map_err(|e| format!("Not a git repository: {}", e))?;
 
-    // Get current branch
-    let current_branch = repo.head()
-        .ok()
-        .and_then(|h| h.shorthand().map(|s| s.to_string()))
-        .unwrap_or_default();
-
-    // Collect all local branches with their tip commit OIDs
-    let branch_iter = repo.branches(Some(git2::BranchType::Local))
-        .map_err(|e| format!("Failed to list branches: {}", e))?;
-
-    let mut nodes: Vec<BranchGraphData> = Vec::new();
-    let mut edges: Vec<BranchGraphEdgeData> = Vec::new();
-
-    // Load completed features from queue.yaml for matching
-    let completed_features: std::collections::HashMap<String, String> = {
-        let mut map: std::collections::HashMap<String, String> = std::collections::HashMap::new();
-        let queue_path = PathBuf::from(&workspace)
-            .join("feature-workflow")
-            .join("queue.yaml");
-        if queue_path.exists() {
-            if let Ok(content) = fs::read_to_string(&queue_path) {
-                if let Ok(queue) = serde_yaml::from_str::<serde_yaml::Value>(&content) {
-                    if let Some(completed) = queue.get("completed") {
-                        if let Some(arr) = completed.as_sequence() {
-                            for entry in arr {
-                                if let Some(id) = entry.get("id").and_then(|v| v.as_str()) {
-                                    // Try to match by tag: completed features have tags like "feat-xxx-20260403"
-                                    if let Some(tag) = entry.get("tag").and_then(|v| v.as_str()) {
-                                        map.insert(tag.to_string(), id.to_string());
-                                    }
-                                }
-                            }
-                        }
+    // 1. Build branch-tip map: commit OID -> [branch_name, ...]
+    let mut branch_tips: std::collections::HashMap<git2::Oid, Vec<String>> = std::collections::HashMap::new();
+    for btype in [git2::BranchType::Local, git2::BranchType::Remote] {
+        if let Ok(iter) = repo.branches(Some(btype)) {
+            for branch_result in iter {
+                if let Ok((branch, _bt)) = branch_result {
+                    let name = branch.name().ok().flatten().unwrap_or("(unknown)").to_string();
+                    if let Some(oid) = branch.get().target() {
+                        branch_tips.entry(oid).or_default().push(name);
                     }
                 }
             }
         }
-        map
-    };
+    }
 
-    // Collect branch data
-    let mut branch_tips: Vec<(String, git2::Oid)> = Vec::new();
-    for branch_result in branch_iter {
-        let (branch, _bt) = branch_result.map_err(|e| format!("Branch iteration error: {}", e))?;
-        let name = branch.name()
-            .ok()
-            .flatten()
-            .unwrap_or("(unknown)")
+    // 2. Build tag-tip map
+    let mut tag_tips: std::collections::HashMap<git2::Oid, Vec<String>> = std::collections::HashMap::new();
+    let _ = repo.tag_foreach(|oid, name_bytes| {
+        let name = String::from_utf8_lossy(name_bytes)
+            .strip_prefix("refs/tags/")
+            .unwrap_or("")
             .to_string();
-
-        let is_current = name == current_branch;
-
-        let (latest_message, latest_hash) = branch.get().target()
-            .and_then(|oid| repo.find_commit(oid).ok())
-            .map(|c| {
-                let msg = c.message()
-                    .unwrap_or("(no message)")
-                    .lines()
-                    .next()
-                    .unwrap_or("")
-                    .to_string();
-                let hash = format!("{:.7}", c.id());
-                (msg, hash)
-            })
-            .unwrap_or_else(|| (String::new(), String::new()));
-
-        // Try to match with completed feature tags
-        let feature_id: Option<String> = {
-            // Match by branch name pattern: "feature/feat-xxx" -> feature tag "feat-xxx-*"
-            if name.starts_with("feature/") {
-                let feat_slug = &name["feature/".len()..];
-                // Find matching tag
-                completed_features.iter().find_map(|(tag_key, feat_id)| {
-                    if tag_key.starts_with(feat_slug) {
-                        Some(feat_id.clone())
-                    } else {
-                        None
-                    }
-                })
-            } else {
-                None
-            }
-        };
-
-        nodes.push(BranchGraphData {
-            name: name.clone(),
-            r#type: "branch".to_string(),
-            latest_commit: latest_hash,
-            latest_message,
-            feature_id,
-        });
-
-        if let Some(tip_oid) = branch.get().target() {
-            branch_tips.push((name, tip_oid));
+        let commit_oid = repo.find_object(oid, None).ok()
+            .and_then(|obj| obj.peel_to_commit().ok())
+            .map(|c| c.id());
+        if let Some(cid) = commit_oid {
+            tag_tips.entry(cid).or_default().push(name);
         }
-    }
-
-    // Compute fork/merge relationships by finding merge bases between branches
-    // For each pair of branches, find their merge-base
-    for i in 0..branch_tips.len() {
-        for j in (i+1)..branch_tips.len() {
-            let (name_a, oid_a) = &branch_tips[i];
-            let (name_b, oid_b) = &branch_tips[j];
-
-            if let Ok(merge_oid) = repo.merge_base(*oid_a, *oid_b) {
-                // Determine relationship: which branch forked from which
-                let commit_a = repo.find_commit(*oid_a);
-                let commit_b = repo.find_commit(*oid_b);
-                let commit_merge = repo.find_commit(merge_oid);
-
-                if let (Ok(ca), Ok(cb), Ok(cm)) = (commit_a, commit_b, commit_merge) {
-                    let time_a = ca.time().seconds();
-                    let time_b = cb.time().seconds();
-                    let time_m = cm.time().seconds();
-
-                    // Skip if merge base is the same as one of the tips (direct ancestor)
-                    if merge_oid == *oid_a || merge_oid == *oid_b {
-                        // Linear relationship: one is ancestor of the other
-                        if time_a > time_b {
-                            // b is older, a is descendant
-                            edges.push(BranchGraphEdgeData {
-                                from: name_b.clone(),
-                                to: name_a.clone(),
-                                r#type: "linear".to_string(),
-                            });
-                        } else if time_b > time_a {
-                            edges.push(BranchGraphEdgeData {
-                                from: name_a.clone(),
-                                to: name_b.clone(),
-                                r#type: "linear".to_string(),
-                            });
-                        }
-                        continue;
-                    }
-
-                    // Fork: the merge base is an ancestor of both branches
-                    // Both branches diverged from a common ancestor
-                    // The older branch is considered the "from" (source)
-                    if time_a < time_b {
-                        // a was created first, b forked from a's lineage
-                        edges.push(BranchGraphEdgeData {
-                            from: name_a.clone(),
-                            to: name_b.clone(),
-                            r#type: "fork".to_string(),
-                        });
-                    } else {
-                        edges.push(BranchGraphEdgeData {
-                            from: name_b.clone(),
-                            to: name_a.clone(),
-                            r#type: "fork".to_string(),
-                        });
-                    }
-
-                    // Check if there's also a merge back
-                    // A merge commit has >1 parent
-                    if let Ok(merge_commit) = repo.find_commit(merge_oid) {
-                        // Check if this merge_oid is actually a merge commit on either branch's path
-                        // For simplicity, we check if merge_commit has 2+ parents
-                        if merge_commit.parent_count() > 1 {
-                            edges.push(BranchGraphEdgeData {
-                                from: name_b.clone(),
-                                to: name_a.clone(),
-                                r#type: "merge".to_string(),
-                            });
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Sort nodes: main first, then current, then alphabetical
-    nodes.sort_by(|a, b| {
-        if a.name == "main" { return std::cmp::Ordering::Less; }
-        if b.name == "main" { return std::cmp::Ordering::Greater; }
-        if a.name == current_branch { return std::cmp::Ordering::Less; }
-        if b.name == current_branch { return std::cmp::Ordering::Greater; }
-        a.name.cmp(&b.name)
+        true
     });
 
-    Ok(BranchGraphResult { nodes, edges })
+    // 3. Revwalk all commits
+    let mut revwalk = repo.revwalk()
+        .map_err(|e| format!("Revwalk error: {}", e))?;
+    revwalk.push_glob("*").map_err(|e| format!("Push glob error: {}", e))?;
+    revwalk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)
+        .map_err(|e| format!("Sort error: {}", e))?;
+
+    let mut commit_list: Vec<(git2::Oid, Vec<git2::Oid>)> = Vec::new();
+    let mut node_map: std::collections::HashMap<git2::Oid, (String, String, String, String, i64, bool)> =
+        std::collections::HashMap::new();
+
+    for oid_result in revwalk.take(100) {
+        let oid = oid_result.map_err(|e| format!("Revwalk error: {}", e))?;
+        let commit = repo.find_commit(oid).map_err(|e| format!("Find commit error: {}", e))?;
+        let short_hash = format!("{:.7}", oid);
+        let message = commit.message().unwrap_or("(no message)").lines().next().unwrap_or("").to_string();
+        let author = commit.author().name().unwrap_or("unknown").to_string();
+        let timestamp = commit.time().seconds();
+        let time_ago = format_time_ago(timestamp);
+        let is_merge = commit.parent_count() > 1;
+        let parents: Vec<git2::Oid> = commit.parent_ids().collect();
+        node_map.insert(oid, (short_hash, message, author, time_ago, timestamp, is_merge));
+        commit_list.push((oid, parents));
+    }
+
+    // 4. Lane assignment
+    let mut active_lanes: Vec<Option<git2::Oid>> = Vec::new();
+    let mut oid_to_lane: std::collections::HashMap<git2::Oid, usize> = std::collections::HashMap::new();
+    let mut connectors: Vec<GraphConnector> = Vec::new();
+    let mut max_lane: usize = 0;
+
+    for (row_idx, (oid, parents)) in commit_list.iter().enumerate() {
+        let commit_lane = if let Some(&lane) = oid_to_lane.get(oid) {
+            lane
+        } else {
+            let lane = active_lanes.iter().position(|l| l.is_none()).unwrap_or(active_lanes.len());
+            if lane >= active_lanes.len() { active_lanes.push(None); }
+            lane
+        };
+        max_lane = max_lane.max(commit_lane);
+
+        if commit_lane < active_lanes.len() { active_lanes[commit_lane] = None; }
+
+        // Pass-through for other active lanes
+        for (i, slot) in active_lanes.iter().enumerate() {
+            if slot.is_some() && i != commit_lane {
+                connectors.push(GraphConnector { row: row_idx, from_lane: i, to_lane: i, connector_type: "straight".to_string() });
+            }
+        }
+
+        if parents.is_empty() {
+            // Root commit
+        } else {
+            let first_parent = parents[0];
+            if let Some(&existing_lane) = oid_to_lane.get(&first_parent) {
+                if existing_lane != commit_lane {
+                    connectors.push(GraphConnector { row: row_idx, from_lane: existing_lane, to_lane: commit_lane, connector_type: "merge".to_string() });
+                    active_lanes[commit_lane] = None;
+                } else {
+                    active_lanes[commit_lane] = Some(first_parent);
+                }
+            } else {
+                active_lanes[commit_lane] = Some(first_parent);
+                oid_to_lane.insert(first_parent, commit_lane);
+            }
+
+            for &parent_oid in &parents[1..] {
+                if let Some(&existing_lane) = oid_to_lane.get(&parent_oid) {
+                    connectors.push(GraphConnector { row: row_idx, from_lane: existing_lane, to_lane: commit_lane, connector_type: "merge".to_string() });
+                } else {
+                    let new_lane = active_lanes.iter().position(|l| l.is_none()).unwrap_or(active_lanes.len());
+                    if new_lane >= active_lanes.len() { active_lanes.push(None); }
+                    max_lane = max_lane.max(new_lane);
+                    active_lanes[new_lane] = Some(parent_oid);
+                    oid_to_lane.insert(parent_oid, new_lane);
+                    connectors.push(GraphConnector { row: row_idx, from_lane: new_lane, to_lane: commit_lane, connector_type: "merge".to_string() });
+                }
+            }
+        }
+        oid_to_lane.insert(*oid, commit_lane);
+    }
+
+    // 5. Build result
+    let commits: Vec<CommitGraphNode> = commit_list.iter().map(|(oid, _)| {
+        let lane = oid_to_lane.get(oid).copied().unwrap_or(0);
+        let (short_hash, message, author, time_ago, timestamp, is_merge) = node_map.get(oid)
+            .cloned().unwrap_or_default();
+        CommitGraphNode {
+            hash: oid.to_string(),
+            short_hash, message, author, timestamp, time_ago, lane, is_merge,
+            branch_labels: branch_tips.get(oid).cloned().unwrap_or_default(),
+            tag_labels: tag_tips.get(oid).cloned().unwrap_or_default(),
+        }
+    }).collect();
+
+    Ok(CommitGraphResult { commits, connectors, lane_count: max_lane + 1 })
 }
 
 // ===========================================================================
@@ -5249,7 +5197,7 @@ pub fn run() {
             git_push,
             git_pull,
             // Branch graph (feat-git-branch-graph)
-            fetch_branch_graph,
+            fetch_commit_graph,
             // AI Agent Service
             agent_chat_stream,
             store_api_key,
