@@ -22,7 +22,6 @@ pending:
     name: "PM Agent LLM 提供商切换（Settings 默认值 + 聊天区下拉覆盖）"
     priority: 85
     created_at: "2026-04-06T14:00:00Z"
-    notes: "spec 文件需重新生成"
 blocked: []
 
 completed:

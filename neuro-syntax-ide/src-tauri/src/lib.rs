@@ -2938,6 +2938,7 @@ async fn fetch_git_branches(
 /// A node in the branch topology graph returned by fetch_branch_graph.
 #[derive(Debug, Serialize, Clone)]
 pub struct BranchGraphData {
+    #[serde(rename = "id")]
     pub name: String,
     pub r#type: String, // "branch" | "merge" | "fork"
     pub latest_commit: String,
@@ -2990,6 +2991,7 @@ async fn fetch_branch_graph(
 
     // Load completed features from queue.yaml for matching
     let completed_features: std::collections::HashMap<String, String> = {
+        let mut map: std::collections::HashMap<String, String> = std::collections::HashMap::new();
         let queue_path = PathBuf::from(&workspace)
             .join("feature-workflow")
             .join("queue.yaml");
@@ -3002,18 +3004,7 @@ async fn fetch_branch_graph(
                                 if let Some(id) = entry.get("id").and_then(|v| v.as_str()) {
                                     // Try to match by tag: completed features have tags like "feat-xxx-20260403"
                                     if let Some(tag) = entry.get("tag").and_then(|v| v.as_str()) {
-                                        // Extract feature ID from tag: "feat-xxx-20260403" -> "feat-xxx"
-                                        let feat_name = tag.rsplit_once('-')
-                                            .and_then(|(prefix, rest)| {
-                                                // Check if rest ends with a date pattern
-                                                if let Some(pos) = rest.rfind('-') {
-                                                    Some(format!("{}-{}", prefix, &rest[..pos]))
-                                                } else {
-                                                    Some(tag.clone())
-                                                }
-                                            })
-                                            .unwrap_or_else(|| id.to_string());
-                                        completed_features.insert(tag.to_string(), id.to_string());
+                                        map.insert(tag.to_string(), id.to_string());
                                     }
                                 }
                             }
@@ -3022,7 +3013,7 @@ async fn fetch_branch_graph(
                 }
             }
         }
-        completed_features
+        map
     };
 
     // Collect branch data
@@ -3052,24 +3043,25 @@ async fn fetch_branch_graph(
             .unwrap_or_else(|| (String::new(), String::new()));
 
         // Try to match with completed feature tags
-        let feature_id = {
+        let feature_id: Option<String> = {
             // Match by branch name pattern: "feature/feat-xxx" -> feature tag "feat-xxx-*"
             if name.starts_with("feature/") {
                 let feat_slug = &name["feature/".len()..];
                 // Find matching tag
-                for (tag_key, feat_id) in &completed_features {
+                completed_features.iter().find_map(|(tag_key, feat_id)| {
                     if tag_key.starts_with(feat_slug) {
-                        break Some(feat_id.clone());
+                        Some(feat_id.clone())
+                    } else {
+                        None
                     }
-                }
-                None
+                })
             } else {
                 None
             }
         };
 
         nodes.push(BranchGraphData {
-            name,
+            name: name.clone(),
             r#type: "branch".to_string(),
             latest_commit: latest_hash,
             latest_message,
@@ -3396,7 +3388,7 @@ async fn fetch_tag_diff(
     } else {
         // First tag: diff against empty tree
         let empty_tree = repo.find_tree(
-            repo.treebuilder(None).and_then(|mut tb| tb.write())
+            repo.treebuilder(None).and_then(|tb| tb.write())
                 .map_err(|e| format!("Failed to create empty tree: {}", e))?
         ).map_err(|e| format!("Failed to find empty tree: {}", e))?;
         repo.diff_tree_to_tree(Some(&empty_tree), Some(&tag_tree), None)

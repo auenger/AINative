@@ -1,4 +1,4 @@
-# Checklist: feat-git-branch-graph
+# Checklist: feat-git-tag-expand
 
 ## Completion Checklist
 
@@ -9,8 +9,7 @@
 ### Code Quality
 - [ ] Code style follows conventions (cn() for styles, React.FC pattern)
 - [ ] Types centralized in types.ts
-- [ ] Rust commands follow existing naming pattern
-- [ ] SVG 渲染使用内联组件，不引入额外图形库
+- [ ] Rust commands follow existing naming pattern (fetch_git_xxx)
 
 ### Testing
 - [ ] Unit tests written (if needed)
