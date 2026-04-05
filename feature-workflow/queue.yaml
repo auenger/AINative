@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-06T18:30:00Z"
+  last_updated: "2026-04-06T21:00:00Z"
   version: 1
 
 parents:
@@ -23,24 +23,14 @@ pending:
     priority: 85
     created_at: "2026-04-06T14:00:00Z"
     notes: "spec 文件需重新生成"
-  - id: feat-git-tag-detail-graph
-    name: "Git Tag 详情展开 + Branch/Feature 连线图"
-    priority: 65
-    created_at: "2026-04-06T10:00:00Z"
-    split: true
-    children:
-      - feat-git-tag-expand
-      - feat-git-branch-graph
-  - id: feat-git-branch-graph
-    name: "Branch & Feature 连线图（拓扑可视化）"
-    priority: 60
-    created_at: "2026-04-06T10:00:00Z"
-    parent: feat-git-tag-detail-graph
-    depends_on:
-      - feat-git-tag-expand
 blocked: []
 
 completed:
+  - id: feat-git-branch-graph
+    name: "Branch & Feature 连线图（拓扑可视化）"
+    completed_at: "2026-04-06T21:00:00Z"
+    tag: feat-git-branch-graph-20260406
+    parent: feat-git-tag-detail-graph
   - id: feat-git-tag-expand
     name: "Tag 详情展开（动态加载提交历史与文件变动）"
     completed_at: "2026-04-06T18:30:00Z"

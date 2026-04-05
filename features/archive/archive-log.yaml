@@ -1,10 +1,36 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-06T17:00:00Z"
+  last_updated: "2026-04-06T21:00:00Z"
   version: 1
-  total_completed: 55
+  total_completed: 56
 
 records:
+  - id: feat-git-branch-graph
+    name: "Branch & Feature 连线图（拓扑可视化）"
+    completed_at: "2026-04-06T21:00:00Z"
+    tag: feat-git-branch-graph-20260406
+    merge_commit: b92b7a9
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-git-branch-graph
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-git-branch-graph
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-04-06T19:00:00Z"
+      duration: "~2h"
+      commits: 2
+      files_changed: 4
+      insertions: 671
+      deletions: 4
+      parent: feat-git-tag-detail-graph
+
   - id: feat-editor-save-status
     name: "编辑器保存状态优化（移除 Run + 状态可视化 + 快捷键）"
     completed_at: "2026-04-06T17:00:00Z"
