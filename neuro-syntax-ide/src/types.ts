@@ -144,10 +144,33 @@ export interface TagDetail {
 }
 
 /** Tab identifiers for the Git modal sidebar navigation. */
-export type GitModalTab = 'overview' | 'branches' | 'tags' | 'history' | 'changes' | 'features';
+export type GitModalTab = 'overview' | 'branches' | 'tags' | 'history' | 'changes' | 'features' | 'graph';
+
+// ---------------------------------------------------------------------------
+// Branch graph types (feat-git-branch-graph)
+// ---------------------------------------------------------------------------
+
+/** A node in the branch topology graph. */
+export interface BranchGraphNode {
+  id: string;           // branch name
+  type: 'branch' | 'merge' | 'fork';
+  latest_commit: string;
+  latest_message: string;
+  feature_id?: string;  // matched feature ID from queue.yaml
+  x?: number;           // layout coordinate (frontend-computed)
+  y?: number;
+}
+
+/** An edge connecting two nodes in the branch graph. */
+export interface BranchGraphEdge {
+  from: string;         // source branch name
+  to: string;           // target branch name
+  type: 'fork' | 'merge' | 'linear';
+}
 
 // ---------------------------------------------------------------------------
 // Settings & LLM Provider types (feat-settings-llm-config)
+// ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
 /** A single LLM provider configuration (OpenAI-compatible). */

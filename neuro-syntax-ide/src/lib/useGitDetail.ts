@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { GitTag, GitCommit, GitBranch, TagDetail, TagFileChange } from '../types';
+import type { GitTag, GitCommit, GitBranch, TagDetail, TagFileChange, BranchGraphNode, BranchGraphEdge } from '../types';
 
 /**
  * Hook that fetches extended Git repository details: tags, commit log, branches.
@@ -17,6 +17,11 @@ export function useGitDetail() {
   const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set());
   const [tagDetails, setTagDetails] = useState<Map<string, TagDetail>>(new Map());
   const [tagLoading, setTagLoading] = useState<Set<string>>(new Set());
+
+  // Branch graph state (feat-git-branch-graph)
+  const [graphNodes, setGraphNodes] = useState<BranchGraphNode[]>([]);
+  const [graphEdges, setGraphEdges] = useState<BranchGraphEdge[]>([]);
+  const [graphLoading, setGraphLoading] = useState(false);
 
   const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
@@ -52,15 +57,18 @@ export function useGitDetail() {
     try {
       const { invoke } = await import('@tauri-apps/api/core');
 
-      const [tagsResult, commitsResult, branchesResult] = await Promise.all([
+      const [tagsResult, commitsResult, branchesResult, graphResult] = await Promise.all([
         invoke<GitTag[]>('fetch_git_tags'),
         invoke<GitCommit[]>('fetch_git_log', { limit: 50 }),
         invoke<GitBranch[]>('fetch_git_branches'),
+        invoke<{ nodes: BranchGraphNode[]; edges: BranchGraphEdge[] }>('fetch_branch_graph'),
       ]);
 
       setTags(tagsResult);
       setCommits(commitsResult);
       setBranches(branchesResult);
+      setGraphNodes(graphResult.nodes);
+      setGraphEdges(graphResult.edges);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
       setError(message);
@@ -159,5 +167,7 @@ export function useGitDetail() {
     refreshAll, loadMoreCommits,
     // Tag expand (feat-git-tag-expand)
     expandedTags, tagDetails, tagLoading, toggleTagExpand,
+    // Branch graph (feat-git-branch-graph)
+    graphNodes, graphEdges, graphLoading,
   };
 }

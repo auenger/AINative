@@ -2932,6 +2932,242 @@ async fn fetch_git_branches(
 }
 
 // ===========================================================================
+// Tauri commands - Branch graph (feat-git-branch-graph)
+// ===========================================================================
+
+/// A node in the branch topology graph returned by fetch_branch_graph.
+#[derive(Debug, Serialize, Clone)]
+pub struct BranchGraphData {
+    pub name: String,
+    pub r#type: String, // "branch" | "merge" | "fork"
+    pub latest_commit: String,
+    pub latest_message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub feature_id: Option<String>,
+}
+
+/// An edge in the branch topology graph.
+#[derive(Debug, Serialize, Clone)]
+pub struct BranchGraphEdgeData {
+    pub from: String,
+    pub to: String,
+    pub r#type: String, // "fork" | "merge" | "linear"
+}
+
+/// Result of fetch_branch_graph: nodes + edges.
+#[derive(Debug, Serialize, Clone)]
+pub struct BranchGraphResult {
+    pub nodes: Vec<BranchGraphData>,
+    pub edges: Vec<BranchGraphEdgeData>,
+}
+
+/// Fetch branch topology graph data for the /// Returns all local branches with fork/merge relationships and/// and matches feature tags from queue.yaml completed features.
+#[tauri::command]
+async fn fetch_branch_graph(
+    state: tauri::State<'_, AppState>,
+) -> Result<BranchGraphResult, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo_path = PathBuf::from(&workspace);
+    let repo = git2::Repository::discover(&repo_path)
+        .map_err(|e| format!("Not a git repository: {}", e))?;
+
+    // Get current branch
+    let current_branch = repo.head()
+        .ok()
+        .and_then(|h| h.shorthand().map(|s| s.to_string()))
+        .unwrap_or_default();
+
+    // Collect all local branches with their tip commit OIDs
+    let branch_iter = repo.branches(Some(git2::BranchType::Local))
+        .map_err(|e| format!("Failed to list branches: {}", e))?;
+
+    let mut nodes: Vec<BranchGraphData> = Vec::new();
+    let mut edges: Vec<BranchGraphEdgeData> = Vec::new();
+
+    // Load completed features from queue.yaml for matching
+    let completed_features: std::collections::HashMap<String, String> = {
+        let queue_path = PathBuf::from(&workspace)
+            .join("feature-workflow")
+            .join("queue.yaml");
+        if queue_path.exists() {
+            if let Ok(content) = fs::read_to_string(&queue_path) {
+                if let Ok(queue) = serde_yaml::from_str::<serde_yaml::Value>(&content) {
+                    if let Some(completed) = queue.get("completed") {
+                        if let Some(arr) = completed.as_sequence() {
+                            for entry in arr {
+                                if let Some(id) = entry.get("id").and_then(|v| v.as_str()) {
+                                    // Try to match by tag: completed features have tags like "feat-xxx-20260403"
+                                    if let Some(tag) = entry.get("tag").and_then(|v| v.as_str()) {
+                                        // Extract feature ID from tag: "feat-xxx-20260403" -> "feat-xxx"
+                                        let feat_name = tag.rsplit_once('-')
+                                            .and_then(|(prefix, rest)| {
+                                                // Check if rest ends with a date pattern
+                                                if let Some(pos) = rest.rfind('-') {
+                                                    Some(format!("{}-{}", prefix, &rest[..pos]))
+                                                } else {
+                                                    Some(tag.clone())
+                                                }
+                                            })
+                                            .unwrap_or_else(|| id.to_string());
+                                        completed_features.insert(tag.to_string(), id.to_string());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        completed_features
+    };
+
+    // Collect branch data
+    let mut branch_tips: Vec<(String, git2::Oid)> = Vec::new();
+    for branch_result in branch_iter {
+        let (branch, _bt) = branch_result.map_err(|e| format!("Branch iteration error: {}", e))?;
+        let name = branch.name()
+            .ok()
+            .flatten()
+            .unwrap_or("(unknown)")
+            .to_string();
+
+        let is_current = name == current_branch;
+
+        let (latest_message, latest_hash) = branch.get().target()
+            .and_then(|oid| repo.find_commit(oid).ok())
+            .map(|c| {
+                let msg = c.message()
+                    .unwrap_or("(no message)")
+                    .lines()
+                    .next()
+                    .unwrap_or("")
+                    .to_string();
+                let hash = format!("{:.7}", c.id());
+                (msg, hash)
+            })
+            .unwrap_or_else(|| (String::new(), String::new()));
+
+        // Try to match with completed feature tags
+        let feature_id = {
+            // Match by branch name pattern: "feature/feat-xxx" -> feature tag "feat-xxx-*"
+            if name.starts_with("feature/") {
+                let feat_slug = &name["feature/".len()..];
+                // Find matching tag
+                for (tag_key, feat_id) in &completed_features {
+                    if tag_key.starts_with(feat_slug) {
+                        break Some(feat_id.clone());
+                    }
+                }
+                None
+            } else {
+                None
+            }
+        };
+
+        nodes.push(BranchGraphData {
+            name,
+            r#type: "branch".to_string(),
+            latest_commit: latest_hash,
+            latest_message,
+            feature_id,
+        });
+
+        if let Some(tip_oid) = branch.get().target() {
+            branch_tips.push((name, tip_oid));
+        }
+    }
+
+    // Compute fork/merge relationships by finding merge bases between branches
+    // For each pair of branches, find their merge-base
+    for i in 0..branch_tips.len() {
+        for j in (i+1)..branch_tips.len() {
+            let (name_a, oid_a) = &branch_tips[i];
+            let (name_b, oid_b) = &branch_tips[j];
+
+            if let Ok(merge_oid) = repo.merge_base(*oid_a, *oid_b) {
+                // Determine relationship: which branch forked from which
+                let commit_a = repo.find_commit(*oid_a);
+                let commit_b = repo.find_commit(*oid_b);
+                let commit_merge = repo.find_commit(merge_oid);
+
+                if let (Ok(ca), Ok(cb), Ok(cm)) = (commit_a, commit_b, commit_merge) {
+                    let time_a = ca.time().seconds();
+                    let time_b = cb.time().seconds();
+                    let time_m = cm.time().seconds();
+
+                    // Skip if merge base is the same as one of the tips (direct ancestor)
+                    if merge_oid == *oid_a || merge_oid == *oid_b {
+                        // Linear relationship: one is ancestor of the other
+                        if time_a > time_b {
+                            // b is older, a is descendant
+                            edges.push(BranchGraphEdgeData {
+                                from: name_b.clone(),
+                                to: name_a.clone(),
+                                r#type: "linear".to_string(),
+                            });
+                        } else if time_b > time_a {
+                            edges.push(BranchGraphEdgeData {
+                                from: name_a.clone(),
+                                to: name_b.clone(),
+                                r#type: "linear".to_string(),
+                            });
+                        }
+                        continue;
+                    }
+
+                    // Fork: the merge base is an ancestor of both branches
+                    // Both branches diverged from a common ancestor
+                    // The older branch is considered the "from" (source)
+                    if time_a < time_b {
+                        // a was created first, b forked from a's lineage
+                        edges.push(BranchGraphEdgeData {
+                            from: name_a.clone(),
+                            to: name_b.clone(),
+                            r#type: "fork".to_string(),
+                        });
+                    } else {
+                        edges.push(BranchGraphEdgeData {
+                            from: name_b.clone(),
+                            to: name_a.clone(),
+                            r#type: "fork".to_string(),
+                        });
+                    }
+
+                    // Check if there's also a merge back
+                    // A merge commit has >1 parent
+                    if let Ok(merge_commit) = repo.find_commit(merge_oid) {
+                        // Check if this merge_oid is actually a merge commit on either branch's path
+                        // For simplicity, we check if merge_commit has 2+ parents
+                        if merge_commit.parent_count() > 1 {
+                            edges.push(BranchGraphEdgeData {
+                                from: name_b.clone(),
+                                to: name_a.clone(),
+                                r#type: "merge".to_string(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort nodes: main first, then current, then alphabetical
+    nodes.sort_by(|a, b| {
+        if a.name == "main" { return std::cmp::Ordering::Less; }
+        if b.name == "main" { return std::cmp::Ordering::Greater; }
+        if a.name == current_branch { return std::cmp::Ordering::Less; }
+        if b.name == current_branch { return std::cmp::Ordering::Greater; }
+        a.name.cmp(&b.name)
+    });
+
+    Ok(BranchGraphResult { nodes, edges })
+}
+
+// ===========================================================================
 // Tauri commands - Tag detail expand (feat-git-tag-expand)
 // ===========================================================================
 
@@ -5020,6 +5256,8 @@ pub fn run() {
             // Git push & pull (feat-git-push-pull)
             git_push,
             git_pull,
+            // Branch graph (feat-git-branch-graph)
+            fetch_branch_graph,
             // AI Agent Service
             agent_chat_stream,
             store_api_key,
