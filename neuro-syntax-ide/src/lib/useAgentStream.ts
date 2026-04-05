@@ -108,6 +108,8 @@ export function useAgentStream(options: UseAgentStreamOptions) {
   const [apiKeyConfigured, setApiKeyConfigured] = useState<boolean | null>(null);
   const streamingTextRef = useRef<string>('');
   const chunkUnlistenRef = useRef<(() => void) | null>(null);
+  // Track the current streaming request ID to detect stale is_done events from process_exit
+  const currentRequestIdRef = useRef<number>(0);
 
   // Session-related state (only used when useSessions is true)
   const [connectionState, setConnectionState] = useState<Connection_State>(useSessions ? 'disconnected' : 'connected');
@@ -121,6 +123,11 @@ export function useAgentStream(options: UseAgentStreamOptions) {
   // Ref to track current runtimeId for closures that need the live value
   const runtimeIdRef = useRef(runtimeId);
   runtimeIdRef.current = runtimeId;
+
+  // Ref to track current sessionId for closures that need the live value (avoids stale closure)
+  const sessionIdRef = useRef<string | null>(null);
+  // Sync sessionIdRef whenever sessionId state changes
+  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
 
   // --- Persist messages to localStorage ---
   useEffect(() => {
@@ -200,11 +207,22 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       // Capture real session_id from CLI response (first message establishes the session)
       if (chunk.session_id) {
         setSessionId(chunk.session_id);
+        sessionIdRef.current = chunk.session_id; // Immediate sync for ref
         try { localStorage.setItem(`${optionsRef.current.storageKey ?? `agent-stream-${optionsRef.current.runtimeId}`}-session`, chunk.session_id); } catch { /* ignore */ }
       }
 
-      // Handle error chunks (but not stderr -- those are just diagnostics)
-      if (chunk.error && chunk.type !== 'stderr') {
+      // Handle error chunks
+      if (chunk.error) {
+        if (chunk.type === 'stderr') {
+          // stderr errors: log for diagnostics but don't break streaming
+          console.warn('[Agent CLI stderr]', chunk.error);
+          // If we're NOT streaming yet (no text received) and get a fatal stderr, surface it
+          if (!streamingTextRef.current) {
+            // Could be a real error (e.g. session not found) -- show to user
+            setError(chunk.error);
+          }
+          return;
+        }
         setError(chunk.error);
         if (chunk.is_done) {
           setIsStreaming(false);
@@ -228,6 +246,22 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       }
 
       if (chunk.is_done) {
+        // For process_exit events in session mode: only process if currently streaming.
+        // This prevents stale process_exit from a previous CLI invocation from
+        // interfering with a new request (e.g. adding "(No response received)").
+        if (chunk.type === 'process_exit' && useSessions) {
+          // In session mode, process_exit from a previous request is expected.
+          // Only act on it if we're still actively streaming for the current request.
+          // The "result" type is_done is the authoritative completion signal.
+          // If we already have streaming text, process_exit is harmless and should be ignored.
+          if (streamingTextRef.current) {
+            // We already received content -- process_exit is just cleanup, ignore it.
+            return;
+          }
+          // No text received yet and process_exit -- this means the CLI exited without
+          // producing any output. This is the real "no response" case.
+        }
+
         setIsStreaming(false);
         if (!streamingTextRef.current) {
           setMessages((prev) => [
@@ -411,6 +445,9 @@ export function useAgentStream(options: UseAgentStreamOptions) {
 
       setIsStreaming(true);
       streamingTextRef.current = '';
+      // Increment request ID to distinguish this request from stale process_exit events
+      currentRequestIdRef.current += 1;
+      const thisRequestId = currentRequestIdRef.current;
 
       try {
         const { invoke } = await import('@tauri-apps/api/core');
@@ -441,7 +478,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
         await invoke('runtime_execute', {
           runtimeId: currentRuntimeId,
           message: messagePayload,
-          sessionId: sessionId,
+          sessionId: sessionIdRef.current,
           systemPrompt: systemPrompt,
         });
       } catch (e: any) {
@@ -450,7 +487,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
         if (useSessions) setConnectionState('error');
       }
     },
-    [connectionState, startSession, sessionId, messages, registerChunkListener, systemPrompt, greetingMessage, useSessions],
+    [connectionState, startSession, messages, registerChunkListener, systemPrompt, greetingMessage, useSessions],
   );
 
   // ---------------------------------------------------------------------------
