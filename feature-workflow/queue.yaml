@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-06T21:00:00Z"
+  last_updated: "2026-04-06T10:30:00Z"
   version: 1
 
 parents:
@@ -17,14 +17,14 @@ parents:
 
 active: []
 
-pending:
-  - id: feat-pm-agent-provider-switch
-    name: "PM Agent LLM 提供商切换（Settings 默认值 + 聊天区下拉覆盖）"
-    priority: 85
-    created_at: "2026-04-06T14:00:00Z"
+pending: []
 blocked: []
 
 completed:
+  - id: feat-pm-agent-provider-switch
+    name: "PM Agent LLM 提供商切换（Settings 默认值 + 聊天区下拉覆盖）"
+    completed_at: "2026-04-06T10:30:00Z"
+    tag: feat-pm-agent-provider-switch-20260405
   - id: feat-git-branch-graph
     name: "Branch & Feature 连线图（拓扑可视化）"
     completed_at: "2026-04-06T21:00:00Z"

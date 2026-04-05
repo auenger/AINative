@@ -132,7 +132,20 @@ And 用户回到 PM Agent 标签时，provider 仍为 "openai"
 - [ ] 警告提示样式与现有设计系统一致
 
 ### General Checklist
-- [ ] 不修改 Settings 持久化逻辑
-- [ ] 不引入新依赖
-- [ ] 保持现有 chat 消息不清空
+- [x] 不修改 Settings 持久化逻辑
+- [x] 不引入新依赖
+- [x] 保持现有 chat 消息不清空
+
+## Merge Record
+
+| Field | Value |
+|-------|-------|
+| completed_at | 2026-04-06T10:30:00Z |
+| merged_branch | feature/feat-pm-agent-provider-switch |
+| merge_commit | 1ca69f5 |
+| archive_tag | feat-pm-agent-provider-switch-20260405 |
+| conflicts | none |
+| verification | passed (5/5 Gherkin, 0 TS diagnostics, build OK) |
+| commits | 1 |
+| files_changed | 8 |
 - [ ] 兼容 dev mode（非 Tauri 环境）

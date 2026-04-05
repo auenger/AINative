@@ -1,10 +1,36 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-05T09:30:00Z"
+  last_updated: "2026-04-06T10:30:00Z"
   version: 1
-  total_completed: 56
+  total_completed: 57
 
 records:
+  - id: feat-pm-agent-provider-switch
+    name: "PM Agent LLM 提供商切换（Settings 默认值 + 聊天区下拉覆盖）"
+    completed_at: "2026-04-06T10:30:00Z"
+    tag: feat-pm-agent-provider-switch-20260405
+    merge_commit: 1ca69f5
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-pm-agent-provider-switch
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-pm-agent-provider-switch
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 5
+      scenarios_passed: 5
+    stats:
+      started: "2026-04-06T22:00:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 8
+      insertions: 359
+      deletions: 74
+    archive_path: features/archive/done-feat-pm-agent-provider-switch-20260405
+
   - id: feat-git-branch-graph
     name: "Branch & Feature 连线图（拓扑可视化）"
     completed_at: "2026-04-06T21:00:00Z"
