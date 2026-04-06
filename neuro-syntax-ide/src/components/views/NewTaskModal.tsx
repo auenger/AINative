@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Bot,
   Terminal,
@@ -101,6 +101,44 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
 
   // Streaming text ref for dispatch_to_runtime path
   const streamingRef = useRef<string>('');
+
+  // Modal drag state
+  const [modalPos, setModalPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDraggingModal, setIsDraggingModal] = useState(false);
+  const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const handleModalHeaderMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    setIsDraggingModal(true);
+    dragOffsetRef.current = {
+      x: e.clientX - modalPos.x,
+      y: e.clientY - modalPos.y,
+    };
+  }, [modalPos]);
+
+  useEffect(() => {
+    if (!isDraggingModal) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newX = e.clientX - dragOffsetRef.current.x;
+      const newY = e.clientY - dragOffsetRef.current.y;
+      const clampedX = Math.max(-window.innerWidth * 0.3, Math.min(window.innerWidth * 0.5, newX));
+      const clampedY = Math.max(-window.innerHeight * 0.4, Math.min(window.innerHeight - 80, newY));
+      setModalPos({ x: clampedX, y: clampedY });
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingModal(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingModal]);
 
   // Build agent options list
   const agentOptions: AgentOption[] = [
@@ -291,6 +329,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
     setPreviewContent('');
     setFeatureCreated(false);
     setCreatedFeatureId(null);
+    setModalPos({ x: 0, y: 0 });
 
     if (featureCreated && onFeatureCreated) {
       onFeatureCreated();
@@ -357,12 +396,30 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
       {/* Modal */}
       <motion.div
         initial={{ scale: 0.9, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
+        animate={{ scale: 1, opacity: 1, x: modalPos.x, y: modalPos.y }}
         exit={{ scale: 0.9, opacity: 0, y: 20 }}
-        className="relative w-full max-w-xl bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl overflow-hidden"
+        style={{
+          position: 'relative',
+          top: 0,
+          left: 0,
+          minWidth: 480,
+          minHeight: 360,
+          resize: 'both',
+          overflow: 'hidden',
+        }}
+        className={cn(
+          "w-full max-w-xl bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl overflow-hidden",
+          isDraggingModal && "select-none"
+        )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/10">
+        <div
+          onMouseDown={handleModalHeaderMouseDown}
+          className={cn(
+            "flex items-center justify-between px-6 py-4 border-b border-outline-variant/10",
+            isDraggingModal ? "cursor-grabbing" : "cursor-grab"
+          )}
+        >
           <div>
             <h3 className="text-lg font-bold text-on-surface">Create New Feature</h3>
             <p className="text-[10px] text-on-surface-variant mt-0.5">
@@ -372,6 +429,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
           <div className="flex items-center gap-3">
             <StepIndicator />
             <button
+              onMouseDown={(e) => e.stopPropagation()}
               onClick={handleClose}
               className="p-1.5 hover:bg-surface-container-high rounded-lg transition-colors"
             >
