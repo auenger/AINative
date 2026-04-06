@@ -450,3 +450,32 @@ export type MdEditorMode = 'preview' | 'edit';
 
 /** Agent action types for Feature Detail Modal Agent tab. */
 export type AgentActionType = 'review' | 'modify' | 'develop';
+
+// ---------------------------------------------------------------------------
+// PMFile types (feat-agent-multimodal-upload)
+// ---------------------------------------------------------------------------
+
+/** Metadata for a file in the PMFile directory. */
+export interface PMFileEntry {
+  name: string;
+  path: string;
+  size: number;
+  /** Category type: "image" | "audio" | "pdf" | "document" | "markdown" | etc. */
+  file_type: string;
+  /** Last modified time as formatted string. */
+  modified: string;
+}
+
+/** Upload status for a file being uploaded. */
+export type PMFileUploadStatus = 'uploading' | 'uploaded' | 'error';
+
+/** A file in the process of being uploaded. */
+export interface PMFileUploading {
+  /** Original file name. */
+  name: string;
+  /** Upload progress (0-100). */
+  progress: number;
+  status: PMFileUploadStatus;
+  /** Error message if status is 'error'. */
+  error?: string;
+}

@@ -5258,6 +5258,379 @@ async fn test_llm_connection(
 }
 
 // ===========================================================================
+// Tauri commands - PMFile management (feat-agent-multimodal-upload)
+// ===========================================================================
+
+/// MIME type whitelist for file uploads.
+const PMFILE_ALLOWED_EXTENSIONS: &[&str] = &[
+    "docx", "doc", "pdf", "txt", "md",
+    "png", "jpg", "jpeg", "gif", "bmp", "svg", "webp",
+    "wav", "mp3", "ogg", "flac", "aac", "m4a",
+    "csv", "xlsx", "xls", "json", "xml", "yaml", "yml",
+    "zip", "tar", "gz",
+];
+
+/// Maximum file size: 50 MB.
+const PMFILE_MAX_SIZE: u64 = 50 * 1024 * 1024;
+
+/// Metadata for a single file in the PMFile directory.
+#[derive(Debug, Serialize, Clone)]
+pub struct PmFileEntry {
+    pub name: String,
+    pub path: String,
+    pub size: u64,
+    pub file_type: String,
+    pub modified: String,
+}
+
+/// Result for pmfile_upload: lists successfully uploaded and rejected files.
+#[derive(Debug, Serialize, Clone)]
+pub struct PmFileUploadResult {
+    pub uploaded: Vec<PmFileEntry>,
+    pub rejected: Vec<PmFileRejection>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct PmFileRejection {
+    pub name: String,
+    pub reason: String,
+}
+
+/// Validate a file's extension against the whitelist.
+fn pmfile_validate_extension(file_name: &str) -> Result<(), String> {
+    let ext = file_name.rsplit('.').next()
+        .unwrap_or("")
+        .to_lowercase();
+    if PMFILE_ALLOWED_EXTENSIONS.contains(&ext.as_str()) {
+        Ok(())
+    } else {
+        Err(format!("不支持的文件类型: .{}", ext))
+    }
+}
+
+/// Get the PMFile directory path for a workspace.
+fn pmfile_dir(workspace: &str) -> PathBuf {
+    PathBuf::from(workspace).join("PMFile")
+}
+
+/// Ensure the PMFile directory exists.
+fn pmfile_ensure_dir(workspace: &str) -> Result<PathBuf, String> {
+    let dir = pmfile_dir(workspace);
+    if !dir.exists() {
+        fs::create_dir_all(&dir)
+            .map_err(|e| format!("Failed to create PMFile directory: {}", e))?;
+    }
+    Ok(dir)
+}
+
+/// Generate a non-conflicting filename by appending a counter if needed.
+fn pmfile_unique_name(dir: &PathBuf, name: &str) -> String {
+    let target = dir.join(name);
+    if !target.exists() {
+        return name.to_string();
+    }
+    let stem = name.rsplit_once('.').map(|(s, _)| s).unwrap_or(name);
+    let ext = name.rsplit_once('.').map(|(_, e)| e).unwrap_or("");
+    let mut counter = 1u32;
+    loop {
+        let new_name = if ext.is_empty() {
+            format!("{}-{}", stem, counter)
+        } else {
+            format!("{}-{}.{}", stem, counter, ext)
+        };
+        if !dir.join(&new_name).exists() {
+            return new_name;
+        }
+        counter += 1;
+    }
+}
+
+/// Categorize file type by extension for display purposes.
+fn pmfile_file_type(name: &str) -> String {
+    let ext = name.rsplit('.').next()
+        .unwrap_or("")
+        .to_lowercase();
+    match ext.as_str() {
+        "png" | "jpg" | "jpeg" | "gif" | "bmp" | "svg" | "webp" => "image",
+        "wav" | "mp3" | "ogg" | "flac" | "aac" | "m4a" => "audio",
+        "pdf" => "pdf",
+        "docx" | "doc" => "document",
+        "md" => "markdown",
+        "csv" | "xlsx" | "xls" => "spreadsheet",
+        "json" | "xml" | "yaml" | "yml" => "data",
+        "zip" | "tar" | "gz" => "archive",
+        _ => "file",
+    }.to_string()
+}
+
+/// Upload (copy) files to the workspace's PMFile directory.
+/// Validates MIME types, checks file size, and handles name conflicts.
+#[tauri::command]
+async fn pmfile_upload(
+    state: tauri::State<'_, AppState>,
+    file_paths: Vec<String>,
+) -> Result<PmFileUploadResult, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let dir = pmfile_ensure_dir(&workspace)?;
+    let mut uploaded: Vec<PmFileEntry> = Vec::new();
+    let mut rejected: Vec<PmFileRejection> = Vec::new();
+
+    for src_path_str in &file_paths {
+        let src_path = PathBuf::from(src_path_str);
+        let file_name = src_path.file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "unknown".to_string());
+
+        // Validate extension
+        if let Err(e) = pmfile_validate_extension(&file_name) {
+            rejected.push(PmFileRejection { name: file_name, reason: e });
+            continue;
+        }
+
+        // Check file size
+        match fs::metadata(&src_path) {
+            Ok(meta) => {
+                if meta.len() > PMFILE_MAX_SIZE {
+                    rejected.push(PmFileRejection {
+                        name: file_name,
+                        reason: format!("文件过大 ({:.1} MB，上限 50 MB)", meta.len() as f64 / (1024.0 * 1024.0)),
+                    });
+                    continue;
+                }
+            }
+            Err(e) => {
+                rejected.push(PmFileRejection { name: file_name, reason: format!("无法读取文件: {}", e) });
+                continue;
+            }
+        }
+
+        // Resolve name conflict
+        let final_name = pmfile_unique_name(&dir, &file_name);
+        let dest = dir.join(&final_name);
+
+        // Copy the file
+        if let Err(e) = fs::copy(&src_path, &dest) {
+            rejected.push(PmFileRejection { name: file_name, reason: format!("复制失败: {}", e) });
+            continue;
+        }
+
+        // Build metadata
+        let meta = fs::metadata(&dest).unwrap_or_else(|_| fs::symlink_metadata(&dest).unwrap());
+        let modified = meta.modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| {
+                chrono::DateTime::from_timestamp(d.as_secs() as i64, 0)
+                    .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                    .unwrap_or_default()
+            })
+            .unwrap_or_default();
+
+        uploaded.push(PmFileEntry {
+            name: final_name,
+            path: dest.to_string_lossy().to_string(),
+            size: meta.len(),
+            file_type: pmfile_file_type(&file_name),
+            modified,
+        });
+    }
+
+    Ok(PmFileUploadResult { uploaded, rejected })
+}
+
+/// Upload a single file from raw bytes (for drag-and-drop from browser).
+#[tauri::command]
+async fn pmfile_upload_bytes(
+    state: tauri::State<'_, AppState>,
+    workspace_path: String,
+    file_name: String,
+    file_bytes: Vec<u8>,
+) -> Result<PmFileEntry, String> {
+    let workspace = if workspace_path.is_empty() {
+        state.workspace_path.lock().map_err(|e| e.to_string())?.clone()
+    } else {
+        workspace_path
+    };
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    // Validate extension
+    if let Err(e) = pmfile_validate_extension(&file_name) {
+        return Err(e);
+    }
+
+    // Check file size
+    if file_bytes.len() as u64 > PMFILE_MAX_SIZE {
+        return Err(format!("文件过大 ({:.1} MB，上限 50 MB)", file_bytes.len() as f64 / (1024.0 * 1024.0)));
+    }
+
+    let dir = pmfile_ensure_dir(&workspace)?;
+
+    // Resolve name conflict
+    let final_name = pmfile_unique_name(&dir, &file_name);
+    let dest = dir.join(&final_name);
+
+    // Write bytes
+    fs::write(&dest, &file_bytes)
+        .map_err(|e| format!("写入文件失败: {}", e))?;
+
+    let meta = fs::metadata(&dest).unwrap_or_else(|_| fs::symlink_metadata(&dest).unwrap());
+    let modified = meta.modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| {
+            chrono::DateTime::from_timestamp(d.as_secs() as i64, 0)
+                .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                .unwrap_or_default()
+        })
+        .unwrap_or_default();
+
+    Ok(PmFileEntry {
+        name: final_name,
+        path: dest.to_string_lossy().to_string(),
+        size: meta.len(),
+        file_type: pmfile_file_type(&file_name),
+        modified,
+    })
+}
+
+/// List all files in the workspace's PMFile directory.
+#[tauri::command]
+async fn pmfile_list(
+    state: tauri::State<'_, AppState>,
+    workspace_path: Option<String>,
+) -> Result<Vec<PmFileEntry>, String> {
+    let workspace = workspace_path.unwrap_or_else(|| {
+        state.workspace_path.lock().map(|s| s.clone()).unwrap_or_default()
+    });
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let dir = pmfile_dir(&workspace);
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut entries: Vec<PmFileEntry> = fs::read_dir(&dir)
+        .map_err(|e| format!("Failed to read PMFile directory: {}", e))?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().map(|ft| ft.is_file()).unwrap_or(false))
+        .map(|e| {
+            let name = e.file_name().to_string_lossy().to_string();
+            let path = e.path().to_string_lossy().to_string();
+            let meta = e.metadata().ok();
+            let size = meta.as_ref().map(|m| m.len()).unwrap_or(0);
+            let modified = meta.as_ref()
+                .and_then(|m| m.modified().ok())
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| {
+                    chrono::DateTime::from_timestamp(d.as_secs() as i64, 0)
+                        .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                        .unwrap_or_default()
+                })
+                .unwrap_or_default();
+            let file_type = pmfile_file_type(&name);
+            PmFileEntry {
+                name,
+                path,
+                size,
+                file_type,
+                modified,
+            }
+        })
+        .collect();
+
+    // Sort by name
+    entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+
+    Ok(entries)
+}
+
+/// Delete a file from the PMFile directory.
+#[tauri::command]
+async fn pmfile_delete(
+    state: tauri::State<'_, AppState>,
+    workspace_path: String,
+    file_name: String,
+) -> Result<(), String> {
+    let workspace = if workspace_path.is_empty() {
+        state.workspace_path.lock().map_err(|e| e.to_string())?.clone()
+    } else {
+        workspace_path
+    };
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let dir = pmfile_dir(&workspace);
+    let file_path = dir.join(&file_name);
+
+    // Security: ensure the path is inside the PMFile directory
+    if dir.exists() {
+        let canonical_dir = dir.canonicalize().map_err(|e| format!("PMFile dir not found: {}", e))?;
+        if file_path.exists() {
+            let canonical_file = file_path.canonicalize().map_err(|e| format!("File not found: {}", e))?;
+            if !canonical_file.starts_with(&canonical_dir) {
+                return Err("Path traversal: file is not in PMFile directory".into());
+            }
+        }
+    }
+
+    fs::remove_file(&file_path)
+        .map_err(|e| format!("Failed to delete '{}': {}", file_name, e))?;
+
+    Ok(())
+}
+
+/// Rename a file in the PMFile directory.
+#[tauri::command]
+async fn pmfile_rename(
+    state: tauri::State<'_, AppState>,
+    workspace_path: String,
+    old_name: String,
+    new_name: String,
+) -> Result<(), String> {
+    let workspace = if workspace_path.is_empty() {
+        state.workspace_path.lock().map_err(|e| e.to_string())?.clone()
+    } else {
+        workspace_path
+    };
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let dir = pmfile_dir(&workspace);
+    let old_path = dir.join(&old_name);
+    let new_path = dir.join(&new_name);
+
+    // Security: ensure paths are inside PMFile directory
+    if dir.exists() {
+        let canonical_dir = dir.canonicalize().map_err(|e| format!("PMFile dir not found: {}", e))?;
+        if old_path.exists() {
+            let canonical_old = old_path.canonicalize().map_err(|e| format!("File not found: {}", e))?;
+            if !canonical_old.starts_with(&canonical_dir) {
+                return Err("Path traversal: source file is not in PMFile directory".into());
+            }
+        }
+    }
+
+    if new_path.exists() {
+        return Err(format!("文件 '{}' 已存在", new_name));
+    }
+
+    fs::rename(&old_path, &new_path)
+        .map_err(|e| format!("Failed to rename '{}' to '{}': {}", old_name, new_name, e))?;
+
+    Ok(())
+}
+
+// ===========================================================================
 // Application entry point
 // ===========================================================================
 
@@ -5346,6 +5719,12 @@ pub fn run() {
             read_settings,
             write_settings,
             test_llm_connection,
+            // PMFile management (feat-agent-multimodal-upload)
+            pmfile_upload,
+            pmfile_upload_bytes,
+            pmfile_list,
+            pmfile_delete,
+            pmfile_rename,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
