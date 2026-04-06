@@ -227,6 +227,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
   const loading = workspace?.loading ?? false;
   const isTauri = workspace?.isTauri ?? false;
   const selectWorkspace = workspace?.selectWorkspace ?? (async () => {});
+  const loadFileTree = workspace?.loadFileTree ?? (async () => {});
 
   // -----------------------------------------------------------------------
   // File Tab state (Monaco multi-tab)
@@ -244,6 +245,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
   const [terminalOpen, setTerminalOpen] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFileMenu, setShowFileMenu] = useState(false);
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
 
   // Multi-tab terminal state
@@ -702,7 +704,44 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
               >
                 <Search size={14} />
               </button>
-              <button className="p-1 hover:bg-surface-container-high rounded"><MoreVertical size={14} className="text-outline" /></button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowFileMenu(!showFileMenu)}
+                  className={cn(
+                    "p-1 hover:bg-surface-container-high rounded transition-colors",
+                    showFileMenu && "bg-surface-container-high"
+                  )}
+                >
+                  <MoreVertical size={14} className="text-outline" />
+                </button>
+                <AnimatePresence>
+                  {showFileMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                      transition={{ duration: 0.12 }}
+                      className="absolute right-0 top-full mt-1 bg-surface-container-high border border-outline-variant/20 rounded-md shadow-lg z-50 min-w-[140px] py-1"
+                    >
+                      <button
+                        onClick={async () => {
+                          setShowFileMenu(false);
+                          if (workspacePath) {
+                            await loadFileTree(workspacePath);
+                          }
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-on-surface hover:bg-primary/10 hover:text-primary transition-colors"
+                      >
+                        <RefreshCw size={12} />
+                        {t('editor.refreshTree', '刷新文件树')}
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                {showFileMenu && (
+                  <div className="fixed inset-0 z-40" onClick={() => setShowFileMenu(false)} />
+                )}
+              </div>
             </div>
           </div>
 

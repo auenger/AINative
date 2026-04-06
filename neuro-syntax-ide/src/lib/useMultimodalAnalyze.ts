@@ -136,6 +136,10 @@ export function useMultimodalAnalyze(workspacePath: string) {
           mdFilePath: md_path,
           streamedText: streamingTextRef.current.get(file_name) || '',
         });
+        // Check if any file is still analyzing
+        let stillAnalyzing = false;
+        next.forEach((s) => { if (s.status === 'analyzing') stillAnalyzing = true; });
+        if (!stillAnalyzing) setStatus('done');
         return next;
       });
 
@@ -163,6 +167,10 @@ export function useMultimodalAnalyze(workspacePath: string) {
             progress: 0,
             error: errMsg,
           });
+          // Check if any file is still analyzing
+          let stillAnalyzing = false;
+          next.forEach((s) => { if (s.status === 'analyzing') stillAnalyzing = true; });
+          if (!stillAnalyzing) setStatus('error');
           return next;
         });
 

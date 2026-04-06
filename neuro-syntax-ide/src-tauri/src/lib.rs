@@ -5,7 +5,9 @@ use std::fs;
 use std::io::{BufRead, BufReader, BufWriter, Write as IoWrite};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, Config as NotifyConfig, Event as NotifyEvent};
@@ -876,8 +878,14 @@ impl AgentRuntime for ClaudeCodeRuntime {
         args.push("--".to_string());
         args.push(params.message.clone());
 
-        // Spawn CLI process
-        let mut child = Command::new("claude")
+        // Spawn CLI process — set working directory to workspace so relative paths work correctly
+        let mut cmd = Command::new("claude");
+        if let Some(ref ws) = params.workspace {
+            if !ws.is_empty() {
+                cmd.current_dir(ws);
+            }
+        }
+        let mut child = cmd
             .args(&args)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -892,14 +900,28 @@ impl AgentRuntime for ClaudeCodeRuntime {
 
         let (tx, rx) = std::sync::mpsc::channel();
 
+        // Shared state for idle watchdog
+        let last_active = Arc::new(AtomicU64::new(
+            SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
+        ));
+        let process_done = Arc::new(AtomicBool::new(false));
+
         // --- stdout reader thread ---
         let tx_stdout = tx.clone();
+        let last_active_stdout = last_active.clone();
+        let process_done_stdout = process_done.clone();
         std::thread::spawn(move || {
             let reader = BufReader::new(stdout_handle);
             let mut got_result = false; // Track if we received a "result" message
             for line in reader.lines() {
                 match line {
                     Ok(text) => {
+                        // Update activity timestamp for idle watchdog
+                        last_active_stdout.store(
+                            SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs(),
+                            Ordering::Relaxed,
+                        );
+
                         let trimmed = text.trim();
                         if trimmed.is_empty() { continue; }
 
@@ -1008,6 +1030,9 @@ impl AgentRuntime for ClaudeCodeRuntime {
                 }
             }
 
+            // Mark process as done for idle watchdog
+            process_done_stdout.store(true, Ordering::Relaxed);
+
             // Process exited — only send process_exit is_done if we never received a result.
             // If a result was received, the forwarding thread already broke on is_done=true,
             // and sending another is_done here would be a stale event for the next request.
@@ -1024,6 +1049,7 @@ impl AgentRuntime for ClaudeCodeRuntime {
 
         // --- stderr reader thread ---
         let tx_stderr = tx.clone();
+        let last_active_stderr = last_active.clone();
         std::thread::spawn(move || {
             let reader = BufReader::new(stderr_handle);
             for line in reader.lines() {
@@ -1031,6 +1057,11 @@ impl AgentRuntime for ClaudeCodeRuntime {
                     Ok(text) => {
                         let trimmed = text.trim();
                         if !trimmed.is_empty() {
+                            // Update activity timestamp for idle watchdog
+                            last_active_stderr.store(
+                                SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs(),
+                                Ordering::Relaxed,
+                            );
                             // Log to server-side console for debugging
                             eprintln!("[ClaudeCodeRuntime] stderr: {}", trimmed);
                             let event = StreamEvent {
@@ -1048,18 +1079,40 @@ impl AgentRuntime for ClaudeCodeRuntime {
             }
         });
 
-        // --- timeout watcher thread ---
-        let timeout_secs = params.timeout_secs;
+        // --- idle watchdog thread ---
+        // Instead of a fixed wall-clock timeout, uses an activity-based idle timeout.
+        // As long as stdout/stderr keep producing data, the timer keeps resetting.
+        // Only triggers timeout after `timeout_secs` of continuous silence.
+        let idle_timeout_secs = params.timeout_secs;
         std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_secs(timeout_secs));
-            // If the channel is still open after timeout, send timeout event
-            let _ = tx.send(StreamEvent {
-                text: String::new(),
-                is_done: true,
-                error: Some(format!("Timeout: CLI process exceeded {} second limit", timeout_secs)),
-                msg_type: Some("timeout".to_string()),
-                session_id: None,
-            });
+            loop {
+                std::thread::sleep(Duration::from_secs(5));
+
+                // If process already exited, stop watchdog
+                if process_done.load(Ordering::Relaxed) {
+                    break;
+                }
+
+                let last = last_active.load(Ordering::Relaxed);
+                let now_secs = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs();
+
+                if now_secs.saturating_sub(last) > idle_timeout_secs {
+                    let _ = tx.send(StreamEvent {
+                        text: String::new(),
+                        is_done: true,
+                        error: Some(format!(
+                            "Timeout: no CLI output for {} seconds (idle timeout)",
+                            idle_timeout_secs
+                        )),
+                        msg_type: Some("timeout".to_string()),
+                        session_id: None,
+                    });
+                    break;
+                }
+            }
         });
 
         Ok(rx)
@@ -4051,6 +4104,55 @@ fn delete_api_key() -> Result<(), String> {
     Ok(())
 }
 
+/// Read the active LLM provider config from workspace settings.yaml.
+/// Returns (api_key, api_base, model) if a provider with HTTP API is configured.
+fn get_llm_provider_from_settings(workspace: &str) -> Option<(String, String, String)> {
+    let settings_path = PathBuf::from(workspace)
+        .join(".neuro")
+        .join("settings.yaml");
+
+    if !settings_path.exists() {
+        return None;
+    }
+
+    let content = fs::read_to_string(&settings_path).ok()?;
+    let settings: AppSettings = serde_yaml::from_str(&content).ok()?;
+
+    let provider_name = &settings.llm.provider;
+    if provider_name.is_empty() {
+        return None;
+    }
+
+    // Claude Code is a CLI bridge, not a direct HTTP API — skip it
+    if provider_name == "claude-code" {
+        // Try to find any other provider with api_key and api_base configured
+        for (name, config) in &settings.providers {
+            if name != "claude-code" && !config.api_key.is_empty() && !config.api_base.is_empty() {
+                let model = if settings.llm.model.is_empty() {
+                    "default".to_string()
+                } else {
+                    settings.llm.model.clone()
+                };
+                return Some((config.api_key.clone(), config.api_base.clone(), model));
+            }
+        }
+        return None;
+    }
+
+    let provider_config = settings.providers.get(provider_name)?;
+    if provider_config.api_key.is_empty() || provider_config.api_base.is_empty() {
+        return None;
+    }
+
+    let model = if settings.llm.model.is_empty() {
+        "default".to_string()
+    } else {
+        settings.llm.model.clone()
+    };
+
+    Some((provider_config.api_key.clone(), provider_config.api_base.clone(), model))
+}
+
 /// Internal helper to retrieve the API key (never exposed to frontend).
 fn get_api_key_inner() -> Result<String, String> {
     let entry = keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT)
@@ -5982,9 +6084,30 @@ async fn pmfile_analyze(
         file_name.clone(),
     ).await?;
 
-    // 2. Get API key
-    let api_key = get_api_key_inner()
-        .map_err(|e| format!("API Key 未配置: {}. 请在 Settings 中设置 Gemini API Key。", e))?;
+    // 2. Get API key & base URL — prefer settings provider, fall back to keyring + Gemini
+    let (api_key, api_base, model) = match get_llm_provider_from_settings(&workspace) {
+        Some(config) => config,
+        None => {
+            // Fallback: use keyring key + hardcoded Gemini URL
+            let key = get_api_key_inner()
+                .map_err(|e| format!(
+                    "API Key 未配置: {}. 请在 Settings 中配置一个 LLM Provider（如 OpenRouter、Gemini 等），或设置 Gemini API Key。",
+                    e
+                ))?;
+            (key, GEMINI_API_URL.to_string(), "gemini-2.0-flash".to_string())
+        }
+    };
+
+    // Build chat completions endpoint from api_base
+    let api_url = {
+        let base = api_base.trim_end_matches('/');
+        // If api_base already ends with /chat/completions, use as-is; otherwise append
+        if base.ends_with("/chat/completions") {
+            base.to_string()
+        } else {
+            format!("{}/chat/completions", base)
+        }
+    };
 
     // 3. Build prompt based on file type
     let file_type = &content_result.file_type;
@@ -6063,7 +6186,7 @@ async fn pmfile_analyze(
     }));
 
     let body = serde_json::json!({
-        "model": "gemini-2.0-flash",
+        "model": model,
         "messages": messages_payload,
         "stream": true,
         "max_tokens": 4096
@@ -6073,7 +6196,7 @@ async fn pmfile_analyze(
     let client = reqwest::Client::new();
 
     let response = client
-        .post(GEMINI_API_URL)
+        .post(&api_url)
         .header("Authorization", format!("Bearer {}", api_key))
         .header("Content-Type", "application/json")
         .json(&body)

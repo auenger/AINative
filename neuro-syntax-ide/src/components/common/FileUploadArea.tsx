@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import {
   Paperclip,
   X,
@@ -13,6 +13,8 @@ import {
   Sparkles,
   CheckCircle2,
   Zap,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { formatFileSize } from '../../lib/usePMFiles';
@@ -109,6 +111,7 @@ export const FileUploadArea: React.FC<FileUploadAreaProps> = ({
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [fileListCollapsed, setFileListCollapsed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- Drag & Drop handlers ---
@@ -158,6 +161,22 @@ export const FileUploadArea: React.FC<FileUploadAreaProps> = ({
 
   // Count analyzed files
   const analyzedCount = isFileAnalyzed ? files.filter(f => isFileAnalyzed(f.name)).length : 0;
+
+  // Sort files: un-analyzed first, then analyzed
+  const sortedFiles = useMemo(() => {
+    return [...files].sort((a, b) => {
+      const aDone = isFileAnalyzed?.(a.name) ?? false;
+      const bDone = isFileAnalyzed?.(b.name) ?? false;
+      const aAnalyzing = analyzeStates?.get(a.name)?.status === 'analyzing';
+      const bAnalyzing = analyzeStates?.get(b.name)?.status === 'analyzing';
+      // analyzing files first, then un-analyzed, then analyzed
+      if (aAnalyzing && !bAnalyzing) return -1;
+      if (!aAnalyzing && bAnalyzing) return 1;
+      if (!aDone && bDone) return -1;
+      if (aDone && !bDone) return 1;
+      return 0;
+    });
+  }, [files, isFileAnalyzed, analyzeStates]);
 
   return (
     <div
@@ -220,8 +239,25 @@ export const FileUploadArea: React.FC<FileUploadAreaProps> = ({
         </div>
       )}
 
-      {/* File list (uploaded + uploading) */}
+      {/* File list header (collapsible) */}
       {hasFiles && (
+        <button
+          onClick={() => setFileListCollapsed(!fileListCollapsed)}
+          className="w-full flex items-center gap-1.5 px-3 py-1 border-b border-outline-variant/10 bg-surface-container-low/50 hover:bg-surface-container-low transition-colors"
+        >
+          {fileListCollapsed ? <ChevronRight size={10} className="text-outline-variant" /> : <ChevronDown size={10} className="text-outline-variant" />}
+          <span className="text-[9px] font-medium text-on-surface-variant">
+            {files.length + uploadingFiles.length} file{files.length + uploadingFiles.length !== 1 ? 's' : ''}
+          </span>
+          <span className="text-[8px] text-outline-variant">
+            ({analyzedCount}/{files.length} analyzed)
+          </span>
+          {isAnalyzing && <Loader2 size={9} className="text-primary animate-spin ml-auto" />}
+        </button>
+      )}
+
+      {/* File list (uploaded + uploading) */}
+      {hasFiles && !fileListCollapsed && (
         <div className="max-h-[120px] overflow-y-auto scroll-hide border-b border-outline-variant/10 bg-surface-container-lowest/30">
           {/* Uploading files */}
           {uploadingFiles.map((uf) => (
@@ -245,8 +281,8 @@ export const FileUploadArea: React.FC<FileUploadAreaProps> = ({
             </div>
           ))}
 
-          {/* Uploaded files */}
-          {files.map((file) => {
+          {/* Uploaded files (sorted: analyzing first, then un-analyzed, then analyzed) */}
+          {sortedFiles.map((file) => {
             const isAnalyzed = isFileAnalyzed?.(file.name) ?? false;
             const analyzeState = analyzeStates?.get(file.name);
             const isFileAnalyzing = analyzeState?.status === 'analyzing';
@@ -263,7 +299,10 @@ export const FileUploadArea: React.FC<FileUploadAreaProps> = ({
                 ) : (
                   getFileIcon(file.file_type, file.name)
                 )}
-                <span className="text-[10px] text-on-surface truncate flex-1" title={file.name}>
+                <span className={cn(
+                  "text-[10px] truncate flex-1",
+                  isAnalyzed ? "text-on-surface-variant" : "text-on-surface"
+                )} title={file.name}>
                   {file.name}
                 </span>
                 <span className="text-[8px] text-on-surface-variant shrink-0">

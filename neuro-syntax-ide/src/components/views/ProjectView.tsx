@@ -394,6 +394,8 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
 
   // --- MD Explorer state (feat-project-md-explorer) ---
   const [mdFiles, setMdFiles] = useState<MdFileEntry[]>([]);
+  const [pmdmFiles, setPmdmFiles] = useState<MdFileEntry[]>([]);
+  const [pmdmExpanded, setPmdmExpanded] = useState(true);
   const [mdFilesLoading, setMdFilesLoading] = useState(false);
   const [mdFilesError, setMdFilesError] = useState<string | null>(null);
   const [selectedMdFile, setSelectedMdFile] = useState<MdFileEntry | null>(null);
@@ -407,25 +409,31 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
   const [mdSaveError, setMdSaveError] = useState<string | null>(null);
   const [mdSaveSuccess, setMdSaveSuccess] = useState(false);
 
-  /** Load .md file list from workspace root */
+  /** Load .md file list from workspace root + PMDM folder */
   const loadMdFiles = useCallback(async () => {
     if (!workspacePath) return;
     setMdFilesLoading(true);
     setMdFilesError(null);
     try {
       const { invoke } = await import('@tauri-apps/api/core');
-      const files = await invoke<MdFileEntry[]>('list_md_files', { dirPath: workspacePath });
+      const [files, pmdm] = await Promise.all([
+        invoke<MdFileEntry[]>('list_md_files', { dirPath: workspacePath }),
+        invoke<MdFileEntry[]>('pmdm_list', { workspacePath }).catch(() => [] as MdFileEntry[]),
+      ]);
       setMdFiles(files);
+      setPmdmFiles(pmdm);
       // Auto-select project-context.md if present, otherwise first file
-      if (files.length > 0 && !selectedMdFile) {
-        const projectCtx = files.find(f => f.name === 'project-context.md');
-        const toSelect = projectCtx || files[0];
+      const allFiles = [...files, ...pmdm];
+      if (allFiles.length > 0 && !selectedMdFile) {
+        const projectCtx = allFiles.find(f => f.name === 'project-context.md');
+        const toSelect = projectCtx || allFiles[0];
         await selectMdFileEntry(toSelect);
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setMdFilesError(msg);
       setMdFiles([]);
+      setPmdmFiles([]);
     } finally {
       setMdFilesLoading(false);
     }
@@ -1064,7 +1072,7 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                           ))}
                         </div>
                       )}
-                      <div className="relative flex items-end gap-1">
+                      <div className="relative flex flex-col gap-1">
                         {/* @ File Reference Picker */}
                         {multimodalChat.showFilePicker && (
                           <FileReferencePicker
@@ -1091,54 +1099,56 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
                           placeholder={t('project.chatPlaceholder')}
                           disabled={pmAgent.isStreaming}
-                          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg p-3 pl-16 pr-10 text-xs text-on-surface focus:outline-none focus:border-primary/50 resize-none h-20 scroll-hide disabled:opacity-50"
+                          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg p-3 text-xs text-on-surface focus:outline-none focus:border-primary/50 resize-none h-20 scroll-hide disabled:opacity-50"
                         />
-                        {/* @ Reference button */}
-                        <button
-                          onClick={multimodalChat.openFilePicker}
-                          disabled={pmAgent.isStreaming}
-                          className={cn(
-                            "absolute left-7 bottom-2 p-1.5 rounded-md transition-colors",
-                            pmAgent.isStreaming
-                              ? "text-outline-variant cursor-not-allowed"
-                              : multimodalChat.referencedFiles.length > 0
-                                ? "text-primary bg-primary/10"
+                        {/* Action buttons row */}
+                        <div className="flex items-center gap-1 px-1">
+                          <button
+                            onClick={() => pmFileInputRef.current?.click()}
+                            disabled={pmAgent.isStreaming}
+                            className={cn(
+                              "p-1.5 rounded-md transition-colors",
+                              pmAgent.isStreaming
+                                ? "text-outline-variant cursor-not-allowed"
                                 : "text-on-surface-variant hover:text-primary hover:bg-primary/10"
-                          )}
-                          title="Reference files (@)"
-                        >
-                          <AtSign size={16} />
-                        </button>
-                        {/* Attach button */}
-                        <button
-                          onClick={() => pmFileInputRef.current?.click()}
-                          disabled={pmAgent.isStreaming}
-                          className={cn(
-                            "absolute left-2 bottom-2 p-1.5 rounded-md transition-colors",
-                            pmAgent.isStreaming
-                              ? "text-outline-variant cursor-not-allowed"
-                              : "text-on-surface-variant hover:text-primary hover:bg-primary/10"
-                          )}
-                          title="Attach files"
-                        >
-                          <Paperclip size={16} />
-                        </button>
-                        <button
-                          onClick={handleSendMessage}
-                          disabled={pmAgent.isStreaming || !chatInput.trim()}
-                          className={cn(
-                            "absolute right-2 bottom-2 p-1.5 rounded-md transition-colors",
-                            pmAgent.isStreaming || !chatInput.trim()
-                              ? "text-outline-variant cursor-not-allowed"
-                              : "text-primary hover:bg-primary/10"
-                          )}
-                        >
-                          {pmAgent.isStreaming ? (
-                            <Loader2 size={16} className="animate-spin" />
-                          ) : (
-                            <Send size={16} />
-                          )}
-                        </button>
+                            )}
+                            title="Attach files"
+                          >
+                            <Paperclip size={14} />
+                          </button>
+                          <button
+                            onClick={multimodalChat.openFilePicker}
+                            disabled={pmAgent.isStreaming}
+                            className={cn(
+                              "p-1.5 rounded-md transition-colors",
+                              pmAgent.isStreaming
+                                ? "text-outline-variant cursor-not-allowed"
+                                : multimodalChat.referencedFiles.length > 0
+                                  ? "text-primary bg-primary/10"
+                                  : "text-on-surface-variant hover:text-primary hover:bg-primary/10"
+                            )}
+                            title="Reference files (@)"
+                          >
+                            <AtSign size={14} />
+                          </button>
+                          <div className="flex-1" />
+                          <button
+                            onClick={handleSendMessage}
+                            disabled={pmAgent.isStreaming || !chatInput.trim()}
+                            className={cn(
+                              "p-1.5 rounded-md transition-colors",
+                              pmAgent.isStreaming || !chatInput.trim()
+                                ? "text-outline-variant cursor-not-allowed"
+                                : "text-primary hover:bg-primary/10"
+                            )}
+                          >
+                            {pmAgent.isStreaming ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <Send size={14} />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1416,7 +1426,7 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                           ))}
                         </div>
                       )}
-                      <div className="relative flex items-end gap-1">
+                      <div className="relative flex flex-col gap-1">
                         {/* @ File Reference Picker for REQ */}
                         {multimodalChat.showFilePicker && (
                           <FileReferencePicker
@@ -1443,54 +1453,56 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleReqAgentSend())}
                           placeholder={t('project.reqAgentPlaceholder')}
                           disabled={reqAgent.isStreaming || reqAgent.connectionState === 'connecting'}
-                          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg p-3 pl-16 pr-10 text-xs text-on-surface focus:outline-none focus:border-primary/50 resize-none h-20 scroll-hide disabled:opacity-50"
+                          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg p-3 text-xs text-on-surface focus:outline-none focus:border-primary/50 resize-none h-20 scroll-hide disabled:opacity-50"
                         />
-                        {/* @ Reference button */}
-                        <button
-                          onClick={multimodalChat.openFilePicker}
-                          disabled={reqAgent.isStreaming || reqAgent.connectionState === 'connecting'}
-                          className={cn(
-                            "absolute left-7 bottom-2 p-1.5 rounded-md transition-colors",
-                            reqAgent.isStreaming || reqAgent.connectionState === 'connecting'
-                              ? "text-outline-variant cursor-not-allowed"
-                              : multimodalChat.referencedFiles.length > 0
-                                ? "text-primary bg-primary/10"
+                        {/* Action buttons row */}
+                        <div className="flex items-center gap-1 px-1">
+                          <button
+                            onClick={() => pmFileInputRef.current?.click()}
+                            disabled={reqAgent.isStreaming || reqAgent.connectionState === 'connecting'}
+                            className={cn(
+                              "p-1.5 rounded-md transition-colors",
+                              reqAgent.isStreaming || reqAgent.connectionState === 'connecting'
+                                ? "text-outline-variant cursor-not-allowed"
                                 : "text-on-surface-variant hover:text-primary hover:bg-primary/10"
-                          )}
-                          title="Reference files (@)"
-                        >
-                          <AtSign size={16} />
-                        </button>
-                        {/* Attach button */}
-                        <button
-                          onClick={() => pmFileInputRef.current?.click()}
-                          disabled={reqAgent.isStreaming || reqAgent.connectionState === 'connecting'}
-                          className={cn(
-                            "absolute left-2 bottom-2 p-1.5 rounded-md transition-colors",
-                            reqAgent.isStreaming || reqAgent.connectionState === 'connecting'
-                              ? "text-outline-variant cursor-not-allowed"
-                              : "text-on-surface-variant hover:text-primary hover:bg-primary/10"
-                          )}
-                          title="Attach files"
-                        >
-                          <Paperclip size={16} />
-                        </button>
-                        <button
-                          onClick={handleReqAgentSend}
-                          disabled={reqAgent.isStreaming || !reqChatInput.trim() || reqAgent.connectionState === 'connecting'}
-                          className={cn(
-                            "absolute right-2 bottom-2 p-1.5 rounded-md transition-colors",
-                            reqAgent.isStreaming || !reqChatInput.trim() || reqAgent.connectionState === 'connecting'
-                              ? "text-outline-variant cursor-not-allowed"
-                              : "text-primary hover:bg-primary/10"
-                          )}
-                        >
-                          {reqAgent.isStreaming ? (
-                            <Loader2 size={16} className="animate-spin" />
-                          ) : (
-                            <Send size={16} />
-                          )}
-                        </button>
+                            )}
+                            title="Attach files"
+                          >
+                            <Paperclip size={14} />
+                          </button>
+                          <button
+                            onClick={multimodalChat.openFilePicker}
+                            disabled={reqAgent.isStreaming || reqAgent.connectionState === 'connecting'}
+                            className={cn(
+                              "p-1.5 rounded-md transition-colors",
+                              reqAgent.isStreaming || reqAgent.connectionState === 'connecting'
+                                ? "text-outline-variant cursor-not-allowed"
+                                : multimodalChat.referencedFiles.length > 0
+                                  ? "text-primary bg-primary/10"
+                                  : "text-on-surface-variant hover:text-primary hover:bg-primary/10"
+                            )}
+                            title="Reference files (@)"
+                          >
+                            <AtSign size={14} />
+                          </button>
+                          <div className="flex-1" />
+                          <button
+                            onClick={handleReqAgentSend}
+                            disabled={reqAgent.isStreaming || !reqChatInput.trim() || reqAgent.connectionState === 'connecting'}
+                            className={cn(
+                              "p-1.5 rounded-md transition-colors",
+                              reqAgent.isStreaming || !reqChatInput.trim() || reqAgent.connectionState === 'connecting'
+                                ? "text-outline-variant cursor-not-allowed"
+                                : "text-primary hover:bg-primary/10"
+                            )}
+                          >
+                            {reqAgent.isStreaming ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <Send size={14} />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1539,13 +1551,14 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                   </div>
                 )}
 
-                {!mdFilesLoading && !mdFilesError && mdFiles.length === 0 && (
+                {!mdFilesLoading && !mdFilesError && mdFiles.length === 0 && pmdmFiles.length === 0 && (
                   <div className="p-3 text-center">
                     <FileText size={16} className="text-outline-variant mx-auto mb-2 opacity-40" />
                     <p className="text-[9px] text-on-surface-variant opacity-60">No .md files found</p>
                   </div>
                 )}
 
+                {/* Root MD files */}
                 {!mdFilesLoading && mdFiles.map((file) => (
                   <button
                     key={file.path}
@@ -1563,12 +1576,50 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                       selectedMdFile?.path === file.path ? "text-primary" : "text-outline-variant group-hover:text-on-surface-variant"
                     )} />
                     <span className="truncate flex-1">{file.name}</span>
-                    {/* Dirty indicator dot */}
                     {selectedMdFile?.path === file.path && mdIsDirty && (
                       <span className="w-1.5 h-1.5 rounded-full bg-warning shrink-0" />
                     )}
                   </button>
                 ))}
+
+                {/* PMDM folder section */}
+                {!mdFilesLoading && pmdmFiles.length > 0 && (
+                  <>
+                    {/* PMDM folder header */}
+                    <button
+                      onClick={() => setPmdmExpanded(!pmdmExpanded)}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant hover:bg-surface-container-high/30 transition-colors border-t border-outline-variant/10"
+                    >
+                      {pmdmExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+                      <Folder size={10} className="text-tertiary" />
+                      <span className="flex-1 text-left">PMDM</span>
+                      <span className="text-[8px] text-outline-variant font-normal">{pmdmFiles.length}</span>
+                    </button>
+                    {/* PMDM files */}
+                    {pmdmExpanded && pmdmFiles.map((file) => (
+                      <button
+                        key={file.path}
+                        onClick={() => selectMdFileEntry(file)}
+                        className={cn(
+                          "w-full flex items-center gap-2 pl-6 pr-3 py-1.5 text-[10px] transition-colors text-left group",
+                          selectedMdFile?.path === file.path
+                            ? "bg-primary/10 text-primary font-bold border-r-2 border-primary"
+                            : "text-on-surface-variant hover:bg-surface-container-high/40 hover:text-on-surface"
+                        )}
+                        title={file.path}
+                      >
+                        <FileText size={10} className={cn(
+                          "shrink-0",
+                          selectedMdFile?.path === file.path ? "text-primary" : "text-outline-variant group-hover:text-on-surface-variant"
+                        )} />
+                        <span className="truncate flex-1">{file.name}</span>
+                        {selectedMdFile?.path === file.path && mdIsDirty && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-warning shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                  </>
+                )}
               </div>
             </div>
 
@@ -1668,7 +1719,7 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                 )}
 
                 {/* No .md files at all */}
-                {!mdFilesLoading && !mdFilesError && mdFiles.length === 0 && (
+                {!mdFilesLoading && !mdFilesError && mdFiles.length === 0 && pmdmFiles.length === 0 && (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center space-y-3 max-w-xs">
                       <div className="w-12 h-12 bg-outline-variant/10 rounded-full flex items-center justify-center mx-auto">

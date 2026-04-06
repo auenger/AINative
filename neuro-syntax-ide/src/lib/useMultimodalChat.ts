@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { PMFileEntry } from '../types';
+import type { FileNode, PMFileEntry } from '../types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,6 +54,8 @@ export function useMultimodalChat(workspacePath: string) {
   const pmdmFilesCache = useRef<{ name: string; path: string }[]>([]);
   // Cache for PMFile entries
   const pmFileCache = useRef<PMFileEntry[]>([]);
+  // Cache for workspace tree (all files & folders)
+  const workspaceTreeCache = useRef<PMFileEntry[]>([]);
 
   // -----------------------------------------------------------------------
   // PMDM & PMFile data loading
@@ -83,6 +85,37 @@ export function useMultimodalChat(workspacePath: string) {
     }
   }, [workspacePath]);
 
+  /** Flatten FileNode tree into a list of PMFileEntry-like items. */
+  function flattenTree(nodes: FileNode[], prefix: string): PMFileEntry[] {
+    const result: PMFileEntry[] = [];
+    for (const node of nodes) {
+      const display = prefix ? `${prefix}/${node.name}` : node.name;
+      result.push({
+        name: display,
+        path: node.path,
+        size: 0,
+        file_type: node.isDir ? 'folder' : 'file',
+        modified: '',
+      });
+      if (node.isDir && node.children) {
+        result.push(...flattenTree(node.children, display));
+      }
+    }
+    return result;
+  }
+
+  /** Load workspace file tree (all files & folders). */
+  const loadWorkspaceTree = useCallback(async () => {
+    if (!isTauri || !workspacePath) return;
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const tree: FileNode[] = await invoke('read_file_tree', { path: workspacePath });
+      workspaceTreeCache.current = flattenTree(tree, '');
+    } catch {
+      workspaceTreeCache.current = [];
+    }
+  }, [workspacePath]);
+
   /** Load analysis content for a specific file. */
   const loadAnalysisContent = useCallback(async (analysisPath: string): Promise<string | null> => {
     // Check cache first
@@ -107,7 +140,8 @@ export function useMultimodalChat(workspacePath: string) {
   useEffect(() => {
     loadPmdmFiles();
     loadPmFiles();
-  }, [loadPmdmFiles, loadPmFiles]);
+    loadWorkspaceTree();
+  }, [loadPmdmFiles, loadPmFiles, loadWorkspaceTree]);
 
   // -----------------------------------------------------------------------
   // File reference management
@@ -316,9 +350,9 @@ When referencing file content, cite the source file name. If multiple files are 
   // File picker helpers
   // -----------------------------------------------------------------------
 
-  /** Get available files for the picker, optionally filtered. */
+  /** Get available files for the picker — workspace tree (all files & folders). */
   const getAvailableFiles = useCallback((): PMFileEntry[] => {
-    const files = pmFileCache.current;
+    const files = workspaceTreeCache.current;
     if (!filePickerFilter) return files;
     const lower = filePickerFilter.toLowerCase();
     return files.filter((f) => f.name.toLowerCase().includes(lower));
@@ -326,11 +360,12 @@ When referencing file content, cite the source file name. If multiple files are 
 
   /** Open the file picker. */
   const openFilePicker = useCallback(() => {
+    loadWorkspaceTree();
     loadPmFiles();
     loadPmdmFiles();
     setFilePickerFilter('');
     setShowFilePicker(true);
-  }, [loadPmFiles, loadPmdmFiles]);
+  }, [loadWorkspaceTree, loadPmFiles, loadPmdmFiles]);
 
   /** Close the file picker. */
   const closeFilePicker = useCallback(() => {
@@ -420,5 +455,6 @@ ${allContext}
     // Data refresh
     loadPmFiles,
     loadPmdmFiles,
+    loadWorkspaceTree,
   };
 }

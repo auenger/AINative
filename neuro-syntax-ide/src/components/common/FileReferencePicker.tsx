@@ -4,6 +4,7 @@ import {
   Image,
   Music,
   File,
+  Folder,
   CheckCircle2,
   Search,
   X,
@@ -19,6 +20,8 @@ import type { PMFileEntry } from '../../types';
 
 function getFileIcon(fileType: string, name: string) {
   switch (fileType) {
+    case 'folder':
+      return <Folder size={12} className="text-amber-400" />;
     case 'image':
       return <Image size={12} className="text-blue-400" />;
     case 'audio':
@@ -155,13 +158,18 @@ export const FileReferencePicker: React.FC<FileReferencePickerProps> = ({
           <div className="px-3 py-4 text-center">
             <FileText size={16} className="text-outline-variant mx-auto mb-1 opacity-40" />
             <p className="text-[10px] text-on-surface-variant opacity-60">
-              {files.length === 0 ? 'No files uploaded yet' : 'No matching files'}
+              {files.length === 0 ? 'No files in workspace' : 'No matching files'}
             </p>
           </div>
         ) : (
           filteredFiles.map((file) => {
             const isReferenced = referencedNames.includes(file.name);
             const isAnalyzed = isFileAnalyzed?.(file.name) ?? false;
+            const isFolder = file.file_type === 'folder';
+            // Display: show short name, with parent path as subtle prefix
+            const lastSlash = file.name.lastIndexOf('/');
+            const parentPath = lastSlash >= 0 ? file.name.slice(0, lastSlash + 1) : '';
+            const shortName = lastSlash >= 0 ? file.name.slice(lastSlash + 1) : file.name;
 
             return (
               <button
@@ -185,10 +193,17 @@ export const FileReferencePicker: React.FC<FileReferencePickerProps> = ({
                 ) : (
                   getFileIcon(file.file_type, file.name)
                 )}
-                <span className="truncate flex-1">{file.name}</span>
-                <span className="text-[8px] text-on-surface-variant shrink-0">
-                  {formatFileSize(file.size)}
+                <span className="truncate flex-1">
+                  {parentPath && (
+                    <span className="text-on-surface-variant/50">{parentPath}</span>
+                  )}
+                  {shortName}
                 </span>
+                {!isFolder && file.size > 0 && (
+                  <span className="text-[8px] text-on-surface-variant shrink-0">
+                    {formatFileSize(file.size)}
+                  </span>
+                )}
                 {isAnalyzed && (
                   <Sparkles size={9} className="text-emerald-400 shrink-0" />
                 )}
@@ -201,7 +216,7 @@ export const FileReferencePicker: React.FC<FileReferencePickerProps> = ({
       {/* Footer hint */}
       <div className="px-3 py-1.5 border-t border-outline-variant/10 bg-surface-container-lowest/50">
         <p className="text-[8px] text-on-surface-variant opacity-60">
-          Click to toggle reference | Esc to close | {filteredFiles.length} file{filteredFiles.length !== 1 ? 's' : ''}
+          Click to reference | Esc to close | {filteredFiles.length} item{filteredFiles.length !== 1 ? 's' : ''}
         </p>
       </div>
     </div>
