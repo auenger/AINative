@@ -29,7 +29,25 @@
 - feat-agent-multimodal-analyze — 文件分析基础
 
 ## Technical Solution
-<!-- To be filled during implementation -->
+- Created `useMultimodalChat` hook for file reference management, @ mention parsing, PMDM context injection, and comprehensive report generation
+- Created `FileReferencePicker` component with search/filter UI, `FileReferenceTag` inline tags, and `FileAttachmentCard` for message bubbles
+- Modified `ProjectView.tsx` to integrate @ file reference into both PM Agent and REQ Agent chat inputs
+- Added `FileReference` type to `types.ts`
+- Token limit handling via `MAX_CONTEXT_CHARS = 12000` with auto-truncation
+- Message enrichment via `enrichMessage()` resolves @mentions and loads PMDM analysis context before sending to Agent
+
+## Merge Record
+- **Completed**: 2026-04-07T06:00:00Z
+- **Branch**: feature/feat-agent-multimodal-chat
+- **Merge Commit**: 83401eb
+- **Archive Tag**: feat-agent-multimodal-chat-20260407
+- **Conflicts**: none
+- **Verification**: passed (4/4 scenarios)
+- **Commits**: 2 (implementation + verification)
+- **Files Changed**: 8 (2 new, 6 modified)
+- **Insertions**: 1054
+- **Deletions**: 8
+- **Duration**: ~1h
 
 ## Acceptance Criteria (Gherkin)
 ### User Story
