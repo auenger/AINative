@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-07T03:30:00Z"
+  last_updated: "2026-04-07T04:30:00Z"
   version: 1
 
 parents:
@@ -18,11 +18,6 @@ parents:
 active: []
 
 pending:
-  - id: feat-agent-multimodal-analyze
-    name: "多模态文件分析与 MD 文档生成"
-    priority: 65
-    parent: feat-agent-multimodal
-    depends_on: feat-agent-multimodal-upload
   - id: feat-agent-multimodal-chat
     name: "Agent 对话多模态集成"
     priority: 60
@@ -34,6 +29,10 @@ pending:
 blocked: []
 
 completed:
+  - id: feat-agent-multimodal-analyze
+    name: "多模态文件分析与 MD 文档生成"
+    completed_at: "2026-04-07T04:30:00Z"
+    tag: feat-agent-multimodal-analyze-20260407
   - id: feat-agent-multimodal-upload
     name: "Agent 多模态文件上传与管理"
     completed_at: "2026-04-07T03:30:00Z"
