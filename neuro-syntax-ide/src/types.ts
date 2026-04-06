@@ -443,3 +443,10 @@ export interface MdFileEntry {
 
 /** Editor mode for the MD Explorer content area. */
 export type MdEditorMode = 'preview' | 'edit';
+
+// ---------------------------------------------------------------------------
+// Agent Conversation types (feat-agent-conversation)
+// ---------------------------------------------------------------------------
+
+/** Agent action types for Feature Detail Modal Agent tab. */
+export type AgentActionType = 'review' | 'modify' | 'develop';

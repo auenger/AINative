@@ -21,12 +21,17 @@ import {
   AlertTriangle,
   FileText,
   ListChecks,
-  ClipboardCheck
+  ClipboardCheck,
+  Bot,
+  Send,
+  AlertCircle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useQueueData, FeatureNode, QueueName } from '../../lib/useQueueData';
+import { useAgentRuntimes } from '../../lib/useAgentRuntimes';
+import type { AgentActionType } from '../../types';
 
 /** 智能时间格式化：返回相对时间与绝对时间 */
 function formatUpdatedTime(date: Date): { relative: string; absolute: string } {
@@ -74,6 +79,8 @@ function formatUpdatedTime(date: Date): { relative: string; absolute: string } {
 }
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { NewTaskModal } from './NewTaskModal';
+
+const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
 // ---------------------------------------------------------------------------
 // Board column config
@@ -284,7 +291,17 @@ export const TaskBoard: React.FC = () => {
   const [selectedFeature, setSelectedFeature] = useState<FeatureNode | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<Record<string, string> | null>(null);
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
-  const [detailTab, setDetailTab] = useState<'spec' | 'tasks' | 'checklist'>('spec');
+  const [detailTab, setDetailTab] = useState<'spec' | 'tasks' | 'checklist' | 'agent'>('spec');
+
+  // Agent tab state
+  const { runtimes, scanning, scan: scanRuntimes } = useAgentRuntimes();
+  const [agentAction, setAgentAction] = useState<AgentActionType>('review');
+  const [agentInput, setAgentInput] = useState('');
+  const [agentSending, setAgentSending] = useState(false);
+  const [agentOutput, setAgentOutput] = useState('');
+  const [agentError, setAgentError] = useState<string | null>(null);
+  const [agentDone, setAgentDone] = useState(false);
+  const agentStreamingRef = useRef<string>('');
 
   // Drag state
   const draggedIdRef = useRef<string | null>(null);
@@ -336,6 +353,14 @@ export const TaskBoard: React.FC = () => {
     setSelectedDetail(null);
     setDetailTab('spec');
     setModalPos({ x: 0, y: 0 });
+    // Reset agent tab state
+    setAgentAction('review');
+    setAgentInput('');
+    setAgentSending(false);
+    setAgentOutput('');
+    setAgentError(null);
+    setAgentDone(false);
+    agentStreamingRef.current = '';
   }, []);
 
   const handleDragStart = useCallback((e: React.DragEvent, id: string) => {
@@ -376,6 +401,110 @@ export const TaskBoard: React.FC = () => {
   const allFeatures: FeatureNode[] = queueState
     ? [...queueState.active, ...queueState.pending, ...queueState.blocked, ...queueState.completed]
     : [];
+
+  // Agent tab: send handler
+  const handleAgentSend = useCallback(async () => {
+    if (!selectedFeature) return;
+    if (agentAction === 'modify' && !agentInput.trim()) return;
+
+    const claudeRuntime = runtimes.find(r => r.id === 'claude-code');
+    if (!claudeRuntime || claudeRuntime.status === 'not-installed') {
+      setAgentError('Claude Code runtime is not available. Please install it first.');
+      return;
+    }
+
+    setAgentSending(true);
+    setAgentOutput('');
+    setAgentError(null);
+    setAgentDone(false);
+    agentStreamingRef.current = '';
+
+    try {
+      const featureId = selectedFeature.id;
+      const specContent = selectedDetail?.['spec.md'] ?? '';
+      const taskContent = selectedDetail?.['task.md'] ?? '';
+
+      let prompt = '';
+      let skill = '/new-feature';
+
+      if (agentAction === 'review') {
+        prompt = `Review this feature spec for completeness and consistency:\n\n<spec>\n${specContent}\n</spec>\n\nUser notes: ${agentInput.trim() || '(none)'}`;
+      } else if (agentAction === 'modify') {
+        prompt = `Modify feature ${featureId}:\n\nUser modification request: ${agentInput.trim()}\n\nCurrent spec:\n<spec>\n${specContent}\n</spec>\n\nCurrent tasks:\n<tasks>\n${taskContent}\n</tasks>`;
+      } else {
+        // develop
+        skill = '/dev-agent';
+        prompt = featureId;
+      }
+
+      if (!isTauri) {
+        // Dev fallback: simulate agent execution
+        setAgentOutput('Connecting to Claude Code...\n');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setAgentOutput(prev => prev + `Executing ${skill}...\n`);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        const mockResult = agentAction === 'review'
+          ? 'Spec review complete. The feature spec looks well-structured. Consider adding more edge cases to the acceptance criteria.'
+          : agentAction === 'modify'
+          ? `Feature ${featureId} has been modified according to your instructions.`
+          : `Development started for feature ${featureId}.`;
+        setAgentOutput(prev => prev + '\n' + mockResult);
+        setAgentDone(true);
+        setAgentSending(false);
+        // Auto-refresh detail after completion
+        const detail = await readDetail(featureId);
+        if (detail) setSelectedDetail(detail);
+        await refresh();
+        return;
+      }
+
+      const { invoke } = await import('@tauri-apps/api/core');
+      const { listen } = await import('@tauri-apps/api/event');
+
+      // Listen for streaming output from external runtime
+      const unlisten = await listen<{ text: string; is_done: boolean; error?: string }>(
+        'runtime_dispatch_chunk',
+        (event) => {
+          const chunk = event.payload;
+          if (chunk.error) {
+            setAgentError(chunk.error);
+            return;
+          }
+          if (chunk.text) {
+            agentStreamingRef.current += chunk.text;
+            setAgentOutput(agentStreamingRef.current);
+          }
+          if (chunk.is_done) {
+            unlisten();
+            setAgentDone(true);
+            // Auto-refresh detail after completion
+            readDetail(featureId).then(detail => {
+              if (detail) setSelectedDetail(detail);
+            });
+            refresh();
+          }
+        }
+      );
+
+      if (agentAction === 'develop') {
+        await invoke('dispatch_to_runtime', {
+          runtimeId: 'claude-code',
+          skill,
+          args: { feature: featureId },
+        });
+      } else {
+        await invoke('dispatch_to_runtime', {
+          runtimeId: 'claude-code',
+          skill,
+          args: { prompt },
+        });
+      }
+    } catch (e: any) {
+      setAgentError(e?.toString() ?? 'An unexpected error occurred during agent execution');
+    } finally {
+      setAgentSending(false);
+    }
+  }, [selectedFeature, selectedDetail, agentAction, agentInput, runtimes, readDetail, refresh]);
 
   // ---- Render helpers ----
 
@@ -726,7 +855,7 @@ export const TaskBoard: React.FC = () => {
                   </div>
                 )}
 
-                {/* Markdown detail tabs: Spec / Tasks / Checklist */}
+                {/* Markdown detail tabs: Spec / Tasks / Checklist / Agent */}
                 <div className="space-y-3">
                   {/* Tab bar */}
                   <div className="flex items-center gap-1 bg-surface-container-lowest p-1 rounded-lg border border-outline-variant/10">
@@ -734,6 +863,8 @@ export const TaskBoard: React.FC = () => {
                       { key: 'spec' as const, label: 'Spec', icon: FileText, file: 'spec.md' },
                       { key: 'tasks' as const, label: 'Tasks', icon: ListChecks, file: 'task.md' },
                       { key: 'checklist' as const, label: 'Checklist', icon: ClipboardCheck, file: 'checklist.md' },
+                      // Agent tab: only visible for non-completed features
+                      ...(selectedFeature.completed_at ? [] : [{ key: 'agent' as const, label: 'Agent', icon: Bot, file: '' }]),
                     ]).map(tab => {
                       const hasContent = !!selectedDetail?.[tab.file];
                       const TabIcon = tab.icon;
@@ -745,9 +876,11 @@ export const TaskBoard: React.FC = () => {
                             "flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded transition-all",
                             detailTab === tab.key
                               ? "bg-primary/20 text-primary shadow-sm"
-                              : hasContent
+                              : tab.key === 'agent'
                                 ? "text-on-surface-variant hover:text-on-surface"
-                                : "text-outline/50 cursor-default"
+                                : hasContent
+                                  ? "text-on-surface-variant hover:text-on-surface"
+                                  : "text-outline/50 cursor-default"
                           )}
                         >
                           <TabIcon size={12} />
@@ -792,6 +925,138 @@ export const TaskBoard: React.FC = () => {
                         </div>
                       )
                     )}
+                    {detailTab === 'agent' && (() => {
+                      const claudeRuntime = runtimes.find(r => r.id === 'claude-code');
+                      const isRuntimeAvailable = claudeRuntime && claudeRuntime.status !== 'not-installed';
+                      const isSendDisabled = agentSending || !isRuntimeAvailable || (agentAction === 'modify' && !agentInput.trim());
+
+                      return (
+                        <div className="space-y-4">
+                          {/* Runtime status */}
+                          {!isRuntimeAvailable ? (
+                            <div className="rounded-lg bg-[#ffb4ab]/10 border border-[#ffb4ab]/20 p-3">
+                              <div className="flex items-start gap-2">
+                                <AlertCircle size={14} className="text-[#ffb4ab] shrink-0 mt-0.5" />
+                                <div>
+                                  <p className="text-[11px] text-[#ffb4ab] font-medium">
+                                    Claude Code runtime is not available
+                                  </p>
+                                  {claudeRuntime?.install_hint && (
+                                    <p className="text-[9px] text-on-surface-variant mt-1 font-mono">
+                                      Install: {claudeRuntime.install_hint}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-tertiary" />
+                              <span className="text-[10px] font-bold text-tertiary uppercase tracking-wider">Claude Code</span>
+                              <span className="text-[9px] text-on-surface-variant">connected</span>
+                            </div>
+                          )}
+
+                          {/* Action type radio */}
+                          <div className="space-y-2">
+                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-outline">Action Type</h4>
+                            <div className="flex gap-2">
+                              {([
+                                { value: 'review' as const, label: 'Review', desc: 'Review spec completeness' },
+                                { value: 'modify' as const, label: 'Modify', desc: 'Modify requirements' },
+                                { value: 'develop' as const, label: 'Develop', desc: 'Start development' },
+                              ]).map(opt => (
+                                <button
+                                  key={opt.value}
+                                  onClick={() => { setAgentAction(opt.value); setAgentError(null); }}
+                                  className={cn(
+                                    'flex-1 p-2.5 rounded-lg border-2 text-center transition-all',
+                                    agentAction === opt.value
+                                      ? 'border-primary bg-primary/5'
+                                      : 'border-outline-variant/10 hover:border-primary/30',
+                                  )}
+                                >
+                                  <span className={cn(
+                                    "text-[10px] font-bold uppercase tracking-wider block",
+                                    agentAction === opt.value ? 'text-primary' : 'text-on-surface-variant'
+                                  )}>
+                                    {opt.label}
+                                  </span>
+                                  <span className="text-[8px] text-on-surface-variant/60 block mt-0.5">{opt.desc}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Additional input textarea */}
+                          <div className="space-y-1">
+                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-outline">
+                              Additional Notes
+                              {agentAction === 'modify' && <span className="text-[#ffb4ab] ml-1">(required)</span>}
+                            </h4>
+                            <textarea
+                              value={agentInput}
+                              onChange={e => setAgentInput(e.target.value)}
+                              placeholder={
+                                agentAction === 'review' ? 'Optional: specific areas to review...'
+                                : agentAction === 'modify' ? 'Describe your modifications...'
+                                : 'Optional: additional context for development...'
+                              }
+                              className={cn(
+                                'w-full h-20 px-3 py-2 rounded-lg text-[11px] bg-surface-container-high text-on-surface',
+                                'border border-outline-variant/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/30',
+                                'placeholder:text-on-surface-variant/40 resize-none outline-none transition-all',
+                                'font-body',
+                              )}
+                            />
+                          </div>
+
+                          {/* Send button */}
+                          <button
+                            onClick={handleAgentSend}
+                            disabled={isSendDisabled}
+                            className={cn(
+                              'flex items-center gap-1.5 px-5 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all',
+                              !isSendDisabled
+                                ? 'bg-primary text-on-primary hover:bg-primary/90'
+                                : 'bg-surface-container-highest text-outline cursor-not-allowed',
+                            )}
+                          >
+                            {agentSending ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <Send size={12} />
+                            )}
+                            {agentSending ? 'Sending...' : 'Send to Claude Code'}
+                          </button>
+
+                          {/* Error display */}
+                          {agentError && (
+                            <div className="rounded-lg bg-error/10 border border-error/20 p-3">
+                              <div className="flex items-start gap-2">
+                                <AlertCircle size={14} className="text-error shrink-0 mt-0.5" />
+                                <p className="text-[11px] text-error font-medium">{agentError}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Streaming output */}
+                          {agentOutput && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-outline">
+                                <span>Execution Result</span>
+                                {agentDone && <CheckCircle2 size={10} className="text-tertiary" />}
+                              </div>
+                              <div className="rounded-lg bg-surface-container-high border border-outline-variant/10 p-3 max-h-[240px] overflow-y-auto">
+                                <pre className="text-[11px] text-on-surface-variant whitespace-pre-wrap font-mono leading-relaxed">
+                                  {agentOutput}
+                                </pre>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
