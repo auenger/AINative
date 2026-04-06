@@ -852,13 +852,13 @@ impl AgentRuntime for ClaudeCodeRuntime {
             "--print".to_string(),
             "--output-format".to_string(),
             "stream-json".to_string(),
+            "--verbose".to_string(),
             "--dangerously-skip-permissions".to_string(),
         ];
 
         if let Some(ref sid) = params.session_id {
             args.push("--resume".to_string());
-            args.push("--session-id".to_string());
-            args.push(sid.clone());
+            args.push(sid.clone());  // session-id as positional arg after --resume
         }
 
         if let Some(ref sp) = params.system_prompt {
@@ -919,18 +919,48 @@ impl AgentRuntime for ClaudeCodeRuntime {
                                 if is_result { got_result = true; }
 
                                 // Extract text content based on message type
+                                // --verbose stream-json format:
+                                //   assistant: {"type":"assistant","message":{"content":[{"type":"text","text":"..."}]}}
+                                //   result:    {"type":"result","subtype":"success","result":"..."}
+                                //   system:    {"type":"system","subtype":"init",...}
+                                // Non-verbose format:
+                                //   assistant: {"type":"assistant","content":"..."}
+                                fn extract_content_blocks(val: &serde_json::Value) -> String {
+                                    if let Some(s) = val.as_str() {
+                                        s.to_string()
+                                    } else if let Some(arr) = val.as_array() {
+                                        arr.iter()
+                                            .filter_map(|item| {
+                                                if item.get("type").and_then(|t| t.as_str()) == Some("text") {
+                                                    item.get("text").and_then(|t| t.as_str()).map(|s| s.to_string())
+                                                } else {
+                                                    None
+                                                }
+                                            })
+                                            .collect::<Vec<_>>()
+                                            .join("")
+                                    } else {
+                                        String::new()
+                                    }
+                                }
+
                                 let text = if msg_type == "assistant" {
-                                    json_obj.get("content")
-                                        .and_then(|c| c.as_str())
-                                        .unwrap_or("")
-                                        .to_string()
+                                    // --verbose: content is nested under "message" key
+                                    if let Some(msg_obj) = json_obj.get("message") {
+                                        msg_obj.get("content")
+                                            .map(extract_content_blocks)
+                                            .unwrap_or_default()
+                                    } else {
+                                        // non-verbose: content at top level
+                                        json_obj.get("content")
+                                            .map(extract_content_blocks)
+                                            .unwrap_or_default()
+                                    }
                                 } else if is_result {
                                     String::new()
                                 } else if msg_type == "system" {
-                                    json_obj.get("content")
-                                        .and_then(|c| c.as_str())
-                                        .unwrap_or("")
-                                        .to_string()
+                                    // system init messages have no displayable text content
+                                    String::new()
                                 } else {
                                     trimmed.to_string()
                                 };
@@ -4480,14 +4510,14 @@ async fn req_agent_send_message(
     // Get workspace path for --add-dir
     let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
 
-    // Build CLI arguments: --print --resume to continue the conversation context
+    // Build CLI arguments: --print --resume <session-id> to continue the conversation context
     let mut args = vec![
         "--print".to_string(),
         "--output-format".to_string(),
         "stream-json".to_string(),
+        "--verbose".to_string(),
         "--resume".to_string(),
-        "--session-id".to_string(),
-        sid.clone(),
+        sid.clone(),  // session-id as positional arg after --resume
         "--append-system-prompt".to_string(),
         REQ_AGENT_SYSTEM_PROMPT.to_string(),
         "--permission-mode".to_string(),
@@ -4558,21 +4588,42 @@ async fn req_agent_send_message(
                             let is_result = msg_type == "result";
 
                             // Extract text content from assistant messages
+                            // --verbose: {"type":"assistant","message":{"content":[{"type":"text","text":"..."}]}}
+                            // non-verbose: {"type":"assistant","content":"..."}
+                            fn extract_content_blocks(val: &serde_json::Value) -> String {
+                                if let Some(s) = val.as_str() {
+                                    s.to_string()
+                                } else if let Some(arr) = val.as_array() {
+                                    arr.iter()
+                                        .filter_map(|item| {
+                                            if item.get("type").and_then(|t| t.as_str()) == Some("text") {
+                                                item.get("text").and_then(|t| t.as_str()).map(|s| s.to_string())
+                                            } else {
+                                                None
+                                            }
+                                        })
+                                        .collect::<Vec<_>>()
+                                        .join("")
+                                } else {
+                                    String::new()
+                                }
+                            }
+
                             let text = if msg_type == "assistant" {
-                                json_obj.get("content")
-                                    .and_then(|c| c.as_str())
-                                    .unwrap_or("")
-                                    .to_string()
+                                if let Some(msg_obj) = json_obj.get("message") {
+                                    msg_obj.get("content")
+                                        .map(extract_content_blocks)
+                                        .unwrap_or_default()
+                                } else {
+                                    json_obj.get("content")
+                                        .map(extract_content_blocks)
+                                        .unwrap_or_default()
+                                }
                             } else if is_result {
-                                // Result messages signal completion; text is empty
                                 String::new()
                             } else if msg_type == "system" {
-                                json_obj.get("content")
-                                    .and_then(|c| c.as_str())
-                                    .unwrap_or("")
-                                    .to_string()
+                                String::new()
                             } else {
-                                // Forward other message types as raw JSON
                                 trimmed.to_string()
                             };
 

@@ -1,10 +1,61 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-06T10:30:00Z"
+  last_updated: "2026-04-05T22:15:00Z"
   version: 1
-  total_completed: 57
+  total_completed: 59
 
 records:
+  - id: feat-load-project-context
+    name: "Project Context 真实文件加载"
+    completed_at: "2026-04-05T22:15:00Z"
+    tag: feat-load-project-context-20260405
+    merge_commit: 3ea4b5d
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-load-project-context
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-load-project-context
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-04-05T22:30:00Z"
+      duration: "~15min"
+      commits: 1
+      files_changed: 1
+      insertions: 121
+      deletions: 27
+    archive_path: features/archive/done-feat-load-project-context-20260405
+
+  - id: fix-req-agent-multiturn-v2
+    name: "REQ Agent 多轮对话修复 V2（第二轮无响应根因修复）"
+    completed_at: "2026-04-05T20:25:00Z"
+    tag: fix-req-agent-multiturn-v2-20260405
+    merge_commit: 934313a
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/fix-req-agent-multiturn-v2
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-fix-req-agent-multiturn-v2
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-05T12:00:00Z"
+      duration: "~1hr"
+      commits: 1
+      files_changed: 6
+      insertions: 151
+      deletions: 38
+
   - id: feat-pm-agent-provider-switch
     name: "PM Agent LLM 提供商切换（Settings 默认值 + 聊天区下拉覆盖）"
     completed_at: "2026-04-06T10:30:00Z"

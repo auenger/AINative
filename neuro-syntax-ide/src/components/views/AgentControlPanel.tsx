@@ -164,7 +164,19 @@ const RuntimeCard: React.FC<RuntimeCardProps> = ({ runtime }) => {
             {runtime.install_hint}
           </code>
           <button
-            onClick={() => navigator.clipboard.writeText(runtime.install_hint)}
+            onClick={() => {
+              const text = runtime.install_hint;
+              try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+              } catch { /* noop */ }
+            }}
             className="p-1 hover:bg-surface-container-high rounded text-on-surface-variant hover:text-primary transition-colors"
             title="Copy install command"
           >

@@ -185,3 +185,12 @@ And sessionId 使用最新值
 - [x] sessionId 使用 ref 避免闭包过期
 - [x] process_exit 事件不干扰后续对话
 - [ ] 手动 CLI 验证 session resume 可行（需手动测试）
+
+## Merge Record
+- **Completed**: 2026-04-05T20:25:00Z
+- **Merged Branch**: feature/fix-req-agent-multiturn-v2
+- **Merge Commit**: 934313a
+- **Archive Tag**: fix-req-agent-multiturn-v2-20260405
+- **Conflicts**: none
+- **Verification**: passed (code analysis)
+- **Stats**: 1 commit, 6 files changed (+151/-38)
