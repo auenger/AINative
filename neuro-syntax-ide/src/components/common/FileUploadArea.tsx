@@ -10,10 +10,14 @@ import {
   Loader2,
   AlertTriangle,
   Upload,
+  Sparkles,
+  CheckCircle2,
+  Zap,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { formatFileSize } from '../../lib/usePMFiles';
 import type { PMFileEntry, PMFileUploading } from '../../types';
+import type { AnalyzeFileState } from '../../lib/useMultimodalAnalyze';
 
 // ---------------------------------------------------------------------------
 // File type icon mapping
@@ -72,6 +76,16 @@ interface FileUploadAreaProps {
   onClearError: () => void;
   /** Whether the upload area is disabled (e.g. during streaming). */
   disabled?: boolean;
+  /** Callback to analyze a single file. */
+  onAnalyzeFile?: (fileName: string) => Promise<void>;
+  /** Callback to analyze all files. */
+  onAnalyzeAll?: () => Promise<void>;
+  /** Whether a specific file has been analyzed. */
+  isFileAnalyzed?: (fileName: string) => boolean;
+  /** Analysis state for individual files. */
+  analyzeStates?: Map<string, AnalyzeFileState>;
+  /** Whether analysis is in progress. */
+  isAnalyzing?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,6 +101,11 @@ export const FileUploadArea: React.FC<FileUploadAreaProps> = ({
   onDelete,
   onClearError,
   disabled = false,
+  onAnalyzeFile,
+  onAnalyzeAll,
+  isFileAnalyzed,
+  analyzeStates,
+  isAnalyzing = false,
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -137,6 +156,9 @@ export const FileUploadArea: React.FC<FileUploadAreaProps> = ({
 
   const hasFiles = files.length > 0 || uploadingFiles.length > 0;
 
+  // Count analyzed files
+  const analyzedCount = isFileAnalyzed ? files.filter(f => isFileAnalyzed(f.name)).length : 0;
+
   return (
     <div
       onDragOver={handleDragOver}
@@ -168,6 +190,36 @@ export const FileUploadArea: React.FC<FileUploadAreaProps> = ({
         </div>
       )}
 
+      {/* Batch analyze bar */}
+      {hasFiles && onAnalyzeAll && files.length > 0 && (
+        <div className="px-3 py-1.5 border-b border-outline-variant/10 bg-primary/5 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Sparkles size={10} className="text-primary" />
+            <span className="text-[9px] text-on-surface-variant">
+              {analyzedCount}/{files.length} analyzed
+            </span>
+          </div>
+          <button
+            onClick={onAnalyzeAll}
+            disabled={isAnalyzing || disabled}
+            className={cn(
+              "flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-medium transition-all",
+              isAnalyzing || disabled
+                ? "text-outline-variant cursor-not-allowed"
+                : "text-primary hover:bg-primary/10"
+            )}
+            title="Analyze all files"
+          >
+            {isAnalyzing ? (
+              <Loader2 size={9} className="animate-spin" />
+            ) : (
+              <Zap size={9} />
+            )}
+            {isAnalyzing ? "Analyzing..." : "Analyze All"}
+          </button>
+        </div>
+      )}
+
       {/* File list (uploaded + uploading) */}
       {hasFiles && (
         <div className="max-h-[120px] overflow-y-auto scroll-hide border-b border-outline-variant/10 bg-surface-container-lowest/30">
@@ -194,33 +246,73 @@ export const FileUploadArea: React.FC<FileUploadAreaProps> = ({
           ))}
 
           {/* Uploaded files */}
-          {files.map((file) => (
-            <div key={file.path} className="flex items-center gap-2 px-3 py-1.5 border-b border-outline-variant/5 last:border-b-0 group">
-              {getFileIcon(file.file_type, file.name)}
-              <span className="text-[10px] text-on-surface truncate flex-1" title={file.name}>
-                {file.name}
-              </span>
-              <span className="text-[8px] text-on-surface-variant shrink-0">
-                {formatFileSize(file.size)}
-              </span>
-              <button
-                onClick={() => handleDeleteClick(file.name)}
-                className={cn(
-                  "p-0.5 rounded transition-all shrink-0",
-                  confirmDelete === file.name
-                    ? "text-error bg-error/10 hover:bg-error/20"
-                    : "text-outline-variant hover:text-error opacity-0 group-hover:opacity-100"
-                )}
-                title={confirmDelete === file.name ? "Click again to confirm delete" : "Delete file"}
-              >
-                {confirmDelete === file.name ? (
-                  <Trash2 size={11} />
+          {files.map((file) => {
+            const isAnalyzed = isFileAnalyzed?.(file.name) ?? false;
+            const analyzeState = analyzeStates?.get(file.name);
+            const isFileAnalyzing = analyzeState?.status === 'analyzing';
+            const isFileError = analyzeState?.status === 'error';
+
+            return (
+              <div key={file.path} className="flex items-center gap-2 px-3 py-1.5 border-b border-outline-variant/5 last:border-b-0 group">
+                {isFileAnalyzing ? (
+                  <Loader2 size={12} className="text-primary animate-spin shrink-0" />
+                ) : isAnalyzed ? (
+                  <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />
+                ) : isFileError ? (
+                  <AlertTriangle size={12} className="text-error shrink-0" />
                 ) : (
-                  <Trash2 size={10} />
+                  getFileIcon(file.file_type, file.name)
                 )}
-              </button>
-            </div>
-          ))}
+                <span className="text-[10px] text-on-surface truncate flex-1" title={file.name}>
+                  {file.name}
+                </span>
+                <span className="text-[8px] text-on-surface-variant shrink-0">
+                  {formatFileSize(file.size)}
+                </span>
+
+                {/* Analyze button per file */}
+                {onAnalyzeFile && !isFileAnalyzing && !isAnalyzed && (
+                  <button
+                    onClick={() => onAnalyzeFile(file.name)}
+                    disabled={isAnalyzing || disabled}
+                    className={cn(
+                      "p-0.5 rounded transition-all shrink-0",
+                      isAnalyzing || disabled
+                        ? "text-outline-variant cursor-not-allowed"
+                        : "text-primary hover:bg-primary/10 opacity-0 group-hover:opacity-100"
+                    )}
+                    title="Analyze this file"
+                  >
+                    <Sparkles size={10} />
+                  </button>
+                )}
+
+                {/* Analysis progress indicator */}
+                {isFileAnalyzing && (
+                  <div className="w-12 h-1 bg-outline-variant/20 rounded-full overflow-hidden shrink-0">
+                    <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: '60%' }} />
+                  </div>
+                )}
+
+                <button
+                  onClick={() => handleDeleteClick(file.name)}
+                  className={cn(
+                    "p-0.5 rounded transition-all shrink-0",
+                    confirmDelete === file.name
+                      ? "text-error bg-error/10 hover:bg-error/20"
+                      : "text-outline-variant hover:text-error opacity-0 group-hover:opacity-100"
+                  )}
+                  title={confirmDelete === file.name ? "Click again to confirm delete" : "Delete file"}
+                >
+                  {confirmDelete === file.name ? (
+                    <Trash2 size={11} />
+                  ) : (
+                    <Trash2 size={10} />
+                  )}
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

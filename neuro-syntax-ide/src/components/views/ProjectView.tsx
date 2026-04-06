@@ -52,6 +52,7 @@ import type { GitModalTab, CommitGraphResult, MdFileEntry, MdEditorMode } from '
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { FileUploadArea, AttachButton } from '../common/FileUploadArea';
 import { usePMFiles } from '../../lib/usePMFiles';
+import { useMultimodalAnalyze } from '../../lib/useMultimodalAnalyze';
 
 interface WorkspaceHook {
   workspacePath: string;
@@ -320,6 +321,7 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
 
   // --- PMFile upload management ---
   const pmFileManager = usePMFiles(workspacePath);
+  const multimodalAnalyzer = useMultimodalAnalyze(workspacePath);
   const pmFileInputRef = useRef<HTMLInputElement>(null);
 
   const [chatInput, setChatInput] = useState('');
@@ -1024,6 +1026,11 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                         onDelete={pmFileManager.deleteFile}
                         onClearError={() => pmFileManager.setError(null)}
                         disabled={pmAgent.isStreaming}
+                        onAnalyzeFile={multimodalAnalyzer.analyzeFile}
+                        onAnalyzeAll={() => multimodalAnalyzer.analyzeAll(pmFileManager.files)}
+                        isFileAnalyzed={multimodalAnalyzer.isAnalyzed}
+                        analyzeStates={multimodalAnalyzer.fileStates}
+                        isAnalyzing={multimodalAnalyzer.status === 'analyzing'}
                       />
                     )}
                     <div className="p-4">
@@ -1322,6 +1329,11 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                         onDelete={pmFileManager.deleteFile}
                         onClearError={() => pmFileManager.setError(null)}
                         disabled={reqAgent.isStreaming || reqAgent.connectionState === 'connecting'}
+                        onAnalyzeFile={multimodalAnalyzer.analyzeFile}
+                        onAnalyzeAll={() => multimodalAnalyzer.analyzeAll(pmFileManager.files)}
+                        isFileAnalyzed={multimodalAnalyzer.isAnalyzed}
+                        analyzeStates={multimodalAnalyzer.fileStates}
+                        isAnalyzing={multimodalAnalyzer.status === 'analyzing'}
                       />
                     )}
                     <div className="p-4">
