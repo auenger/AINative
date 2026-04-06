@@ -5978,7 +5978,7 @@ async fn pmfile_analyze(
     // 1. Read file content
     let content_result = pmfile_read_content(
         tauri::State::clone(&state),
-        workspace_path.clone(),
+        workspace.clone(),
         file_name.clone(),
     ).await?;
 

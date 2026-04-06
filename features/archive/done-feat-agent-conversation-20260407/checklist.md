@@ -4,7 +4,7 @@
 
 ### Development
 - [x] All tasks completed
-- [x] Code self-tested
+- [x] Code self-tested (Vite build passes)
 
 ### Code Quality
 - [x] dispatch 模式与 NewTaskModal 保持一致
@@ -25,4 +25,4 @@
 ## Verification Record
 | Date | Status | Summary | Evidence |
 |------|--------|---------|----------|
-| 2026-04-07 | PASSED | All 5 Gherkin scenarios verified via code analysis, Vite build passes, 11/11 tasks complete | evidence/verification-report.md |
+| 2026-04-07 | PASSED | All 5 Gherkin scenarios verified, Vite build passes, 11/11 tasks complete | evidence/verification-report.md |
