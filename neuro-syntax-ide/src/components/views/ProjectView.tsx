@@ -38,6 +38,8 @@ import {
   Save,
   FileEdit,
   Paperclip,
+  AtSign,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
@@ -53,6 +55,10 @@ import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { FileUploadArea, AttachButton } from '../common/FileUploadArea';
 import { usePMFiles } from '../../lib/usePMFiles';
 import { useMultimodalAnalyze } from '../../lib/useMultimodalAnalyze';
+import { useMultimodalChat } from '../../lib/useMultimodalChat';
+import type { FileReference } from '../../lib/useMultimodalChat';
+import { FileReferencePicker, FileReferenceTag, FileAttachmentCard } from '../common/FileReferencePicker';
+import { FileCheck as FileCheckIcon } from 'lucide-react';
 
 interface WorkspaceHook {
   workspacePath: string;
@@ -322,6 +328,7 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
   // --- PMFile upload management ---
   const pmFileManager = usePMFiles(workspacePath);
   const multimodalAnalyzer = useMultimodalAnalyze(workspacePath);
+  const multimodalChat = useMultimodalChat(workspacePath);
   const pmFileInputRef = useRef<HTMLInputElement>(null);
 
   const [chatInput, setChatInput] = useState('');
@@ -493,9 +500,14 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
     }
   }, [workspacePath]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!chatInput.trim() || pmAgent.isStreaming) return;
-    pmAgent.sendMessage(chatInput);
+
+    // Enrich message with multimodal context
+    const { enrichedContent, resolvedReferences } = await multimodalChat.enrichMessage(chatInput);
+
+    pmAgent.sendMessage(enrichedContent);
+    multimodalChat.clearFileReferences();
     setChatInput('');
   };
 
@@ -711,9 +723,14 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
     setShowApiKeyModal(false);
   };
 
-  const handleReqAgentSend = () => {
+  const handleReqAgentSend = async () => {
     if (!reqChatInput.trim() || reqAgent.isStreaming) return;
-    reqAgent.sendMessage(reqChatInput);
+
+    // Enrich message with multimodal context
+    const { enrichedContent, resolvedReferences } = await multimodalChat.enrichMessage(reqChatInput);
+
+    reqAgent.sendMessage(enrichedContent);
+    multimodalChat.clearFileReferences();
     setReqChatInput('');
   };
 
@@ -1034,15 +1051,64 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                       />
                     )}
                     <div className="p-4">
+                      {/* File reference tags for PM Agent */}
+                      {multimodalChat.referencedFiles.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {multimodalChat.referencedFiles.map((ref) => (
+                            <FileReferenceTag
+                              key={ref.name}
+                              name={ref.name}
+                              analyzed={ref.analyzed}
+                              onRemove={() => multimodalChat.removeFileReference(ref.name)}
+                            />
+                          ))}
+                        </div>
+                      )}
                       <div className="relative flex items-end gap-1">
+                        {/* @ File Reference Picker */}
+                        {multimodalChat.showFilePicker && (
+                          <FileReferencePicker
+                            files={multimodalChat.getAvailableFiles()}
+                            referencedNames={multimodalChat.referencedFiles.map(f => f.name)}
+                            filter={multimodalChat.filePickerFilter}
+                            onFilterChange={multimodalChat.updateFilePickerFilter}
+                            onSelect={multimodalChat.addFileReference}
+                            onDeselect={multimodalChat.removeFileReference}
+                            onClose={multimodalChat.closeFilePicker}
+                            isFileAnalyzed={multimodalAnalyzer.isAnalyzed}
+                            position="above"
+                          />
+                        )}
                         <textarea
                           value={chatInput}
-                          onChange={(e) => setChatInput(e.target.value)}
+                          onChange={(e) => {
+                            setChatInput(e.target.value);
+                            // Detect @ trigger for file picker
+                            if (e.target.value.match(/@\w*$/)) {
+                              multimodalChat.openFilePicker();
+                            }
+                          }}
                           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
                           placeholder={t('project.chatPlaceholder')}
                           disabled={pmAgent.isStreaming}
-                          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg p-3 pl-10 pr-10 text-xs text-on-surface focus:outline-none focus:border-primary/50 resize-none h-20 scroll-hide disabled:opacity-50"
+                          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg p-3 pl-16 pr-10 text-xs text-on-surface focus:outline-none focus:border-primary/50 resize-none h-20 scroll-hide disabled:opacity-50"
                         />
+                        {/* @ Reference button */}
+                        <button
+                          onClick={multimodalChat.openFilePicker}
+                          disabled={pmAgent.isStreaming}
+                          className={cn(
+                            "absolute left-7 bottom-2 p-1.5 rounded-md transition-colors",
+                            pmAgent.isStreaming
+                              ? "text-outline-variant cursor-not-allowed"
+                              : multimodalChat.referencedFiles.length > 0
+                                ? "text-primary bg-primary/10"
+                                : "text-on-surface-variant hover:text-primary hover:bg-primary/10"
+                          )}
+                          title="Reference files (@)"
+                        >
+                          <AtSign size={16} />
+                        </button>
                         {/* Attach button */}
                         <button
                           onClick={() => pmFileInputRef.current?.click()}
@@ -1337,15 +1403,64 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                       />
                     )}
                     <div className="p-4">
+                      {/* File reference tags for REQ Agent */}
+                      {multimodalChat.referencedFiles.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {multimodalChat.referencedFiles.map((ref) => (
+                            <FileReferenceTag
+                              key={ref.name}
+                              name={ref.name}
+                              analyzed={ref.analyzed}
+                              onRemove={() => multimodalChat.removeFileReference(ref.name)}
+                            />
+                          ))}
+                        </div>
+                      )}
                       <div className="relative flex items-end gap-1">
+                        {/* @ File Reference Picker for REQ */}
+                        {multimodalChat.showFilePicker && (
+                          <FileReferencePicker
+                            files={multimodalChat.getAvailableFiles()}
+                            referencedNames={multimodalChat.referencedFiles.map(f => f.name)}
+                            filter={multimodalChat.filePickerFilter}
+                            onFilterChange={multimodalChat.updateFilePickerFilter}
+                            onSelect={multimodalChat.addFileReference}
+                            onDeselect={multimodalChat.removeFileReference}
+                            onClose={multimodalChat.closeFilePicker}
+                            isFileAnalyzed={multimodalAnalyzer.isAnalyzed}
+                            position="above"
+                          />
+                        )}
                         <textarea
                           value={reqChatInput}
-                          onChange={(e) => setReqChatInput(e.target.value)}
+                          onChange={(e) => {
+                            setReqChatInput(e.target.value);
+                            // Detect @ trigger for file picker
+                            if (e.target.value.match(/@\w*$/)) {
+                              multimodalChat.openFilePicker();
+                            }
+                          }}
                           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleReqAgentSend())}
                           placeholder={t('project.reqAgentPlaceholder')}
                           disabled={reqAgent.isStreaming || reqAgent.connectionState === 'connecting'}
-                          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg p-3 pl-10 pr-10 text-xs text-on-surface focus:outline-none focus:border-primary/50 resize-none h-20 scroll-hide disabled:opacity-50"
+                          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg p-3 pl-16 pr-10 text-xs text-on-surface focus:outline-none focus:border-primary/50 resize-none h-20 scroll-hide disabled:opacity-50"
                         />
+                        {/* @ Reference button */}
+                        <button
+                          onClick={multimodalChat.openFilePicker}
+                          disabled={reqAgent.isStreaming || reqAgent.connectionState === 'connecting'}
+                          className={cn(
+                            "absolute left-7 bottom-2 p-1.5 rounded-md transition-colors",
+                            reqAgent.isStreaming || reqAgent.connectionState === 'connecting'
+                              ? "text-outline-variant cursor-not-allowed"
+                              : multimodalChat.referencedFiles.length > 0
+                                ? "text-primary bg-primary/10"
+                                : "text-on-surface-variant hover:text-primary hover:bg-primary/10"
+                          )}
+                          title="Reference files (@)"
+                        >
+                          <AtSign size={16} />
+                        </button>
                         {/* Attach button */}
                         <button
                           onClick={() => pmFileInputRef.current?.click()}
