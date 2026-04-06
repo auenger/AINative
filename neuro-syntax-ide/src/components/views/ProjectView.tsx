@@ -34,6 +34,9 @@ import {
   Box,
   FileCheck,
   Network,
+  Edit3,
+  Save,
+  FileEdit,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
@@ -44,7 +47,8 @@ import type { FeaturePlanOutput } from '../../lib/useAgentStream';
 import { useGitStatus } from '../../lib/useGitStatus';
 import { useGitDetail } from '../../lib/useGitDetail';
 import { useSettings } from '../../lib/useSettings';
-import type { GitModalTab, CommitGraphResult } from '../../types';
+import type { GitModalTab, CommitGraphResult, MdFileEntry, MdEditorMode } from '../../types';
+import { MarkdownRenderer } from '../common/MarkdownRenderer';
 
 interface WorkspaceHook {
   workspacePath: string;
@@ -369,6 +373,114 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
     } else {
       setProjectContext(null);
       setPcError(null);
+    }
+  }, [workspacePath]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // --- MD Explorer state (feat-project-md-explorer) ---
+  const [mdFiles, setMdFiles] = useState<MdFileEntry[]>([]);
+  const [mdFilesLoading, setMdFilesLoading] = useState(false);
+  const [mdFilesError, setMdFilesError] = useState<string | null>(null);
+  const [selectedMdFile, setSelectedMdFile] = useState<MdFileEntry | null>(null);
+  const [mdFileContent, setMdFileContent] = useState<string>('');
+  const [mdEditedContent, setMdEditedContent] = useState<string>('');
+  const [mdContentLoading, setMdContentLoading] = useState(false);
+  const [mdContentError, setMdContentError] = useState<string | null>(null);
+  const [mdEditorMode, setMdEditorMode] = useState<MdEditorMode>('preview');
+  const [mdIsDirty, setMdIsDirty] = useState(false);
+  const [mdSaving, setMdSaving] = useState(false);
+  const [mdSaveError, setMdSaveError] = useState<string | null>(null);
+  const [mdSaveSuccess, setMdSaveSuccess] = useState(false);
+
+  /** Load .md file list from workspace root */
+  const loadMdFiles = useCallback(async () => {
+    if (!workspacePath) return;
+    setMdFilesLoading(true);
+    setMdFilesError(null);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const files = await invoke<MdFileEntry[]>('list_md_files', { dirPath: workspacePath });
+      setMdFiles(files);
+      // Auto-select project-context.md if present, otherwise first file
+      if (files.length > 0 && !selectedMdFile) {
+        const projectCtx = files.find(f => f.name === 'project-context.md');
+        const toSelect = projectCtx || files[0];
+        await selectMdFileEntry(toSelect);
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setMdFilesError(msg);
+      setMdFiles([]);
+    } finally {
+      setMdFilesLoading(false);
+    }
+  }, [workspacePath]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Select and load a single .md file's content */
+  const selectMdFileEntry = useCallback(async (file: MdFileEntry) => {
+    setSelectedMdFile(file);
+    setMdContentLoading(true);
+    setMdContentError(null);
+    setMdIsDirty(false);
+    setMdSaveError(null);
+    setMdSaveSuccess(false);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const content = await invoke<string>('read_file', { path: file.path });
+      setMdFileContent(content);
+      setMdEditedContent(content);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setMdContentError(msg);
+      setMdFileContent('');
+      setMdEditedContent('');
+    } finally {
+      setMdContentLoading(false);
+    }
+  }, []);
+
+  /** Save edited content back to file */
+  const saveMdFile = useCallback(async () => {
+    if (!selectedMdFile || !mdIsDirty) return;
+    setMdSaving(true);
+    setMdSaveError(null);
+    setMdSaveSuccess(false);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('write_file', { path: selectedMdFile.path, content: mdEditedContent });
+      setMdFileContent(mdEditedContent);
+      setMdIsDirty(false);
+      setMdSaveSuccess(true);
+      // Auto-hide success indicator after 2s
+      setTimeout(() => setMdSaveSuccess(false), 2000);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setMdSaveError(msg);
+    } finally {
+      setMdSaving(false);
+    }
+  }, [selectedMdFile, mdEditedContent, mdIsDirty]);
+
+  /** Cmd+S handler for saving */
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        saveMdFile();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [saveMdFile]);
+
+  /** Load MD files when workspace changes */
+  useEffect(() => {
+    if (workspacePath) {
+      loadMdFiles();
+    } else {
+      setMdFiles([]);
+      setSelectedMdFile(null);
+      setMdFileContent('');
+      setMdEditedContent('');
     }
   }, [workspacePath]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1195,107 +1307,258 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
             </div>
           </div>
 
-          {/* Right: Project Context Markdown Rendering */}
-          <div className="flex-1 flex flex-col bg-surface overflow-hidden">
-            <div className="h-10 border-b border-outline-variant/10 flex items-center px-6 justify-between bg-surface-container-low">
-              <div className="flex items-center gap-2">
-                <FileText size={14} className="text-primary" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                  {t('project.projectContext')}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                {projectContext && (
-                  <button
-                    onClick={loadProjectContext}
-                    disabled={pcLoading}
-                    className={cn(
-                      "p-1 rounded transition-colors",
-                      pcLoading
-                        ? "text-outline-variant cursor-not-allowed"
-                        : "text-on-surface-variant hover:text-primary hover:bg-primary/10"
-                    )}
-                    title="Refresh Project Context"
-                  >
-                    <RefreshCw size={12} className={cn(pcLoading && "animate-spin")} />
-                  </button>
-                )}
+          {/* Right: MD Explorer — File List + Content Area */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* MD File List Sidebar (~180px) */}
+            <div className="w-[180px] shrink-0 border-r border-outline-variant/10 flex flex-col bg-surface-container-lowest">
+              <div className="h-10 border-b border-outline-variant/10 flex items-center px-3 gap-2 bg-surface-container-low">
+                <FileText size={12} className="text-primary" />
+                <span className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant">MD Files</span>
+                <div className="flex-1" />
                 <button
-                  onClick={loadProjectContext}
-                  className="text-[10px] font-bold text-primary hover:underline uppercase tracking-widest"
+                  onClick={loadMdFiles}
+                  disabled={mdFilesLoading}
+                  className={cn(
+                    "p-0.5 rounded transition-colors",
+                    mdFilesLoading
+                      ? "text-outline-variant cursor-not-allowed"
+                      : "text-on-surface-variant hover:text-primary hover:bg-primary/10"
+                  )}
+                  title="Refresh file list"
                 >
-                  {t('project.initProject')}
+                  <RefreshCw size={10} className={cn(mdFilesLoading && "animate-spin")} />
                 </button>
               </div>
+
+              {/* File list */}
+              <div className="flex-1 overflow-y-auto scroll-hide">
+                {mdFilesLoading && (
+                  <div className="p-3 space-y-2">
+                    {[1, 2, 3, 4].map(i => (
+                      <div key={i} className="h-6 bg-outline-variant/10 rounded animate-pulse" />
+                    ))}
+                  </div>
+                )}
+
+                {!mdFilesLoading && mdFilesError && (
+                  <div className="p-3 text-center">
+                    <AlertTriangle size={14} className="text-warning mx-auto mb-1" />
+                    <p className="text-[9px] text-on-surface-variant">{mdFilesError}</p>
+                  </div>
+                )}
+
+                {!mdFilesLoading && !mdFilesError && mdFiles.length === 0 && (
+                  <div className="p-3 text-center">
+                    <FileText size={16} className="text-outline-variant mx-auto mb-2 opacity-40" />
+                    <p className="text-[9px] text-on-surface-variant opacity-60">No .md files found</p>
+                  </div>
+                )}
+
+                {!mdFilesLoading && mdFiles.map((file) => (
+                  <button
+                    key={file.path}
+                    onClick={() => selectMdFileEntry(file)}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-3 py-2 text-[11px] transition-colors text-left group",
+                      selectedMdFile?.path === file.path
+                        ? "bg-primary/10 text-primary font-bold border-r-2 border-primary"
+                        : "text-on-surface-variant hover:bg-surface-container-high/40 hover:text-on-surface"
+                    )}
+                    title={file.path}
+                  >
+                    <FileText size={12} className={cn(
+                      "shrink-0",
+                      selectedMdFile?.path === file.path ? "text-primary" : "text-outline-variant group-hover:text-on-surface-variant"
+                    )} />
+                    <span className="truncate flex-1">{file.name}</span>
+                    {/* Dirty indicator dot */}
+                    {selectedMdFile?.path === file.path && mdIsDirty && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-warning shrink-0" />
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-10 scroll-hide">
-              {/* Loading state: shimmer skeleton */}
-              {pcLoading && (
-                <div className="max-w-3xl mx-auto space-y-4">
-                  <div className="h-6 w-48 bg-outline-variant/10 rounded animate-pulse" />
-                  <div className="h-4 w-full bg-outline-variant/10 rounded animate-pulse" />
-                  <div className="h-4 w-5/6 bg-outline-variant/10 rounded animate-pulse" />
-                  <div className="h-4 w-4/6 bg-outline-variant/10 rounded animate-pulse" />
-                  <div className="mt-6 h-5 w-32 bg-outline-variant/10 rounded animate-pulse" />
-                  <div className="h-4 w-full bg-outline-variant/10 rounded animate-pulse" />
-                  <div className="h-4 w-3/4 bg-outline-variant/10 rounded animate-pulse" />
-                  <div className="mt-6 h-5 w-40 bg-outline-variant/10 rounded animate-pulse" />
-                  <div className="h-4 w-full bg-outline-variant/10 rounded animate-pulse" />
-                  <div className="h-4 w-2/3 bg-outline-variant/10 rounded animate-pulse" />
-                </div>
-              )}
 
-              {/* File not found: empty state with guide */}
-              {!pcLoading && pcError && pcError.includes('does not exist') && (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center space-y-4 max-w-sm">
-                    <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                      <FileText size={24} className="text-primary" />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-bold text-on-surface">No Project Context Found</p>
-                      <p className="text-xs text-on-surface-variant leading-relaxed">
-                        Create a <code className="text-primary bg-primary/10 px-1 rounded text-[10px]">project-context.md</code> file in your project root to display project context here.
-                      </p>
-                    </div>
-                    <button
-                      onClick={loadProjectContext}
-                      className="bg-primary text-on-primary px-4 py-2 rounded-lg text-xs font-bold hover:brightness-110 transition-all"
+            {/* Content Area */}
+            <div className="flex-1 flex flex-col bg-surface overflow-hidden">
+              {/* Toolbar: file name + Edit/Preview toggle + save */}
+              <div className="h-10 border-b border-outline-variant/10 flex items-center px-4 justify-between bg-surface-container-low">
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText size={14} className="text-primary shrink-0" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant truncate">
+                    {selectedMdFile ? selectedMdFile.name : 'MD Explorer'}
+                  </span>
+                  {/* Dirty indicator */}
+                  {mdIsDirty && (
+                    <span className="text-[8px] font-bold text-warning bg-warning/10 px-1.5 py-0.5 rounded whitespace-nowrap shrink-0">
+                      Modified
+                    </span>
+                  )}
+                  {/* Save success indicator */}
+                  {mdSaveSuccess && (
+                    <motion.span
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      className="text-[8px] font-bold text-tertiary bg-tertiary/10 px-1.5 py-0.5 rounded whitespace-nowrap shrink-0 flex items-center gap-1"
                     >
-                      {t('project.initProject')}
+                      <CheckCircle2 size={8} />
+                      Saved
+                    </motion.span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Edit/Preview toggle */}
+                  {selectedMdFile && (
+                    <div className="flex items-center bg-surface-container-high/50 rounded-md border border-outline-variant/10 overflow-hidden">
+                      <button
+                        onClick={() => setMdEditorMode('preview')}
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-1 text-[9px] font-bold uppercase tracking-wider transition-colors",
+                          mdEditorMode === 'preview'
+                            ? "bg-primary/15 text-primary"
+                            : "text-on-surface-variant hover:text-on-surface"
+                        )}
+                      >
+                        <Eye size={10} />
+                        Preview
+                      </button>
+                      <button
+                        onClick={() => setMdEditorMode('edit')}
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-1 text-[9px] font-bold uppercase tracking-wider transition-colors",
+                          mdEditorMode === 'edit'
+                            ? "bg-primary/15 text-primary"
+                            : "text-on-surface-variant hover:text-on-surface"
+                        )}
+                      >
+                        <Edit3 size={10} />
+                        Edit
+                      </button>
+                    </div>
+                  )}
+                  {/* Save button */}
+                  {selectedMdFile && mdIsDirty && (
+                    <button
+                      onClick={saveMdFile}
+                      disabled={mdSaving}
+                      className={cn(
+                        "flex items-center gap-1 px-2 py-1 rounded text-[9px] font-bold transition-colors",
+                        mdSaving
+                          ? "text-outline-variant cursor-not-allowed"
+                          : "text-tertiary hover:bg-tertiary/10"
+                      )}
+                    >
+                      {mdSaving ? (
+                        <Loader2 size={10} className="animate-spin" />
+                      ) : (
+                        <Save size={10} />
+                      )}
+                      Save
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Content: loading / error / empty / content */}
+              <div className="flex-1 overflow-y-auto scroll-hide">
+                {/* No file selected — empty state */}
+                {!selectedMdFile && !mdFilesLoading && !mdFilesError && mdFiles.length > 0 && (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center space-y-3 max-w-xs">
+                      <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                        <FileText size={20} className="text-primary" />
+                      </div>
+                      <p className="text-xs text-on-surface-variant">Select a Markdown file from the sidebar to view its content.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* No .md files at all */}
+                {!mdFilesLoading && !mdFilesError && mdFiles.length === 0 && (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center space-y-3 max-w-xs">
+                      <div className="w-12 h-12 bg-outline-variant/10 rounded-full flex items-center justify-center mx-auto">
+                        <FileText size={20} className="text-outline-variant opacity-40" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold text-on-surface">No Markdown Files</p>
+                        <p className="text-[10px] text-on-surface-variant leading-relaxed">
+                          Add <code className="text-primary bg-primary/10 px-1 rounded text-[9px]">.md</code> files to your project root to browse them here.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* File loading skeleton */}
+                {mdContentLoading && (
+                  <div className="p-8 space-y-4 max-w-3xl mx-auto">
+                    <div className="h-6 w-48 bg-outline-variant/10 rounded animate-pulse" />
+                    <div className="h-4 w-full bg-outline-variant/10 rounded animate-pulse" />
+                    <div className="h-4 w-5/6 bg-outline-variant/10 rounded animate-pulse" />
+                    <div className="h-4 w-4/6 bg-outline-variant/10 rounded animate-pulse" />
+                    <div className="mt-6 h-5 w-32 bg-outline-variant/10 rounded animate-pulse" />
+                    <div className="h-4 w-full bg-outline-variant/10 rounded animate-pulse" />
+                    <div className="h-4 w-3/4 bg-outline-variant/10 rounded animate-pulse" />
+                  </div>
+                )}
+
+                {/* File content error */}
+                {!mdContentLoading && mdContentError && (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center space-y-3 max-w-sm">
+                      <div className="w-12 h-12 bg-error/10 rounded-full flex items-center justify-center mx-auto">
+                        <AlertTriangle size={20} className="text-error" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold text-error">Failed to Load File</p>
+                        <p className="text-[10px] text-on-surface-variant">{mdContentError}</p>
+                      </div>
+                      <button
+                        onClick={() => selectedMdFile && selectMdFileEntry(selectedMdFile)}
+                        className="bg-primary text-on-primary px-3 py-1.5 rounded-lg text-[10px] font-bold hover:brightness-110 transition-all flex items-center gap-1.5 mx-auto"
+                      >
+                        <RefreshCw size={10} />
+                        Retry
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Save error */}
+                {mdSaveError && (
+                  <div className="px-4 py-2 bg-error/10 border-b border-error/20 text-[10px] text-error flex items-center gap-2">
+                    <AlertTriangle size={10} className="shrink-0" />
+                    <span>Save failed: {mdSaveError}</span>
+                    <button onClick={() => setMdSaveError(null)} className="ml-auto text-on-surface-variant hover:text-on-surface">
+                      <X size={10} />
                     </button>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Other error state */}
-              {!pcLoading && pcError && !pcError.includes('does not exist') && (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center space-y-4 max-w-sm">
-                    <div className="w-14 h-14 bg-error/10 rounded-full flex items-center justify-center mx-auto">
-                      <AlertTriangle size={24} className="text-error" />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-bold text-error">Failed to Load</p>
-                      <p className="text-xs text-on-surface-variant leading-relaxed">{pcError}</p>
-                    </div>
-                    <button
-                      onClick={loadProjectContext}
-                      className="bg-primary text-on-primary px-4 py-2 rounded-lg text-xs font-bold hover:brightness-110 transition-all flex items-center gap-2 mx-auto"
-                    >
-                      <RefreshCw size={12} />
-                      Retry
-                    </button>
+                {/* Preview mode: MarkdownRenderer */}
+                {!mdContentLoading && !mdContentError && selectedMdFile && mdEditorMode === 'preview' && (
+                  <div className="p-8 max-w-3xl mx-auto">
+                    <MarkdownRenderer content={mdFileContent} />
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Loaded: render markdown */}
-              {!pcLoading && !pcError && projectContext && (
-                <div className="max-w-3xl mx-auto prose prose-invert prose-sm">
-                  <ReactMarkdown>{projectContext}</ReactMarkdown>
-                </div>
-              )}
+                {/* Edit mode: textarea */}
+                {!mdContentLoading && !mdContentError && selectedMdFile && mdEditorMode === 'edit' && (
+                  <textarea
+                    value={mdEditedContent}
+                    onChange={(e) => {
+                      setMdEditedContent(e.target.value);
+                      setMdIsDirty(e.target.value !== mdFileContent);
+                    }}
+                    className="w-full h-full bg-transparent text-sm text-on-surface font-mono p-6 resize-none focus:outline-none leading-relaxed"
+                    placeholder="Start writing Markdown..."
+                    spellCheck={false}
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>

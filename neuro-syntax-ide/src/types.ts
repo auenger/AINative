@@ -430,3 +430,16 @@ export interface AgentConfig {
   /** Creation timestamp (ISO string). */
   created_at: string;
 }
+
+// ---------------------------------------------------------------------------
+// MD Explorer types (feat-project-md-explorer)
+// ---------------------------------------------------------------------------
+
+/** A single .md file entry returned by list_md_files command. */
+export interface MdFileEntry {
+  name: string;
+  path: string;
+}
+
+/** Editor mode for the MD Explorer content area. */
+export type MdEditorMode = 'preview' | 'edit';
