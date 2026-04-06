@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-06T23:30:00Z"
+  last_updated: "2026-04-07T00:00:00Z"
   version: 1
 
 parents:
@@ -15,13 +15,39 @@ parents:
       - feat-hardware-monitor
       - feat-ai-agent-service
 
-active: []
+active:
+  - id: feat-agent-multimodal-upload
+    name: "Agent 多模态文件上传与管理"
+    priority: 70
+    parent: feat-agent-multimodal
+    branch: feature/feat-agent-multimodal-upload
+    worktree: ../NeuroSyntaxIDE-feat-agent-multimodal-upload
+    started_at: "2026-04-07T00:00:00Z"
 
-pending: []
+pending:
+  - id: feat-agent-conversation
+    name: "Feature Detail Modal Agent 对话区（Review/Modify/Develop）"
+    priority: 55
+  - id: feat-agent-multimodal-analyze
+    name: "多模态文件分析与 MD 文档生成"
+    priority: 65
+    parent: feat-agent-multimodal
+    depends_on: feat-agent-multimodal-upload
+  - id: feat-agent-multimodal-chat
+    name: "Agent 对话多模态集成"
+    priority: 60
+    parent: feat-agent-multimodal
+    depends_on:
+      - feat-agent-multimodal-upload
+      - feat-agent-multimodal-analyze
 
 blocked: []
 
 completed:
+  - id: feat-modal-drag-resize
+    name: "NewTaskModal 拖拽移动与调整大小"
+    completed_at: "2026-04-07T00:00:00Z"
+    tag: feat-modal-drag-resize-20260406
   - id: feat-project-md-explorer
     name: "Project MD Explorer（项目首页 Markdown 文件浏览器）"
     completed_at: "2026-04-06T23:30:00Z"

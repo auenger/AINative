@@ -1,10 +1,33 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-06T23:30:00Z"
+  last_updated: "2026-04-07T00:00:00Z"
   version: 1
-  total_completed: 60
+  total_completed: 61
 
 records:
+  - id: feat-modal-drag-resize
+    name: "NewTaskModal 拖拽移动与调整大小"
+    completed_at: "2026-04-07T00:00:00Z"
+    tag: feat-modal-drag-resize-20260406
+    merge_commit: 0ecdde3
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-modal-drag-resize
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-modal-drag-resize
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-04-06T23:45:00Z"
+      duration: "~15min"
+      commits: 1
+      files_changed: 1
+
   - id: feat-project-md-explorer
     name: "Project MD Explorer（项目首页 Markdown 文件浏览器）"
     completed_at: "2026-04-06T23:30:00Z"
