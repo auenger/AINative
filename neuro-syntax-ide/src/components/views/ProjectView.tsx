@@ -37,6 +37,7 @@ import {
   Edit3,
   Save,
   FileEdit,
+  Paperclip,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
@@ -49,6 +50,8 @@ import { useGitDetail } from '../../lib/useGitDetail';
 import { useSettings } from '../../lib/useSettings';
 import type { GitModalTab, CommitGraphResult, MdFileEntry, MdEditorMode } from '../../types';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
+import { FileUploadArea, AttachButton } from '../common/FileUploadArea';
+import { usePMFiles } from '../../lib/usePMFiles';
 
 interface WorkspaceHook {
   workspacePath: string;
@@ -314,6 +317,10 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
 
   const gitStatus = useGitStatus(workspacePath);
   const gitDetail = useGitDetail();
+
+  // --- PMFile upload management ---
+  const pmFileManager = usePMFiles(workspacePath);
+  const pmFileInputRef = useRef<HTMLInputElement>(null);
 
   const [chatInput, setChatInput] = useState('');
   const [reqChatInput, setReqChatInput] = useState('');
@@ -1005,32 +1012,61 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                     <div ref={chatEndRef} />
                   </div>
 
-                  <div className="p-4 border-t border-outline-variant/10 bg-surface">
-                    <div className="relative">
-                      <textarea
-                        value={chatInput}
-                        onChange={(e) => setChatInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
-                        placeholder={t('project.chatPlaceholder')}
+                  <div className="border-t border-outline-variant/10 bg-surface">
+                    {/* PMFile upload area */}
+                    {activeChatTab === 'pm' && (
+                      <FileUploadArea
+                        files={pmFileManager.files}
+                        uploadingFiles={pmFileManager.uploadingFiles}
+                        loading={pmFileManager.loading}
+                        error={pmFileManager.error}
+                        onUpload={pmFileManager.uploadFiles}
+                        onDelete={pmFileManager.deleteFile}
+                        onClearError={() => pmFileManager.setError(null)}
                         disabled={pmAgent.isStreaming}
-                        className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg p-3 pr-10 text-xs text-on-surface focus:outline-none focus:border-primary/50 resize-none h-20 scroll-hide disabled:opacity-50"
                       />
-                      <button
-                        onClick={handleSendMessage}
-                        disabled={pmAgent.isStreaming || !chatInput.trim()}
-                        className={cn(
-                          "absolute right-2 bottom-2 p-1.5 rounded-md transition-colors",
-                          pmAgent.isStreaming || !chatInput.trim()
-                            ? "text-outline-variant cursor-not-allowed"
-                            : "text-primary hover:bg-primary/10"
-                        )}
-                      >
-                        {pmAgent.isStreaming ? (
-                          <Loader2 size={16} className="animate-spin" />
-                        ) : (
-                          <Send size={16} />
-                        )}
-                      </button>
+                    )}
+                    <div className="p-4">
+                      <div className="relative flex items-end gap-1">
+                        <textarea
+                          value={chatInput}
+                          onChange={(e) => setChatInput(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
+                          placeholder={t('project.chatPlaceholder')}
+                          disabled={pmAgent.isStreaming}
+                          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg p-3 pl-10 pr-10 text-xs text-on-surface focus:outline-none focus:border-primary/50 resize-none h-20 scroll-hide disabled:opacity-50"
+                        />
+                        {/* Attach button */}
+                        <button
+                          onClick={() => pmFileInputRef.current?.click()}
+                          disabled={pmAgent.isStreaming}
+                          className={cn(
+                            "absolute left-2 bottom-2 p-1.5 rounded-md transition-colors",
+                            pmAgent.isStreaming
+                              ? "text-outline-variant cursor-not-allowed"
+                              : "text-on-surface-variant hover:text-primary hover:bg-primary/10"
+                          )}
+                          title="Attach files"
+                        >
+                          <Paperclip size={16} />
+                        </button>
+                        <button
+                          onClick={handleSendMessage}
+                          disabled={pmAgent.isStreaming || !chatInput.trim()}
+                          className={cn(
+                            "absolute right-2 bottom-2 p-1.5 rounded-md transition-colors",
+                            pmAgent.isStreaming || !chatInput.trim()
+                              ? "text-outline-variant cursor-not-allowed"
+                              : "text-primary hover:bg-primary/10"
+                          )}
+                        >
+                          {pmAgent.isStreaming ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : (
+                            <Send size={16} />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </>
@@ -1274,32 +1310,61 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                   )}
 
                   {/* Input area */}
-                  <div className="p-4 border-t border-outline-variant/10 bg-surface">
-                    <div className="relative">
-                      <textarea
-                        value={reqChatInput}
-                        onChange={(e) => setReqChatInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleReqAgentSend())}
-                        placeholder={t('project.reqAgentPlaceholder')}
+                  <div className="border-t border-outline-variant/10 bg-surface">
+                    {/* PMFile upload area for REQ Agent */}
+                    {activeChatTab === 'req' && (
+                      <FileUploadArea
+                        files={pmFileManager.files}
+                        uploadingFiles={pmFileManager.uploadingFiles}
+                        loading={pmFileManager.loading}
+                        error={pmFileManager.error}
+                        onUpload={pmFileManager.uploadFiles}
+                        onDelete={pmFileManager.deleteFile}
+                        onClearError={() => pmFileManager.setError(null)}
                         disabled={reqAgent.isStreaming || reqAgent.connectionState === 'connecting'}
-                        className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg p-3 pr-10 text-xs text-on-surface focus:outline-none focus:border-primary/50 resize-none h-20 scroll-hide disabled:opacity-50"
                       />
-                      <button
-                        onClick={handleReqAgentSend}
-                        disabled={reqAgent.isStreaming || !reqChatInput.trim() || reqAgent.connectionState === 'connecting'}
-                        className={cn(
-                          "absolute right-2 bottom-2 p-1.5 rounded-md transition-colors",
-                          reqAgent.isStreaming || !reqChatInput.trim() || reqAgent.connectionState === 'connecting'
-                            ? "text-outline-variant cursor-not-allowed"
-                            : "text-primary hover:bg-primary/10"
-                        )}
-                      >
-                        {reqAgent.isStreaming ? (
-                          <Loader2 size={16} className="animate-spin" />
-                        ) : (
-                          <Send size={16} />
-                        )}
-                      </button>
+                    )}
+                    <div className="p-4">
+                      <div className="relative flex items-end gap-1">
+                        <textarea
+                          value={reqChatInput}
+                          onChange={(e) => setReqChatInput(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleReqAgentSend())}
+                          placeholder={t('project.reqAgentPlaceholder')}
+                          disabled={reqAgent.isStreaming || reqAgent.connectionState === 'connecting'}
+                          className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg p-3 pl-10 pr-10 text-xs text-on-surface focus:outline-none focus:border-primary/50 resize-none h-20 scroll-hide disabled:opacity-50"
+                        />
+                        {/* Attach button */}
+                        <button
+                          onClick={() => pmFileInputRef.current?.click()}
+                          disabled={reqAgent.isStreaming || reqAgent.connectionState === 'connecting'}
+                          className={cn(
+                            "absolute left-2 bottom-2 p-1.5 rounded-md transition-colors",
+                            reqAgent.isStreaming || reqAgent.connectionState === 'connecting'
+                              ? "text-outline-variant cursor-not-allowed"
+                              : "text-on-surface-variant hover:text-primary hover:bg-primary/10"
+                          )}
+                          title="Attach files"
+                        >
+                          <Paperclip size={16} />
+                        </button>
+                        <button
+                          onClick={handleReqAgentSend}
+                          disabled={reqAgent.isStreaming || !reqChatInput.trim() || reqAgent.connectionState === 'connecting'}
+                          className={cn(
+                            "absolute right-2 bottom-2 p-1.5 rounded-md transition-colors",
+                            reqAgent.isStreaming || !reqChatInput.trim() || reqAgent.connectionState === 'connecting'
+                              ? "text-outline-variant cursor-not-allowed"
+                              : "text-primary hover:bg-primary/10"
+                          )}
+                        >
+                          {reqAgent.isStreaming ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : (
+                            <Send size={16} />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </>
@@ -2454,6 +2519,21 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
           </div>
         )}
       </AnimatePresence>
+
+      {/* Hidden file input for PMFile uploads (shared by PM and REQ Agent) */}
+      <input
+        ref={pmFileInputRef}
+        type="file"
+        multiple
+        onChange={async (e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            await pmFileManager.uploadFiles(e.target.files);
+            e.target.value = '';
+          }
+        }}
+        className="hidden"
+        accept=".png,.jpg,.jpeg,.gif,.bmp,.svg,.webp,.avif,.ico,.wav,.mp3,.ogg,.flac,.aac,.m4a,.wma,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.md,.mdx,.txt,.csv,.json,.yaml,.yml,.xml,.html,.css,.ts,.tsx,.js,.jsx,.py,.rs,.go,.java"
+      />
     </div>
   );
 };
