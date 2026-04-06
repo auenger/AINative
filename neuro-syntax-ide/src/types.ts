@@ -479,3 +479,21 @@ export interface PMFileUploading {
   /** Error message if status is 'error'. */
   error?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Multimodal Chat types (feat-agent-multimodal-chat)
+// ---------------------------------------------------------------------------
+
+/** A file reference attached to a chat message. */
+export interface FileReference {
+  /** File name. */
+  name: string;
+  /** Full file path in PMFile directory. */
+  path: string;
+  /** File type category. */
+  fileType: string;
+  /** Whether the file has been analyzed (has PMDM report). */
+  analyzed: boolean;
+  /** PMDM analysis MD file path, if analyzed. */
+  analysisPath?: string;
+}
