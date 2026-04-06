@@ -3,20 +3,20 @@
 ## Completion Checklist
 
 ### Development
-- [ ] All tasks completed
-- [ ] Code self-tested
+- [x] All tasks completed
+- [x] Code self-tested
 
 ### Code Quality
-- [ ] Code style follows conventions (cn() for styles, TypeScript types)
-- [ ] Reuses existing MarkdownRenderer component
-- [ ] No new dependencies added (use existing react-markdown + remark-gfm)
+- [x] Code style follows conventions (cn() for styles, TypeScript types)
+- [x] Reuses existing MarkdownRenderer component
+- [x] No new dependencies added (use existing react-markdown + remark-gfm)
 
 ### Testing
-- [ ] File list loads correctly with workspace
-- [ ] File selection and content loading works
-- [ ] Edit/Preview toggle works smoothly
-- [ ] Save functionality works (Cmd+S + button)
-- [ ] Empty state and error states handled
+- [x] File list loads correctly with workspace
+- [x] File selection and content loading works
+- [x] Edit/Preview toggle works smoothly
+- [x] Save functionality works (Cmd+S + button)
+- [x] Empty state and error states handled
 
 ### Documentation
-- [ ] spec.md technical solution filled
+- [x] spec.md technical solution filled

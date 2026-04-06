@@ -5071,6 +5071,53 @@ fn scan_dir(dir: &PathBuf, depth: u32) -> std::io::Result<Vec<FileNode>> {
 // File read / write commands (used by EditorView.tsx)
 // ===========================================================================
 
+/// List all .md files in the given directory (non-recursive, filters hidden/dirs).
+/// Returns a list of { name, path } objects sorted alphabetically.
+#[derive(Debug, Serialize, Clone)]
+pub struct MdFileEntry {
+    pub name: String,
+    pub path: String,
+}
+
+#[tauri::command]
+async fn list_md_files(dir_path: String) -> Result<Vec<MdFileEntry>, String> {
+    let dir = PathBuf::from(&dir_path);
+    if !dir.exists() {
+        return Err(format!("Directory does not exist: {}", dir_path));
+    }
+    if !dir.is_dir() {
+        return Err(format!("Path is not a directory: {}", dir_path));
+    }
+
+    let mut entries: Vec<MdFileEntry> = fs::read_dir(&dir)
+        .map_err(|e| format!("Failed to read directory: {}", e))?
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            let name = e.file_name().to_string_lossy().to_string();
+            // Skip hidden files and directories
+            if name.starts_with('.') { return false; }
+            // Only files
+            e.file_type().map(|ft| ft.is_file()).unwrap_or(false)
+        })
+        .filter(|e| {
+            // Only .md files
+            e.path().extension()
+                .map(|ext| ext == "md")
+                .unwrap_or(false)
+        })
+        .map(|e| {
+            let name = e.file_name().to_string_lossy().to_string();
+            let path = e.path().to_string_lossy().to_string();
+            MdFileEntry { name, path }
+        })
+        .collect();
+
+    // Sort alphabetically by name
+    entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+
+    Ok(entries)
+}
+
 #[tauri::command]
 async fn read_file(path: String) -> Result<String, String> {
     fs::read_to_string(&path)
@@ -5293,6 +5340,8 @@ pub fn run() {
             read_file,
             read_file_base64,
             write_file,
+            // MD Explorer (feat-project-md-explorer)
+            list_md_files,
             // Settings & LLM Provider (feat-settings-llm-config)
             read_settings,
             write_settings,
