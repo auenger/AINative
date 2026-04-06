@@ -5631,6 +5631,551 @@ async fn pmfile_rename(
 }
 
 // ===========================================================================
+// Tauri commands - PMFile content reading (feat-agent-multimodal-analyze)
+// ===========================================================================
+
+/// Result for reading a PMFile's content for analysis.
+#[derive(Debug, Serialize, Clone)]
+pub struct PmFileContentResult {
+    /// The file name.
+    pub name: String,
+    /// The file type category (image, audio, pdf, document, markdown, etc.).
+    pub file_type: String,
+    /// Base64-encoded file content (for images and audio).
+    pub base64_content: Option<String>,
+    /// Extracted text content (for PDF, docx, markdown, text files).
+    pub text_content: Option<String>,
+    /// MIME type of the file.
+    pub mime_type: String,
+}
+
+/// Determine MIME type from file extension.
+fn pmfile_mime_type(name: &str) -> String {
+    let ext = name.rsplit('.').next().unwrap_or("").to_lowercase();
+    match ext.as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "bmp" => "image/bmp",
+        "svg" => "image/svg+xml",
+        "webp" => "image/webp",
+        "wav" => "audio/wav",
+        "mp3" => "audio/mpeg",
+        "ogg" => "audio/ogg",
+        "flac" => "audio/flac",
+        "aac" => "audio/aac",
+        "m4a" => "audio/mp4",
+        "pdf" => "application/pdf",
+        "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "doc" => "application/msword",
+        "md" => "text/markdown",
+        "txt" => "text/plain",
+        "csv" => "text/csv",
+        "json" => "application/json",
+        "yaml" | "yml" => "text/yaml",
+        "xml" => "text/xml",
+        "html" => "text/html",
+        "css" => "text/css",
+        _ => "application/octet-stream",
+    }.to_string()
+}
+
+/// Read a PMFile's content for multimodal analysis.
+/// Returns base64 for images/audio, extracted text for documents.
+#[tauri::command]
+async fn pmfile_read_content(
+    state: tauri::State<'_, AppState>,
+    workspace_path: String,
+    file_name: String,
+) -> Result<PmFileContentResult, String> {
+    let workspace = if workspace_path.is_empty() {
+        state.workspace_path.lock().map_err(|e| e.to_string())?.clone()
+    } else {
+        workspace_path
+    };
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let dir = pmfile_dir(&workspace);
+    let file_path = dir.join(&file_name);
+
+    if !file_path.exists() {
+        return Err(format!("文件 '{}' 不存在", file_name));
+    }
+
+    let file_type = pmfile_file_type(&file_name);
+    let mime_type = pmfile_mime_type(&file_name);
+    let ext = file_name.rsplit('.').next().unwrap_or("").to_lowercase();
+
+    let (base64_content, text_content) = match file_type.as_str() {
+        "image" | "audio" => {
+            // Read as base64 for multimodal API
+            let bytes = fs::read(&file_path)
+                .map_err(|e| format!("读取文件失败: {}", e))?;
+            let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes);
+            (Some(b64), None)
+        }
+        "markdown" | "data" => {
+            // Read as text
+            let text = fs::read_to_string(&file_path)
+                .map_err(|e| format!("读取文件失败: {}", e))?;
+            (None, Some(text))
+        }
+        "pdf" => {
+            // For PDF, return base64 (Gemini can handle PDF via multimodal API)
+            let bytes = fs::read(&file_path)
+                .map_err(|e| format!("读取文件失败: {}", e))?;
+            let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes);
+            (Some(b64), None)
+        }
+        "document" => {
+            // For docx, extract text using zip-based approach
+            // docx is a zip file containing word/document.xml
+            match pmfile_extract_docx_text(&file_path) {
+                Ok(text) => (None, Some(text)),
+                Err(_) => {
+                    // Fallback: return base64 for API processing
+                    let bytes = fs::read(&file_path)
+                        .map_err(|e| format!("读取文件失败: {}", e))?;
+                    let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes);
+                    (Some(b64), None)
+                }
+            }
+        }
+        _ => {
+            // For unknown types, try text first, then base64
+            match fs::read_to_string(&file_path) {
+                Ok(text) => (None, Some(text)),
+                Err(_) => {
+                    let bytes = fs::read(&file_path)
+                        .map_err(|e| format!("读取文件失败: {}", e))?;
+                    let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes);
+                    (Some(b64), None)
+                }
+            }
+        }
+    };
+
+    Ok(PmFileContentResult {
+        name: file_name,
+        file_type,
+        base64_content,
+        text_content,
+        mime_type,
+    })
+}
+
+/// Extract text from a docx file by reading the zip and parsing document.xml.
+fn pmfile_extract_docx_text(path: &PathBuf) -> Result<String, String> {
+    let file = std::fs::File::open(path)
+        .map_err(|e| format!("Failed to open docx: {}", e))?;
+    let mut archive = zip::ZipArchive::new(file)
+        .map_err(|e| format!("Failed to read docx as zip: {}", e))?;
+
+    let mut xml_content = String::new();
+    if let Ok(mut doc_file) = archive.by_name("word/document.xml") {
+        std::io::Read::read_to_string(&mut doc_file, &mut xml_content)
+            .map_err(|e| format!("Failed to read document.xml: {}", e))?;
+    } else {
+        return Err("word/document.xml not found in docx".into());
+    }
+
+    // Simple XML text extraction: strip tags, preserve text content
+    let text = pmfile_strip_xml_tags(&xml_content);
+    Ok(text)
+}
+
+/// Strip XML tags and return plain text content.
+fn pmfile_strip_xml_tags(xml: &str) -> String {
+    let mut result = String::new();
+    let mut in_tag = false;
+    let mut last_was_paragraph = false;
+
+    for ch in xml.chars() {
+        match ch {
+            '<' => {
+                in_tag = true;
+            }
+            '>' => {
+                in_tag = false;
+            }
+            _ if !in_tag => {
+                if last_was_paragraph {
+                    result.push('\n');
+                    last_was_paragraph = false;
+                }
+                result.push(ch);
+            }
+            _ if in_tag => {
+                // Check if closing a paragraph tag
+                // We look for "</w:p>" pattern
+            }
+            _ => {}
+        }
+    }
+
+    // Post-process: add newlines where paragraph breaks were
+    let text = xml.replace("</w:p>", "\n\n")
+        .replace("</w:t>", "")
+        .replace("<w:t", "")
+        .replace("</w:r>", "");
+
+    // Re-do the extraction more carefully
+    let mut clean = String::new();
+    let mut depth = 0;
+    let mut buffer = String::new();
+    let chars: Vec<char> = text.chars().collect();
+    let mut i = 0;
+
+    while i < chars.len() {
+        if chars[i] == '<' {
+            // Find the end of the tag
+            let mut tag_end = i + 1;
+            while tag_end < chars.len() && chars[tag_end] != '>' {
+                tag_end += 1;
+            }
+            if tag_end < chars.len() {
+                let tag_content: String = chars[i+1..tag_end].iter().collect();
+                if tag_content.starts_with("/w:p") {
+                    clean.push('\n');
+                }
+                i = tag_end + 1;
+                continue;
+            }
+        }
+        if i < chars.len() && chars[i] != '<' {
+            clean.push(chars[i]);
+        }
+        i += 1;
+    }
+
+    // Clean up whitespace
+    let cleaned = clean
+        .lines()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    if cleaned.is_empty() {
+        result
+    } else {
+        cleaned
+    }
+}
+
+// ===========================================================================
+// Tauri commands - PMDM (PM Document) management (feat-agent-multimodal-analyze)
+// ===========================================================================
+
+/// Get the PMDM directory path for a workspace.
+fn pmdm_dir(workspace: &str) -> PathBuf {
+    PathBuf::from(workspace).join("PMDM")
+}
+
+/// Ensure the PMDM directory exists.
+fn pmdm_ensure_dir(workspace: &str) -> Result<PathBuf, String> {
+    let dir = pmdm_dir(workspace);
+    if !dir.exists() {
+        fs::create_dir_all(&dir)
+            .map_err(|e| format!("Failed to create PMDM directory: {}", e))?;
+    }
+    Ok(dir)
+}
+
+/// Write analysis result as an MD file to the PMDM directory.
+#[tauri::command]
+async fn pmdm_write(
+    state: tauri::State<'_, AppState>,
+    workspace_path: String,
+    file_name: String,
+    content: String,
+) -> Result<String, String> {
+    let workspace = if workspace_path.is_empty() {
+        state.workspace_path.lock().map_err(|e| e.to_string())?.clone()
+    } else {
+        workspace_path
+    };
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let dir = pmdm_ensure_dir(&workspace)?;
+
+    // Ensure .md extension
+    let final_name = if file_name.ends_with(".md") {
+        file_name
+    } else {
+        format!("{}.md", file_name)
+    };
+
+    let file_path = dir.join(&final_name);
+
+    fs::write(&file_path, &content)
+        .map_err(|e| format!("写入分析结果失败: {}", e))?;
+
+    Ok(file_path.to_string_lossy().to_string())
+}
+
+/// List all MD files in the PMDM directory.
+#[tauri::command]
+async fn pmdm_list(
+    state: tauri::State<'_, AppState>,
+    workspace_path: Option<String>,
+) -> Result<Vec<MdFileEntry>, String> {
+    let workspace = workspace_path.unwrap_or_else(|| {
+        state.workspace_path.lock().map(|s| s.clone()).unwrap_or_default()
+    });
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let dir = pmdm_dir(&workspace);
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut entries: Vec<MdFileEntry> = fs::read_dir(&dir)
+        .map_err(|e| format!("Failed to read PMDM directory: {}", e))?
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.file_type().map(|ft| ft.is_file()).unwrap_or(false)
+        })
+        .filter(|e| {
+            e.path().extension().map(|ext| ext == "md").unwrap_or(false)
+        })
+        .map(|e| {
+            let name = e.file_name().to_string_lossy().to_string();
+            let path = e.path().to_string_lossy().to_string();
+            MdFileEntry { name, path }
+        })
+        .collect();
+
+    entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(entries)
+}
+
+/// Analyze a single file via the Gemini multimodal API.
+/// Reads the file content, constructs a multimodal prompt, and streams the response.
+#[tauri::command]
+async fn pmfile_analyze(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+    workspace_path: String,
+    file_name: String,
+    analysis_prompt: Option<String>,
+) -> Result<(), String> {
+    let workspace = if workspace_path.is_empty() {
+        state.workspace_path.lock().map_err(|e| e.to_string())?.clone()
+    } else {
+        workspace_path
+    };
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    // 1. Read file content
+    let content_result = pmfile_read_content(
+        tauri::State::clone(&state),
+        workspace_path.clone(),
+        file_name.clone(),
+    ).await?;
+
+    // 2. Get API key
+    let api_key = get_api_key_inner()
+        .map_err(|e| format!("API Key 未配置: {}. 请在 Settings 中设置 Gemini API Key。", e))?;
+
+    // 3. Build prompt based on file type
+    let file_type = &content_result.file_type;
+    let default_prompt = match file_type.as_str() {
+        "image" => r#"你是一位专业的 UI/UX 设计分析专家。请对这张图片进行详细分析，包括：
+
+1. **图片概述**：描述图片的整体内容和场景
+2. **UI 元素识别**：识别图中的界面元素（按钮、表单、导航等）
+3. **布局分析**：分析布局结构、信息层次、视觉动线
+4. **色彩与风格**：描述色彩搭配和视觉风格
+5. **交互建议**：基于图片内容提出可能的交互设计建议
+6. **需求关联**：如果是设计稿或原型，提取可能的功能需求点
+
+请以结构化的 Markdown 格式输出分析报告。"#,
+        "audio" => r#"你是一位专业的音频内容分析专家。请对这段音频进行详细分析，包括：
+
+1. **音频概述**：描述音频的类型和内容概要
+2. **内容转录**：尽量转录音频中的关键内容
+3. **关键决策**：提取音频中提到的重要决策和结论
+4. **待办事项**：列出音频中提到的后续任务和待办事项
+5. **参与者**：识别音频中的发言者（如果可辨识）
+6. **摘要**：提供简洁的摘要
+
+请以结构化的 Markdown 格式输出分析报告。"#,
+        "pdf" | "document" => r#"你是一位专业的文档分析专家。请对这个文档进行详细分析，包括：
+
+1. **文档概述**：总结文档的主题和目的
+2. **核心内容**：提取文档的关键内容和要点
+3. **需求识别**：识别文档中隐含或明确的需求
+4. **技术要点**：提取技术相关的关键信息
+5. **风险评估**：分析文档中可能存在的风险或挑战
+6. **建议**：基于文档内容提出后续建议
+
+请以结构化的 Markdown 格式输出分析报告。"#,
+        _ => r#"请对这个文件进行详细分析，包括：
+1. **内容概述**：总结文件的主题和内容
+2. **关键要点**：提取文件中的关键信息
+3. **分析建议**：基于文件内容提出建议
+
+请以结构化的 Markdown 格式输出分析报告。"#,
+    };
+
+    let prompt = analysis_prompt.unwrap_or_else(|| default_prompt.to_string());
+
+    // 4. Build multimodal message payload
+    let mut messages_payload = Vec::new();
+
+    // System prompt
+    messages_payload.push(serde_json::json!({
+        "role": "system",
+        "content": format!("你是 Neuro Syntax IDE 的多模态文件分析助手。你的任务是对用户上传的文件进行深入分析，并生成结构化的 Markdown 分析报告。\n\n分析报告必须使用以下统一模板格式：\n\n# 文件分析报告\n\n## 元信息\n- **文件名**：{{filename}}\n- **文件类型**：{{file_type}}\n- **分析时间**：{{timestamp}}\n\n## 内容摘要\n{{summary}}\n\n## 关键内容\n{{key_content}}\n\n## 分析与建议\n{{analysis_and_suggestions}}\n\n---\n*Generated by Neuro Syntax IDE Multimodal Analyzer*")
+    }));
+
+    // Build user message with multimodal content
+    let user_content = if let Some(b64) = &content_result.base64_content {
+        // For images, audio, PDF — use inline_data format
+        let parts = vec![
+            serde_json::json!({ "type": "text", "text": prompt }),
+            serde_json::json!({
+                "type": "image_url",
+                "image_url": {
+                    "url": format!("data:{};base64,{}", content_result.mime_type, b64)
+                }
+            }),
+        ];
+        serde_json::json!(parts)
+    } else if let Some(text) = &content_result.text_content {
+        serde_json::json!(format!("{}\n\n---\n\n文件内容：\n```\n{}\n```", prompt, text))
+    } else {
+        serde_json::json!(prompt)
+    };
+
+    messages_payload.push(serde_json::json!({
+        "role": "user",
+        "content": user_content
+    }));
+
+    let body = serde_json::json!({
+        "model": "gemini-2.0-flash",
+        "messages": messages_payload,
+        "stream": true,
+        "max_tokens": 4096
+    });
+
+    // 5. Stream response via SSE
+    let client = reqwest::Client::new();
+
+    let response = client
+        .post(GEMINI_API_URL)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("连接 AI API 失败: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let error_body = response.text().await.unwrap_or_else(|_| "Unknown error".into());
+        let _ = app.emit("analyze://error", serde_json::json!({
+            "file_name": file_name,
+            "error": format!("AI API 错误 ({}): {}", status, error_body)
+        }));
+        return Err(format!("AI API 错误 ({}): {}", status, error_body));
+    }
+
+    let mut stream = response.bytes_stream();
+    let mut buffer = String::new();
+    let mut full_response = String::new();
+
+    while let Some(chunk_result) = stream.next().await {
+        match chunk_result {
+            Ok(bytes) => {
+                let text = String::from_utf8_lossy(&bytes);
+                buffer.push_str(&text);
+
+                while let Some(pos) = buffer.find('\n') {
+                    let line = buffer[..pos].trim().to_string();
+                    buffer = buffer[pos + 1..].to_string();
+
+                    if line.starts_with("data: ") {
+                        let data = &line[6..];
+                        if data == "[DONE]" {
+                            // Write result to PMDM
+                            let timestamp = chrono::Utc::now().format("%Y-%m-%d %H:%M").to_string();
+                            let analysis_md = format!(
+                                "# 文件分析报告\n\n## 元信息\n- **文件名**：{}\n- **文件类型**：{}\n- **分析时间**：{}\n\n## 分析内容\n\n{}\n\n---\n*Generated by Neuro Syntax IDE Multimodal Analyzer*",
+                                file_name, file_type, timestamp, full_response
+                            );
+
+                            // Build MD file name from original file name
+                            let stem = file_name.rsplit_once('.').map(|(s, _)| s).unwrap_or(&file_name);
+                            let md_name = format!("{}-analysis.md", stem);
+
+                            let ws_clone = workspace.clone();
+                            let md_name_clone = md_name.clone();
+                            let analysis_md_clone = analysis_md.clone();
+                            let dir = pmdm_ensure_dir(&ws_clone)?;
+                            let md_path = dir.join(&md_name_clone);
+                            fs::write(&md_path, &analysis_md_clone)
+                                .map_err(|e| format!("写入分析结果失败: {}", e))?;
+
+                            let _ = app.emit("analyze://complete", serde_json::json!({
+                                "file_name": file_name,
+                                "md_name": md_name,
+                                "md_path": md_path.to_string_lossy().to_string(),
+                                "content_length": full_response.len()
+                            }));
+                            return Ok(());
+                        }
+
+                        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(data) {
+                            if let Some(choices) = parsed.get("choices") {
+                                if let Some(first_choice) = choices.as_array().and_then(|a| a.first()) {
+                                    if let Some(delta) = first_choice.get("delta") {
+                                        if let Some(content) = delta.get("content").and_then(|c| c.as_str()) {
+                                            full_response.push_str(content);
+                                            let _ = app.emit("analyze://chunk", serde_json::json!({
+                                                "file_name": file_name,
+                                                "text": content,
+                                                "is_done": false
+                                            }));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                let _ = app.emit("analyze://error", serde_json::json!({
+                    "file_name": file_name,
+                    "error": format!("Stream 错误: {}", e)
+                }));
+                return Err(format!("Stream 错误: {}", e));
+            }
+        }
+    }
+
+    // Stream ended without [DONE]
+    let _ = app.emit("analyze://complete", serde_json::json!({
+        "file_name": file_name,
+        "md_name": format!("{}-analysis.md", file_name.rsplit_once('.').map(|(s, _)| s).unwrap_or(&file_name)),
+        "content_length": full_response.len()
+    }));
+
+    Ok(())
+}
+
+// ===========================================================================
 // Application entry point
 // ===========================================================================
 
@@ -5725,6 +6270,12 @@ pub fn run() {
             pmfile_list,
             pmfile_delete,
             pmfile_rename,
+            // PMFile content reading & multimodal analysis (feat-agent-multimodal-analyze)
+            pmfile_read_content,
+            pmfile_analyze,
+            // PMDM management (feat-agent-multimodal-analyze)
+            pmdm_write,
+            pmdm_list,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
