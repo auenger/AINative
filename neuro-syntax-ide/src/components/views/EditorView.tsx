@@ -338,11 +338,15 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
     setFileLoading(true);
     setFileError(null);
 
-    try {
-      const content = await readFileContent(filePath);
+    // Determine renderer type first — binary files (image, etc.) handle their own loading
+    const rendererType = getFileRendererType(filePath);
+    const isBinary = rendererType === 'image';
 
-      // Large file guard
-      if (content.length > MAX_FILE_SIZE) {
+    try {
+      const content = isBinary ? '' : await readFileContent(filePath);
+
+      // Large file guard (text-only)
+      if (!isBinary && content.length > MAX_FILE_SIZE) {
         setFileError(t('editor.fileTooLarge'));
         setFileLoading(false);
         return;
@@ -352,10 +356,10 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
         path: filePath,
         name,
         content,
-        language: getLanguageFromPath(filePath),
+        language: isBinary ? '' : getLanguageFromPath(filePath),
         isDirty: false,
         viewState: null,
-        rendererType: getFileRendererType(filePath),
+        rendererType,
       };
 
       setOpenFiles(prev => {
