@@ -21,6 +21,8 @@ export interface XTerminalProps {
   active: boolean;
   /** Optional extra className on the wrapper div. */
   className?: string;
+  /** Working directory for the terminal shell. In Tauri mode this is passed to create_pty as cwd. */
+  cwd?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +125,7 @@ export const XTerminal: React.FC<XTerminalProps> = ({
   kind,
   active,
   className,
+  cwd,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -175,7 +178,7 @@ export const XTerminal: React.FC<XTerminalProps> = ({
     const rows = term.rows;
 
     invoke('create_pty', {
-      config: { shell, args, cols, rows },
+      config: { shell, args, cols, rows, cwd: cwd || undefined },
     })
       .then((returnedId) => {
         // The returned pty_id should match our prop; we pass ptyId via the
