@@ -5234,6 +5234,636 @@ async fn read_file_base64(path: String) -> Result<String, String> {
     Ok(base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes))
 }
 
+// ===========================================================================
+// Tauri commands - Image metadata (feat-file-preview-image-enhance)
+// ===========================================================================
+
+/// Image metadata returned by read_image_meta command.
+#[derive(Debug, Serialize, Clone)]
+pub struct ImageMetadata {
+    /// Image width in pixels (0 if unknown).
+    pub width: u32,
+    /// Image height in pixels (0 if unknown).
+    pub height: u32,
+    /// File size in bytes.
+    pub file_size: u64,
+    /// Human-readable file size string.
+    pub file_size_str: String,
+    /// File format / extension (e.g. "jpg", "png").
+    pub format: String,
+    /// MIME type (e.g. "image/jpeg").
+    pub mime_type: String,
+    /// Bit depth if detected (8, 16, etc.).
+    pub bit_depth: Option<u8>,
+    /// Color space name (e.g. "sRGB", "Adobe RGB", "Unknown").
+    pub color_space: String,
+    /// EXIF data fields (camera-related metadata).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exif: Option<ExifData>,
+}
+
+/// EXIF metadata extracted from image file headers.
+#[derive(Debug, Serialize, Clone)]
+pub struct ExifData {
+    /// Camera make / manufacturer.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub camera_make: Option<String>,
+    /// Camera model.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub camera_model: Option<String>,
+    /// Lens model.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lens_model: Option<String>,
+    /// F-number (aperture), e.g. "f/2.8".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub f_number: Option<String>,
+    /// Exposure time (shutter speed), e.g. "1/125".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exposure_time: Option<String>,
+    /// ISO speed rating.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub iso: Option<u32>,
+    /// Focal length in mm, e.g. "50mm".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub focal_length: Option<String>,
+    /// Date/time the photo was taken.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub date_time_original: Option<String>,
+    /// Software used.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub software: Option<String>,
+    /// Image orientation (e.g. "Horizontal (normal)").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub orientation: Option<String>,
+    /// GPS coordinates (latitude, longitude).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gps: Option<GpsInfo>,
+}
+
+/// GPS coordinate information.
+#[derive(Debug, Serialize, Clone)]
+pub struct GpsInfo {
+    pub latitude: f64,
+    pub longitude: f64,
+    pub altitude: Option<f64>,
+}
+
+/// Helper: format file size as human-readable string.
+fn format_file_size(bytes: u64) -> String {
+    if bytes < 1024 {
+        format!("{} B", bytes)
+    } else if bytes < 1024 * 1024 {
+        format!("{:.1} KB", bytes as f64 / 1024.0)
+    } else if bytes < 1024 * 1024 * 1024 {
+        format!("{:.2} MB", bytes as f64 / (1024.0 * 1024.0))
+    } else {
+        format!("{:.2} GB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
+    }
+}
+
+/// Helper: determine MIME type from file extension.
+fn image_mime_type(ext: &str) -> String {
+    match ext {
+        "png" => "image/png",
+        "jpg" | "jpeg" | "jfif" | "pjpeg" | "pjp" => "image/jpeg",
+        "gif" => "image/gif",
+        "bmp" => "image/bmp",
+        "ico" => "image/x-icon",
+        "svg" => "image/svg+xml",
+        "webp" => "image/webp",
+        "avif" => "image/avif",
+        "heic" | "heif" => "image/heic",
+        "tiff" | "tif" => "image/tiff",
+        _ => "application/octet-stream",
+    }.to_string()
+}
+
+/// Parse EXIF-like data from JPEG/TIFF file headers.
+/// Reads the first 64KB of the file to extract EXIF IFD entries.
+fn parse_exif_from_header(data: &[u8]) -> Option<ExifData> {
+    // Check for JPEG SOI marker
+    if data.len() < 4 { return None; }
+
+    // JPEG EXIF parsing
+    if data[0] == 0xFF && data[1] == 0xD8 {
+        // Find APP1 marker (0xFFE1)
+        let mut offset = 2;
+        while offset + 4 < data.len() {
+            if data[offset] != 0xFF { break; }
+            let marker = data[offset + 1];
+            if marker == 0xE1 {
+                // APP1 found — check for "Exif\0\0" header
+                let seg_start = offset + 4;
+                if seg_start + 6 > data.len() { break; }
+                let header = &data[seg_start..seg_start + 6];
+                if header == b"Exif\x00\x00" {
+                    let exif_start = seg_start + 6;
+                    return Some(parse_tiff_ifd(data, exif_start));
+                }
+            }
+            // Skip to next marker
+            if offset + 2 < data.len() {
+                let seg_len = ((data[offset + 2] as usize) << 8) | (data[offset + 3] as usize);
+                offset += 2 + seg_len;
+            } else {
+                break;
+            }
+        }
+    }
+
+    // TIFF files — starts with byte order mark (II or MM)
+    if (data[0] == b'I' && data[1] == b'I') || (data[0] == b'M' && data[1] == b'M') {
+        return Some(parse_tiff_ifd(data, 0));
+    }
+
+    // WebP files — "RIFF....WEBP" header, check for EXIF chunk
+    if data.len() > 12 && &data[0..4] == b"RIFF" && &data[8..12] == b"WEBP" {
+        let mut offset = 12;
+        while offset + 8 < data.len() {
+            let chunk_id = &data[offset..offset + 4];
+            let chunk_size = (data[offset + 4] as u32)
+                | ((data[offset + 5] as u32) << 8)
+                | ((data[offset + 6] as u32) << 16)
+                | ((data[offset + 7] as u32) << 24);
+            if chunk_id == b"EXIF" {
+                let exif_start = offset + 8;
+                let exif_end = exif_start + chunk_size as usize;
+                if exif_end <= data.len() {
+                    // Try to find the TIFF header within the EXIF chunk
+                    // Skip any leading padding/exif header
+                    if exif_start + 6 <= data.len() && &data[exif_start..exif_start + 6] == b"Exif\x00\x00" {
+                        return Some(parse_tiff_ifd(data, exif_start + 6));
+                    } else if exif_start + 4 <= data.len() {
+                        // May contain TIFF data directly
+                        let bo = &data[exif_start..exif_start + 2];
+                        if bo == b"II" || bo == b"MM" {
+                            return Some(parse_tiff_ifd(data, exif_start));
+                        }
+                    }
+                }
+            }
+            offset += 8 + chunk_size as usize;
+            // Chunks are padded to even size
+            if chunk_size % 2 == 1 { offset += 1; }
+        }
+    }
+
+    None
+}
+
+/// Parse TIFF IFD (Image File Directory) to extract EXIF tags.
+fn parse_tiff_ifd(data: &[u8], tiff_start: usize) -> ExifData {
+    let mut exif = ExifData {
+        camera_make: None,
+        camera_model: None,
+        lens_model: None,
+        f_number: None,
+        exposure_time: None,
+        iso: None,
+        focal_length: None,
+        date_time_original: None,
+        software: None,
+        orientation: None,
+        gps: None,
+    };
+
+    if tiff_start + 8 > data.len() { return exif; }
+
+    // Determine byte order
+    let little_endian = data[tiff_start] == b'I' && data[tiff_start + 1] == b'I';
+
+    let read_u16 = |d: &[u8], off: usize| -> u16 {
+        if little_endian {
+            (d[off] as u16) | ((d[off + 1] as u16) << 8)
+        } else {
+            ((d[off] as u16) << 8) | (d[off + 1] as u16)
+        }
+    };
+    let read_u32 = |d: &[u8], off: usize| -> u32 {
+        if little_endian {
+            (d[off] as u32) | ((d[off + 1] as u32) << 8) | ((d[off + 2] as u32) << 16) | ((d[off + 3] as u32) << 24)
+        } else {
+            ((d[off] as u32) << 24) | ((d[off + 1] as u32) << 16) | ((d[off + 2] as u32) << 8) | (d[off + 3] as u32)
+        }
+    };
+    let read_rational = |d: &[u8], off: usize| -> (u32, u32) {
+        (read_u32(d, off), read_u32(d, off + 4))
+    };
+
+    // Read TIFF header
+    let ifd0_offset = read_u32(data, tiff_start + 4) as usize;
+    if tiff_start + ifd0_offset + 2 > data.len() { return exif; }
+
+    let num_entries = read_u16(data, tiff_start + ifd0_offset) as usize;
+    let entries_start = tiff_start + ifd0_offset + 2;
+
+    // Helper: read ASCII tag value
+    let read_ascii = |d: &[u8], entry_off: usize, count: usize| -> Option<String> {
+        if count <= 4 {
+            if entry_off + 8 <= d.len() {
+                let val = d[entry_off + 8..entry_off + 8 + count as usize].to_vec();
+                Some(String::from_utf8_lossy(&val).trim_end_matches('\0').trim().to_string())
+            } else { None }
+        } else {
+            let data_offset = read_u32(d, entry_off + 8) as usize;
+            if tiff_start + data_offset + count <= d.len() {
+                let val = d[tiff_start + data_offset..tiff_start + data_offset + count].to_vec();
+                Some(String::from_utf8_lossy(&val).trim_end_matches('\0').trim().to_string())
+            } else { None }
+        }
+    };
+
+    // Helper: read rational tag value
+    let read_rational_tag = |d: &[u8], entry_off: usize| -> Option<(u32, u32)> {
+        let data_offset = read_u32(d, entry_off + 8) as usize;
+        if tiff_start + data_offset + 8 <= d.len() {
+            Some(read_rational(d, tiff_start + data_offset))
+        } else { None }
+    };
+
+    // Parse IFD0 entries
+    let mut exif_ifd_offset: Option<usize> = None;
+    let mut gps_ifd_offset: Option<usize> = None;
+
+    for i in 0..num_entries {
+        let entry_off = entries_start + i * 12;
+        if entry_off + 12 > data.len() { break; }
+
+        let tag = read_u16(data, entry_off);
+        let count = read_u32(data, entry_off + 4) as usize;
+
+        match tag {
+            // Orientation
+            0x0112 => {
+                if count == 1 {
+                    let val = read_u16(data, entry_off + 8);
+                    exif.orientation = Some(match val {
+                        1 => "Horizontal (normal)".into(),
+                        2 => "Mirrored horizontal".into(),
+                        3 => "Rotated 180°".into(),
+                        4 => "Mirrored vertical".into(),
+                        5 => "Mirrored horizontal then rotated 90° CCW".into(),
+                        6 => "Rotated 90° CW".into(),
+                        7 => "Mirrored horizontal then rotated 90° CW".into(),
+                        8 => "Rotated 90° CCW".into(),
+                        _ => format!("Unknown ({})", val),
+                    });
+                }
+            }
+            // Make
+            0x010F => { exif.camera_make = read_ascii(data, entry_off, count); }
+            // Model
+            0x0110 => { exif.camera_model = read_ascii(data, entry_off, count); }
+            // Software
+            0x0131 => { exif.software = read_ascii(data, entry_off, count); }
+            // EXIF IFD offset
+            0x8769 => { exif_ifd_offset = Some(read_u32(data, entry_off + 8) as usize); }
+            // GPS IFD offset
+            0x8825 => { gps_ifd_offset = Some(read_u32(data, entry_off + 8) as usize); }
+            _ => {}
+        }
+    }
+
+    // Parse EXIF sub-IFD
+    if let Some(exif_off) = exif_ifd_offset {
+        if tiff_start + exif_off + 2 <= data.len() {
+            let exif_num = read_u16(data, tiff_start + exif_off) as usize;
+            let exif_entries = tiff_start + exif_off + 2;
+
+            for i in 0..exif_num {
+                let entry_off = exif_entries + i * 12;
+                if entry_off + 12 > data.len() { break; }
+
+                let tag = read_u16(data, entry_off);
+                let count = read_u32(data, entry_off + 4) as usize;
+
+                match tag {
+                    // ExposureTime
+                    0x829A => {
+                        if let Some((num, den)) = read_rational_tag(data, entry_off) {
+                            if den > 0 {
+                                if num == 1 {
+                                    exif.exposure_time = Some(format!("1/{}", den));
+                                } else {
+                                    exif.exposure_time = Some(format!("{}/{}", num, den));
+                                }
+                            }
+                        }
+                    }
+                    // FNumber
+                    0x829D => {
+                        if let Some((num, den)) = read_rational_tag(data, entry_off) {
+                            if den > 0 {
+                                exif.f_number = Some(format!("f/{:.1}", num as f64 / den as f64));
+                            }
+                        }
+                    }
+                    // ISO
+                    0x8827 => {
+                        if count == 1 {
+                            exif.iso = Some(read_u16(data, entry_off + 8) as u32);
+                        }
+                    }
+                    // DateTimeOriginal
+                    0x9003 => { exif.date_time_original = read_ascii(data, entry_off, count); }
+                    // FocalLength
+                    0x920A => {
+                        if let Some((num, den)) = read_rational_tag(data, entry_off) {
+                            if den > 0 {
+                                exif.focal_length = Some(format!("{:.1}mm", num as f64 / den as f64));
+                            }
+                        }
+                    }
+                    // LensModel
+                    0xA432 => { exif.lens_model = read_ascii(data, entry_off, count); }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    // Parse GPS IFD
+    if let Some(gps_off) = gps_ifd_offset {
+        if tiff_start + gps_off + 2 <= data.len() {
+            let gps_num = read_u16(data, tiff_start + gps_off) as usize;
+            let gps_entries = tiff_start + gps_off + 2;
+
+            let mut lat_ref: Option<char> = None;
+            let mut lat_val: Option<(u32, u32, u32, u32, u32, u32)> = None;
+            let mut lon_ref: Option<char> = None;
+            let mut lon_val: Option<(u32, u32, u32, u32, u32, u32)> = None;
+            let mut alt_val: Option<(u32, u32)> = None;
+            let mut alt_ref: Option<u8> = None;
+
+            for i in 0..gps_num {
+                let entry_off = gps_entries + i * 12;
+                if entry_off + 12 > data.len() { break; }
+
+                let tag = read_u16(data, entry_off);
+                let count = read_u32(data, entry_off + 4) as usize;
+
+                match tag {
+                    // GPSLatitudeRef
+                    0x0001 => {
+                        if count >= 1 && entry_off + 9 <= data.len() {
+                            lat_ref = Some(data[entry_off + 8] as char);
+                        }
+                    }
+                    // GPSLatitude
+                    0x0002 => {
+                        let data_offset = read_u32(data, entry_off + 8) as usize;
+                        if tiff_start + data_offset + 24 <= data.len() {
+                            let d1 = read_rational(data, tiff_start + data_offset);
+                            let d2 = read_rational(data, tiff_start + data_offset + 8);
+                            let d3 = read_rational(data, tiff_start + data_offset + 16);
+                            lat_val = Some((d1.0, d1.1, d2.0, d2.1, d3.0, d3.1));
+                        }
+                    }
+                    // GPSLongitudeRef
+                    0x0003 => {
+                        if count >= 1 && entry_off + 9 <= data.len() {
+                            lon_ref = Some(data[entry_off + 8] as char);
+                        }
+                    }
+                    // GPSLongitude
+                    0x0004 => {
+                        let data_offset = read_u32(data, entry_off + 8) as usize;
+                        if tiff_start + data_offset + 24 <= data.len() {
+                            let d1 = read_rational(data, tiff_start + data_offset);
+                            let d2 = read_rational(data, tiff_start + data_offset + 8);
+                            let d3 = read_rational(data, tiff_start + data_offset + 16);
+                            lon_val = Some((d1.0, d1.1, d2.0, d2.1, d3.0, d3.1));
+                        }
+                    }
+                    // GPSAltitude
+                    0x0006 => { alt_val = read_rational_tag(data, entry_off); }
+                    // GPSAltitudeRef
+                    0x0005 => {
+                        if entry_off + 8 < data.len() {
+                            alt_ref = Some(data[entry_off + 8]);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            // Convert GPS to decimal degrees
+            let convert_gps = |val: Option<(u32, u32, u32, u32, u32, u32)>| -> Option<f64> {
+                val.map(|(d, dd, m, md, s, sd)| {
+                    let degrees = if dd > 0 { d as f64 / dd as f64 } else { 0.0 };
+                    let minutes = if md > 0 { m as f64 / md as f64 } else { 0.0 };
+                    let seconds = if sd > 0 { s as f64 / sd as f64 } else { 0.0 };
+                    degrees + minutes / 60.0 + seconds / 3600.0
+                })
+            };
+
+            let lat = convert_gps(lat_val).map(|v| {
+                if lat_ref == Some('S') { -v } else { v }
+            });
+            let lon = convert_gps(lon_val).map(|v| {
+                if lon_ref == Some('W') { -v } else { v }
+            });
+            let alt = alt_val.and_then(|(n, d)| {
+                if d > 0 {
+                    let mut val = n as f64 / d as f64;
+                    if alt_ref == Some(1) { val = -val; }
+                    Some(val)
+                } else { None }
+            });
+
+            if let (Some(latitude), Some(longitude)) = (lat, lon) {
+                exif.gps = Some(GpsInfo { latitude, longitude, altitude: alt });
+            }
+        }
+    }
+
+    exif
+}
+
+/// Parse image dimensions from PNG header.
+fn parse_png_dimensions(data: &[u8]) -> Option<(u32, u32)> {
+    if data.len() < 24 { return None; }
+    // PNG: bytes 16-19 = width, 20-23 = height (big-endian)
+    let w = ((data[16] as u32) << 24) | ((data[17] as u32) << 16) | ((data[18] as u32) << 8) | data[19] as u32;
+    let h = ((data[20] as u32) << 24) | ((data[21] as u32) << 16) | ((data[22] as u32) << 8) | data[23] as u32;
+    Some((w, h))
+}
+
+/// Parse image dimensions from BMP header.
+fn parse_bmp_dimensions(data: &[u8]) -> Option<(u32, u32)> {
+    if data.len() < 26 { return None; }
+    // BMP: bytes 18-21 = width (little-endian i32), 22-25 = height (little-endian i32)
+    let w = (data[18] as u32) | ((data[19] as u32) << 8) | ((data[20] as u32) << 16) | ((data[21] as u32) << 24);
+    let h = (data[22] as u32) | ((data[23] as u32) << 8) | ((data[24] as u32) << 16) | ((data[25] as u32) << 24);
+    Some((w, h))
+}
+
+/// Parse image dimensions from GIF header.
+fn parse_gif_dimensions(data: &[u8]) -> Option<(u32, u32)> {
+    if data.len() < 10 { return None; }
+    // GIF: bytes 6-7 = width (little-endian u16), 8-9 = height (little-endian u16)
+    let w = (data[6] as u32) | ((data[7] as u32) << 8);
+    let h = (data[8] as u32) | ((data[9] as u32) << 8);
+    Some((w, h))
+}
+
+/// Parse image dimensions from WebP header.
+fn parse_webp_dimensions(data: &[u8]) -> Option<(u32, u32)> {
+    if data.len() < 30 { return None; }
+    if &data[12..16] == b"VP8 " {
+        // Lossy WebP: dimensions in VP8 bitstream header
+        if data.len() < 30 { return None; }
+        let w = ((data[26] as u32) & 0x3F) | (((data[27] as u32) & 0xFF) << 6) | (((data[28] as u32) & 0x03) << 14);
+        let h = (((data[28] as u32) >> 2) & 0x3F) | (((data[29] as u32) & 0xFF) << 6) | (((data[30] as u32) & 0x03) << 14);
+        return Some((w, h));
+    }
+    if &data[12..16] == b"VP8L" {
+        // Lossless WebP
+        if data.len() < 25 { return None; }
+        let bits = (data[21] as u32) | ((data[22] as u32) << 8) | ((data[23] as u32) << 16) | ((data[24] as u32) << 24);
+        let w = (bits & 0x3FFF) + 1;
+        let h = ((bits >> 14) & 0x3FFF) + 1;
+        return Some((w, h));
+    }
+    None
+}
+
+/// Read image metadata (dimensions, file size, EXIF, etc.).
+/// Reads up to 64KB of the file to extract header information.
+#[tauri::command]
+async fn read_image_meta(path: String) -> Result<ImageMetadata, String> {
+    let file_path = PathBuf::from(&path);
+    if !file_path.exists() {
+        return Err(format!("File does not exist: {}", path));
+    }
+
+    // Get file metadata
+    let metadata = fs::metadata(&file_path)
+        .map_err(|e| format!("Failed to read file metadata: {}", e))?;
+    let file_size = metadata.len();
+
+    // Determine extension and MIME type
+    let ext = file_path.extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase())
+        .unwrap_or_default();
+    let mime_type = image_mime_type(&ext);
+
+    // Read up to 64KB for header parsing
+    let max_header_size = 64 * 1024;
+    let read_size = std::cmp::min(file_size, max_header_size) as usize;
+    let file = std::fs::File::open(&file_path)
+        .map_err(|e| format!("Failed to open file: {}", e))?;
+    let mut header_data = vec![0u8; read_size];
+    use std::io::Seek;
+    let mut file_reader = std::io::BufReader::new(file);
+    use std::io::Read;
+    file_reader.read_exact(&mut header_data)
+        .map_err(|e| format!("Failed to read file header: {}", e))?;
+
+    // Parse dimensions based on format
+    let (width, height) = match ext.as_str() {
+        "png" => parse_png_dimensions(&header_data).unwrap_or((0, 0)),
+        "bmp" => parse_bmp_dimensions(&header_data).unwrap_or((0, 0)),
+        "gif" => parse_gif_dimensions(&header_data).unwrap_or((0, 0)),
+        "webp" => parse_webp_dimensions(&header_data).unwrap_or((0, 0)),
+        "jpg" | "jpeg" | "jfif" | "pjpeg" | "pjp" => {
+            // JPEG: SOF markers contain dimensions
+            let mut w = 0u32;
+            let mut h = 0u32;
+            let mut offset = 2;
+            while offset + 9 < header_data.len() {
+                if header_data[offset] != 0xFF { break; }
+                let marker = header_data[offset + 1];
+                // SOF0 (0xFFC0), SOF1, SOF2 (progressive)
+                if marker == 0xC0 || marker == 0xC1 || marker == 0xC2 {
+                    let sof_start = offset + 2;
+                    if sof_start + 7 <= header_data.len() {
+                        h = ((header_data[sof_start + 3] as u32) << 8) | header_data[sof_start + 4] as u32;
+                        w = ((header_data[sof_start + 5] as u32) << 8) | header_data[sof_start + 6] as u32;
+                        break;
+                    }
+                }
+                // Skip marker segment
+                if offset + 3 < header_data.len() {
+                    let seg_len = ((header_data[offset + 2] as usize) << 8) | header_data[offset + 3] as usize;
+                    offset += 2 + seg_len;
+                } else {
+                    break;
+                }
+            }
+            (w, h)
+        }
+        "tiff" | "tif" => {
+            // TIFF IFD0 may contain ImageWidth and ImageLength tags
+            let mut w = 0u32;
+            let mut h = 0u32;
+            if header_data.len() >= 8 {
+                let little_endian = header_data[0] == b'I';
+                let read_u16 = |d: &[u8], off: usize| -> u16 {
+                    if little_endian { (d[off] as u16) | ((d[off+1] as u16) << 8) }
+                    else { ((d[off] as u16) << 8) | d[off+1] as u16 }
+                };
+                let read_u32 = |d: &[u8], off: usize| -> u32 {
+                    if little_endian { (d[off] as u32) | ((d[off+1] as u32) << 8) | ((d[off+2] as u32) << 16) | ((d[off+3] as u32) << 24) }
+                    else { ((d[off] as u32) << 24) | ((d[off+1] as u32) << 16) | ((d[off+2] as u32) << 8) | d[off+3] as u32 }
+                };
+                let ifd_off = read_u32(&header_data, 4) as usize;
+                if ifd_off + 2 <= header_data.len() {
+                    let num = read_u16(&header_data, ifd_off) as usize;
+                    for i in 0..num {
+                        let e = ifd_off + 2 + i * 12;
+                        if e + 12 > header_data.len() { break; }
+                        let tag = read_u16(&header_data, e);
+                        if tag == 0x0100 { // ImageWidth
+                            w = read_u32(&header_data, e + 8);
+                        } else if tag == 0x0101 { // ImageLength
+                            h = read_u32(&header_data, e + 8);
+                        }
+                    }
+                }
+            }
+            (w, h)
+        }
+        _ => (0, 0), // Unknown dimensions
+    };
+
+    // Parse EXIF data
+    let exif = parse_exif_from_header(&header_data);
+
+    // Determine bit depth and color space from EXIF or format defaults
+    let bit_depth = match ext.as_str() {
+        "png" => {
+            // PNG IHDR byte 8: bit depth
+            if header_data.len() > 24 { Some(header_data[24]) } else { None }
+        }
+        "jpg" | "jpeg" => {
+            // Could parse from EXIF or SOF, but keep simple
+            exif.as_ref().and_then(|_| None).or(Some(8))
+        }
+        _ => None,
+    };
+
+    let color_space = if ext == "svg" {
+        "sRGB".to_string()
+    } else {
+        // Color space from EXIF ColorSpace tag if available, otherwise "Unknown"
+        "Unknown".to_string()
+    };
+
+    Ok(ImageMetadata {
+        width,
+        height,
+        file_size,
+        file_size_str: format_file_size(file_size),
+        format: ext,
+        mime_type,
+        bit_depth,
+        color_space,
+        exif,
+    })
+}
+
 #[tauri::command]
 async fn write_file(path: String, content: String) -> Result<(), String> {
     fs::write(&path, content)
@@ -6381,6 +7011,8 @@ pub fn run() {
             read_file,
             read_file_base64,
             write_file,
+            // Image metadata (feat-file-preview-image-enhance)
+            read_image_meta,
             // MD Explorer (feat-project-md-explorer)
             list_md_files,
             // Settings & LLM Provider (feat-settings-llm-config)

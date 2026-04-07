@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { cn } from '../../lib/utils';
 import { useTheme } from '../../context/ThemeContext';
-import { AlertTriangle, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { AlertTriangle, ZoomIn, ZoomOut, RotateCcw, Info, X } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -32,6 +32,122 @@ function formatFileSize(bytes: number): string {
 }
 
 // ---------------------------------------------------------------------------
+// EXIF data types from Tauri backend (feat-file-preview-image-enhance)
+// ---------------------------------------------------------------------------
+
+interface ExifData {
+  camera_make?: string;
+  camera_model?: string;
+  lens_model?: string;
+  f_number?: string;
+  exposure_time?: string;
+  iso?: number;
+  focal_length?: string;
+  date_time_original?: string;
+  software?: string;
+  orientation?: string;
+  gps?: { latitude: number; longitude: number; altitude?: number };
+}
+
+interface BackendImageMetadata {
+  width: number;
+  height: number;
+  file_size: number;
+  file_size_str: string;
+  format: string;
+  mime_type: string;
+  bit_depth: number | null;
+  color_space: string;
+  exif?: ExifData;
+}
+
+// ---------------------------------------------------------------------------
+// Extended MIME map for additional image formats
+// ---------------------------------------------------------------------------
+
+function getMimeType(ext: string, fallbackMime?: string): string {
+  const mimeMap: Record<string, string> = {
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    jfif: 'image/jpeg',
+    pjpeg: 'image/jpeg',
+    pjp: 'image/jpeg',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    bmp: 'image/bmp',
+    ico: 'image/x-icon',
+    avif: 'image/avif',
+    heic: 'image/heic',
+    heif: 'image/heif',
+    tiff: 'image/tiff',
+    tif: 'image/tiff',
+    svg: 'image/svg+xml',
+  };
+  return mimeMap[ext] ?? fallbackMime ?? 'application/octet-stream';
+}
+
+// ---------------------------------------------------------------------------
+// MetadataPanel — collapsible EXIF/info sidebar
+// ---------------------------------------------------------------------------
+
+const MetadataPanel: React.FC<{
+  metadata: BackendImageMetadata;
+  onClose: () => void;
+}> = ({ metadata, onClose }) => {
+  const metaRow = (label: string, value: string | number | null | undefined) => {
+    if (value == null || value === '') return null;
+    return (
+      <div className="flex justify-between items-center px-1 py-0.5">
+        <span className="text-[10px] text-on-surface-variant uppercase tracking-widest">{label}</span>
+        <span className="text-[11px] text-on-surface font-mono">{String(value)}</span>
+      </div>
+    );
+  };
+
+  const exif = metadata.exif;
+
+  return (
+    <div className="w-64 shrink-0 border-l border-outline-variant/10 bg-surface-container-low overflow-y-auto p-3 flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-on-surface font-medium uppercase tracking-widest">Image Info</span>
+        <button onClick={onClose} className="p-1 hover:bg-surface-container-high rounded text-on-surface-variant hover:text-on-surface transition-colors">
+          <X size={12} />
+        </button>
+      </div>
+
+      {/* Basic info section */}
+      <div className="space-y-1">
+        <span className="text-[10px] text-outline font-medium uppercase tracking-widest">General</span>
+        {metaRow('Dimensions', `${metadata.width} x ${metadata.height}`)}
+        {metaRow('File Size', metadata.file_size_str || formatFileSize(metadata.file_size))}
+        {metaRow('Format', metadata.format.toUpperCase())}
+        {metaRow('MIME Type', metadata.mime_type)}
+        {metaRow('Bit Depth', metadata.bit_depth != null ? `${metadata.bit_depth}-bit` : null)}
+        {metaRow('Color Space', metadata.color_space !== 'Unknown' ? metadata.color_space : null)}
+      </div>
+
+      {/* EXIF section */}
+      {exif && (
+        <div className="space-y-1">
+          <span className="text-[10px] text-outline font-medium uppercase tracking-widest">EXIF</span>
+          {metaRow('Camera', [exif.camera_make, exif.camera_model].filter(Boolean).join(' ') || null)}
+          {metaRow('Lens', exif.lens_model)}
+          {metaRow('Aperture', exif.f_number)}
+          {metaRow('Shutter', exif.exposure_time)}
+          {metaRow('ISO', exif.iso != null ? `ISO ${exif.iso}` : null)}
+          {metaRow('Focal Length', exif.focal_length)}
+          {metaRow('Taken', exif.date_time_original)}
+          {metaRow('Software', exif.software)}
+          {metaRow('Orientation', exif.orientation)}
+          {exif.gps && metaRow('GPS', `${exif.gps.latitude.toFixed(4)}, ${exif.gps.longitude.toFixed(4)}`)}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // SVG sanitization — strip dangerous elements/attributes
 // ---------------------------------------------------------------------------
 
@@ -47,7 +163,7 @@ function sanitizeSvg(svgText: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// ImagePreview component — handles PNG/JPG/GIF/WebP/BMP/ICO/AVIF
+// ImagePreview component — handles PNG/JPG/GIF/WebP/BMP/ICO/AVIF + extended formats
 // ---------------------------------------------------------------------------
 
 export const ImagePreview: React.FC<ImagePreviewProps> = ({ filePath, isTauri }) => {
@@ -56,10 +172,12 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({ filePath, isTauri })
 
   const [imgSrc, setImgSrc] = useState<string>('');
   const [meta, setMeta] = useState<ImageMeta | null>(null);
+  const [imageMeta, setImageMeta] = useState<BackendImageMetadata | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
+  const [showInfoPanel, setShowInfoPanel] = useState(false);
 
   // Determine file extension
   const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
@@ -90,17 +208,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({ filePath, isTauri })
             // Read binary image as base64
             const base64 = await invoke<string>('read_file_base64', { path: filePath });
             if (cancelled) return;
-            const mimeMap: Record<string, string> = {
-              png: 'image/png',
-              jpg: 'image/jpeg',
-              jpeg: 'image/jpeg',
-              gif: 'image/gif',
-              webp: 'image/webp',
-              bmp: 'image/bmp',
-              ico: 'image/x-icon',
-              avif: 'image/avif',
-            };
-            const mime = mimeMap[ext] ?? 'application/octet-stream';
+            const mime = getMimeType(ext);
             setImgSrc(`data:${mime};base64,${base64}`);
           }
         } else {
@@ -132,6 +240,32 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({ filePath, isTauri })
   }, [filePath, isTauri]);
 
   // -------------------------------------------------------------------------
+  // Load image metadata from Tauri backend (feat-file-preview-image-enhance)
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMetadata() {
+      if (!isTauri) return;
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const result = await invoke<BackendImageMetadata>('read_image_meta', { path: filePath });
+        if (cancelled) return;
+        setImageMeta(result);
+      } catch (err: any) {
+        // Metadata loading failure should not block image rendering
+        console.warn('Failed to load image metadata:', err);
+      }
+    }
+
+    loadMetadata();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filePath, isTauri]);
+
+  // -------------------------------------------------------------------------
   // Image load handler — capture natural dimensions & compute zoom-to-fit
   // -------------------------------------------------------------------------
   const handleImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -152,13 +286,12 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({ filePath, isTauri })
       }
     }
 
-    // Try to get file size from the loaded src (rough estimate for base64)
     setMeta({
       width: w,
       height: h,
-      fileSize: '', // will be updated if available
+      fileSize: imageMeta?.file_size_str ?? '',
     });
-  }, []);
+  }, [imageMeta]);
 
   // -------------------------------------------------------------------------
   // Mouse wheel zoom
@@ -189,7 +322,7 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({ filePath, isTauri })
   }, [naturalSize]);
 
   // -------------------------------------------------------------------------
-  // Keyboard shortcuts for zoom
+  // Keyboard shortcuts for zoom + info toggle
   // -------------------------------------------------------------------------
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -202,6 +335,9 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({ filePath, isTauri })
       } else if ((e.metaKey || e.ctrlKey) && e.key === '0') {
         e.preventDefault();
         zoomReset();
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
+        e.preventDefault();
+        setShowInfoPanel(prev => !prev);
       }
     };
     window.addEventListener('keydown', handler);
@@ -266,6 +402,16 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({ filePath, isTauri })
         >
           <RotateCcw size={14} />
         </button>
+        <button
+          onClick={() => setShowInfoPanel(prev => !prev)}
+          className={cn(
+            'p-1 hover:bg-surface-container-high rounded transition-colors text-on-surface-variant hover:text-on-surface',
+            showInfoPanel && 'bg-surface-container-high text-on-surface',
+          )}
+          title="Image Info (Cmd+I)"
+        >
+          <Info size={14} />
+        </button>
         {meta && (
           <span className="ml-auto text-[10px] text-outline font-mono">
             {meta.width} x {meta.height}
@@ -274,30 +420,40 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({ filePath, isTauri })
       </div>
 
       {/* Image display area with checkerboard background */}
-      <div
-        className="flex-1 overflow-auto flex items-center justify-center"
-        onWheel={handleWheel}
-        style={{
-          backgroundImage: appTheme === 'dark'
-            ? 'linear-gradient(45deg, #1a1a2e 25%, transparent 25%), linear-gradient(-45deg, #1a1a2e 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #1a1a2e 75%), linear-gradient(-45deg, transparent 75%, #1a1a2e 75%)'
-            : 'linear-gradient(45deg, #f0f0f0 25%, transparent 25%), linear-gradient(-45deg, #f0f0f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f0f0f0 75%), linear-gradient(-45deg, transparent 75%, #f0f0f0 75%)',
-          backgroundSize: '20px 20px',
-          backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0',
-        }}
-      >
-        {imgSrc && (
-          <img
-            src={imgSrc}
-            alt={filePath.split('/').pop() ?? 'Image'}
-            onLoad={handleImageLoad}
-            onError={() => setError('Failed to render image')}
-            className="transition-transform duration-100"
-            style={{
-              transform: `scale(${zoom})`,
-              transformOrigin: 'center center',
-              imageRendering: zoom > 2 ? 'pixelated' : 'auto',
-            }}
-            draggable={false}
+      <div className="flex flex-1 overflow-hidden">
+        <div
+          className="flex-1 overflow-auto flex items-center justify-center"
+          onWheel={handleWheel}
+          style={{
+            backgroundImage: appTheme === 'dark'
+              ? 'linear-gradient(45deg, #1a1a2e 25%, transparent 25%), linear-gradient(-45deg, #1a1a2e 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #1a1a2e 75%), linear-gradient(-45deg, transparent 75%, #1a1a2e 75%)'
+              : 'linear-gradient(45deg, #f0f0f0 25%, transparent 25%), linear-gradient(-45deg, #f0f0f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f0f0f0 75%), linear-gradient(-45deg, transparent 75%, #f0f0f0 75%)',
+            backgroundSize: '20px 20px',
+            backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0',
+          }}
+        >
+          {imgSrc && (
+            <img
+              src={imgSrc}
+              alt={filePath.split('/').pop() ?? 'Image'}
+              onLoad={handleImageLoad}
+              onError={() => setError('Failed to render image')}
+              className="transition-transform duration-100"
+              style={{
+                transform: `scale(${zoom})`,
+                transformOrigin: 'center center',
+                imageRendering: zoom > 2 ? 'pixelated' : 'auto',
+              }}
+              draggable={false}
+            />
+          )}
+        </div>
+
+        {/* Metadata/EXIF info panel */}
+        {showInfoPanel && imageMeta && (
+          <MetadataPanel
+            metadata={imageMeta}
+            onClose={() => setShowInfoPanel(false)}
           />
         )}
       </div>
