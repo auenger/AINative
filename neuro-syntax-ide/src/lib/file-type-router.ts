@@ -20,6 +20,11 @@ const MARKDOWN_EXTENSIONS = new Set([
   'md', 'mdx',
 ]);
 
+/** PDF extensions. */
+const PDF_EXTENSIONS = new Set([
+  'pdf',
+]);
+
 /** Source code extensions handled by Monaco editor with full language support. */
 const MONACO_CODE_EXTENSIONS = new Set([
   'ts', 'tsx', 'js', 'jsx',
@@ -51,6 +56,7 @@ export function getFileRendererType(filePath: string): FileRendererType {
   }
 
   if (MARKDOWN_EXTENSIONS.has(ext)) return 'markdown';
+  if (PDF_EXTENSIONS.has(ext)) return 'pdf';
   if (IMAGE_EXTENSIONS.has(ext)) return 'image';
   if (CONFIG_EXTENSIONS.has(ext)) return 'config-tree';
   if (MONACO_CODE_EXTENSIONS.has(ext)) return 'monaco';

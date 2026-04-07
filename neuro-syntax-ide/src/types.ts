@@ -39,7 +39,7 @@ export interface LogEntry {
 }
 
 /** Renderer type for file type routing. */
-export type FileRendererType = 'monaco' | 'markdown' | 'image' | 'config-tree' | 'text' | 'unsupported';
+export type FileRendererType = 'monaco' | 'markdown' | 'image' | 'config-tree' | 'text' | 'pdf' | 'unsupported';
 
 /** State for a single open file tab in the editor. */
 export interface OpenFileState {
