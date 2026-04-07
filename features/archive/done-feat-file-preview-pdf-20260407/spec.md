@@ -41,6 +41,17 @@
 - File type routing: `file-type-router.ts` maps `.pdf` extension to `'pdf'` renderer type
 - EditorView: PDF treated as binary (skip text read), renders `PdfPreview` component
 
+## Merge Record
+- **Completed**: 2026-04-07T13:00:00Z
+- **Merged Branch**: feature/feat-file-preview-pdf
+- **Merge Commit**: 278137d
+- **Archive Tag**: feat-file-preview-pdf-20260407
+- **Conflicts**: none
+- **Verification**: passed (4/4 Gherkin scenarios)
+- **Duration**: ~30min
+- **Commits**: 2
+- **Files Changed**: 13 (767 insertions, 44 deletions)
+
 ## Acceptance Criteria (Gherkin)
 ### User Story
 作为用户，我希望在文件树中点击 PDF 文件时，编辑器区域直接显示 PDF 内容，这样我无需离开 IDE 就能查看文档。

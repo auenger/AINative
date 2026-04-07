@@ -1,10 +1,37 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-07T10:40:00Z"
+  last_updated: "2026-04-07T13:00:00Z"
   version: 1
-  total_completed: 67
+  total_completed: 68
 
 records:
+  - id: feat-file-preview-pdf
+    name: "PDF 文件预览"
+    completed_at: "2026-04-07T13:00:00Z"
+    tag: feat-file-preview-pdf-20260407
+    merge_commit: 278137d
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-file-preview-pdf
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-file-preview-pdf
+    parent: feat-file-preview-multi
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-07T12:30:00Z"
+      duration: "~30min"
+      commits: 2
+      files_changed: 13
+      insertions: 767
+      deletions: 44
+    archive_path: features/archive/done-feat-file-preview-pdf-20260407
+
   - id: feat-new-task-runtime-execute
     name: "New Task Runtime 直接执行（对齐 REQ Agent 方案）"
     completed_at: "2026-04-07T10:40:00Z"

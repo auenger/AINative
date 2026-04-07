@@ -1,124 +1,116 @@
-# feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-07T12:30:00Z"
+  last_updated: '2026-04-07T13:05:00Z'
   version: 1
-
 parents:
-  - id: epic-neuro-syntax-ide-roadmap
-    name: "Neuro Syntax IDE — 从原型到桌面 App"
-    features:
-      - feat-tauri-v2-init
-      - feat-workspace-loader
-      - feat-fs-database-engine
-      - feat-editor-monaco
-      - feat-native-terminal
-      - feat-hardware-monitor
-      - feat-ai-agent-service
-  - id: feat-file-preview-multi
-    name: "编辑器多文件类型预览"
-    split: true
-    features:
-      - feat-file-preview-pdf
-      - feat-file-preview-media
-      - feat-file-preview-image-enhance
-
-active:
-  - id: feat-file-preview-pdf
-    name: "PDF 文件预览"
-    priority: 50
-    parent: feat-file-preview-multi
-    branch: feature/feat-file-preview-pdf
-    worktree: ../NeuroSyntaxIDE-feat-file-preview-pdf
-    started_at: "2026-04-07T12:30:00Z"
-
+- id: epic-neuro-syntax-ide-roadmap
+  name: Neuro Syntax IDE — 从原型到桌面 App
+  features:
+  - feat-tauri-v2-init
+  - feat-workspace-loader
+  - feat-fs-database-engine
+  - feat-editor-monaco
+  - feat-native-terminal
+  - feat-hardware-monitor
+  - feat-ai-agent-service
+- id: feat-file-preview-multi
+  name: 编辑器多文件类型预览
+  split: true
+  features:
+  - feat-file-preview-pdf
+  - feat-file-preview-media
+  - feat-file-preview-image-enhance
+active: []
 pending:
-  - id: feat-file-preview-media
-    name: "视频/音频预览"
-    priority: 50
-    parent: feat-file-preview-multi
-    depends_on:
-      - feat-file-preview-pdf
-  - id: feat-file-preview-image-enhance
-    name: "图片预览增强"
-    priority: 50
-    parent: feat-file-preview-multi
-    depends_on:
-      - feat-file-preview-media
-
+- id: feat-file-preview-media
+  name: 视频/音频预览
+  priority: 50
+  parent: feat-file-preview-multi
+  depends_on:
+  - feat-file-preview-pdf
+- id: feat-file-preview-image-enhance
+  name: 图片预览增强
+  priority: 50
+  parent: feat-file-preview-multi
+  depends_on:
+  - feat-file-preview-media
 blocked: []
-
 completed:
-  - id: feat-new-task-runtime-execute
-    name: "New Task Runtime 直接执行（对齐 REQ Agent 方案）"
-    completed_at: "2026-04-07T10:40:00Z"
-    tag: feat-new-task-runtime-execute-20260407
-  - id: feat-dispatch-runtime-graceful
-    name: "Fix dispatch_to_runtime Command Not Found"
-    completed_at: "2026-04-07T09:47:00Z"
-    tag: feat-dispatch-runtime-graceful-20260407
-  - id: feat-agent-multimodal-chat
-    name: "Agent 对话多模态集成"
-    completed_at: "2026-04-07T06:00:00Z"
-    tag: feat-agent-multimodal-chat-20260407
-    parent: feat-agent-multimodal
-    depends_on:
-      - feat-agent-multimodal-upload
-      - feat-agent-multimodal-analyze
-  - id: feat-agent-multimodal-analyze
-    name: "多模态文件分析与 MD 文档生成"
-    completed_at: "2026-04-07T04:30:00Z"
-    tag: feat-agent-multimodal-analyze-20260407
-  - id: feat-agent-multimodal-upload
-    name: "Agent 多模态文件上传与管理"
-    completed_at: "2026-04-07T03:30:00Z"
-    tag: feat-agent-multimodal-upload-20260407
-  - id: feat-agent-conversation
-    name: "Feature Detail Modal Agent 对话区（Review/Modify/Develop）"
-    completed_at: "2026-04-07T02:00:00Z"
-    tag: feat-agent-conversation-20260407
-  - id: feat-modal-drag-resize
-    name: "NewTaskModal 拖拽移动与调整大小"
-    completed_at: "2026-04-07T00:00:00Z"
-    tag: feat-modal-drag-resize-20260406
-  - id: feat-project-md-explorer
-    name: "Project MD Explorer（项目首页 Markdown 文件浏览器）"
-    completed_at: "2026-04-06T23:30:00Z"
-    tag: feat-project-md-explorer-20260406
-  - id: feat-load-project-context
-    name: "Project Context 真实文件加载"
-    completed_at: "2026-04-05T22:15:00Z"
-    tag: feat-load-project-context-20260405
-  - id: fix-req-agent-multiturn-v2
-    name: "REQ Agent 多轮对话修复 V2（第二轮无响应根因修复）"
-    completed_at: "2026-04-05T20:25:00Z"
-    tag: fix-req-agent-multiturn-v2-20260405
-  - id: feat-pm-agent-provider-switch
-    name: "PM Agent LLM 提供商切换（Settings 默认值 + 聊天区下拉覆盖）"
-    completed_at: "2026-04-06T10:30:00Z"
-    tag: feat-pm-agent-provider-switch-20260405
-  - id: feat-git-branch-graph
-    name: "Branch & Feature 连线图（拓扑可视化）"
-    completed_at: "2026-04-06T21:00:00Z"
-    tag: feat-git-branch-graph-20260406
-    parent: feat-git-tag-detail-graph
-  - id: feat-git-tag-expand
-    name: "Tag 详情展开（动态加载提交历史与文件变动）"
-    completed_at: "2026-04-06T18:30:00Z"
-    tag: feat-git-tag-expand-20260406
-    parent: feat-git-tag-detail-graph
-  - id: feat-agent-layout-optim
-    name: "Agent Tab 配置表单 & 编排页面布局优化"
-    completed_at: "2026-04-06T18:25:00Z"
-    tag: feat-agent-layout-optim-20260406
-  - id: feat-settings-style-unify
-    name: "Settings 页面样式优化与配置页统一样式"
-    completed_at: "2026-04-06T17:10:00Z"
-    tag: feat-settings-style-unify-20260406
-  - id: feat-editor-save-status
-    name: "编辑器保存状态优化（移除 Run + 状态可视化 + 快捷键）"
-    completed_at: "2026-04-06T17:00:00Z"
-    tag: feat-editor-save-status-20260406
-  - id: fix-req-agent-multiturn
-    name: "REQ Agent 多轮对话修复 + 状态初始化"
-    completed_at: "2026-04-06T15:20:00Z"
-    tag: fix-req-agent-multiturn-20260406
+- id: feat-file-preview-pdf
+  name: PDF 文件预览
+  completed_at: '2026-04-07T13:05:00Z'
+  tag: feat-file-preview-pdf-20260407
+  parent: feat-file-preview-multi
+- id: feat-new-task-runtime-execute
+  name: New Task Runtime 直接执行（对齐 REQ Agent 方案）
+  completed_at: '2026-04-07T10:40:00Z'
+  tag: feat-new-task-runtime-execute-20260407
+- id: feat-dispatch-runtime-graceful
+  name: Fix dispatch_to_runtime Command Not Found
+  completed_at: '2026-04-07T09:47:00Z'
+  tag: feat-dispatch-runtime-graceful-20260407
+- id: feat-agent-multimodal-chat
+  name: Agent 对话多模态集成
+  completed_at: '2026-04-07T06:00:00Z'
+  tag: feat-agent-multimodal-chat-20260407
+  parent: feat-agent-multimodal
+  depends_on:
+  - feat-agent-multimodal-upload
+  - feat-agent-multimodal-analyze
+- id: feat-agent-multimodal-analyze
+  name: 多模态文件分析与 MD 文档生成
+  completed_at: '2026-04-07T04:30:00Z'
+  tag: feat-agent-multimodal-analyze-20260407
+- id: feat-agent-multimodal-upload
+  name: Agent 多模态文件上传与管理
+  completed_at: '2026-04-07T03:30:00Z'
+  tag: feat-agent-multimodal-upload-20260407
+- id: feat-agent-conversation
+  name: Feature Detail Modal Agent 对话区（Review/Modify/Develop）
+  completed_at: '2026-04-07T02:00:00Z'
+  tag: feat-agent-conversation-20260407
+- id: feat-modal-drag-resize
+  name: NewTaskModal 拖拽移动与调整大小
+  completed_at: '2026-04-07T00:00:00Z'
+  tag: feat-modal-drag-resize-20260406
+- id: feat-project-md-explorer
+  name: Project MD Explorer（项目首页 Markdown 文件浏览器）
+  completed_at: '2026-04-06T23:30:00Z'
+  tag: feat-project-md-explorer-20260406
+- id: feat-load-project-context
+  name: Project Context 真实文件加载
+  completed_at: '2026-04-05T22:15:00Z'
+  tag: feat-load-project-context-20260405
+- id: fix-req-agent-multiturn-v2
+  name: REQ Agent 多轮对话修复 V2（第二轮无响应根因修复）
+  completed_at: '2026-04-05T20:25:00Z'
+  tag: fix-req-agent-multiturn-v2-20260405
+- id: feat-pm-agent-provider-switch
+  name: PM Agent LLM 提供商切换（Settings 默认值 + 聊天区下拉覆盖）
+  completed_at: '2026-04-06T10:30:00Z'
+  tag: feat-pm-agent-provider-switch-20260405
+- id: feat-git-branch-graph
+  name: Branch & Feature 连线图（拓扑可视化）
+  completed_at: '2026-04-06T21:00:00Z'
+  tag: feat-git-branch-graph-20260406
+  parent: feat-git-tag-detail-graph
+- id: feat-git-tag-expand
+  name: Tag 详情展开（动态加载提交历史与文件变动）
+  completed_at: '2026-04-06T18:30:00Z'
+  tag: feat-git-tag-expand-20260406
+  parent: feat-git-tag-detail-graph
+- id: feat-agent-layout-optim
+  name: Agent Tab 配置表单 & 编排页面布局优化
+  completed_at: '2026-04-06T18:25:00Z'
+  tag: feat-agent-layout-optim-20260406
+- id: feat-settings-style-unify
+  name: Settings 页面样式优化与配置页统一样式
+  completed_at: '2026-04-06T17:10:00Z'
+  tag: feat-settings-style-unify-20260406
+- id: feat-editor-save-status
+  name: 编辑器保存状态优化（移除 Run + 状态可视化 + 快捷键）
+  completed_at: '2026-04-06T17:00:00Z'
+  tag: feat-editor-save-status-20260406
+- id: fix-req-agent-multiturn
+  name: REQ Agent 多轮对话修复 + 状态初始化
+  completed_at: '2026-04-06T15:20:00Z'
+  tag: fix-req-agent-multiturn-20260406
