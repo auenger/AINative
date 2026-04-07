@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-07T09:47:00Z"
+  last_updated: "2026-04-07T10:15:00Z"
   version: 1
 
 parents:
@@ -15,7 +15,14 @@ parents:
       - feat-hardware-monitor
       - feat-ai-agent-service
 
-active: []
+active:
+  - id: feat-new-task-runtime-execute
+    name: "New Task Runtime 直接执行（对齐 REQ Agent 方案）"
+    priority: 85
+    created_at: "2026-04-07T10:00:00Z"
+    started_at: "2026-04-07T10:15:00Z"
+    branch: feature/feat-new-task-runtime-execute
+    worktree: ../NeuroSyntaxIDE-feat-new-task-runtime-execute
 
 pending: []
 

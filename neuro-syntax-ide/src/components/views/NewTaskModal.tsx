@@ -14,7 +14,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn, isCommandNotFoundError, isDispatchCommandAvailable, resetDispatchAvailabilityCache } from '../../lib/utils';
+import { cn } from '../../lib/utils';
 import { useAgentRuntimes } from '../../lib/useAgentRuntimes';
 import { useAgentChat } from '../../lib/useAgentChat';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
@@ -92,9 +92,6 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
   const [requirementText, setRequirementText] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  // Tauri dispatch command availability
-  const [dispatchCommandAvailable, setDispatchCommandAvailable] = useState<boolean | null>(null);
-
   // Execution state
   const [execError, setExecError] = useState<string | null>(null);
   const [streamingOutput, setStreamingOutput] = useState('');
@@ -102,7 +99,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
   const [createdFeatureId, setCreatedFeatureId] = useState<string | null>(null);
   const [previewContent, setPreviewContent] = useState('');
 
-  // Streaming text ref for dispatch_to_runtime path
+  // Streaming text ref for external runtime path
   const streamingRef = useRef<string>('');
 
   // Modal drag state
@@ -143,10 +140,38 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
     };
   }, [isDraggingModal]);
 
-  // Check Tauri dispatch_to_runtime command availability on mount
+  // Listen for feature creation events from the agent (fs://workspace-changed)
   useEffect(() => {
-    isDispatchCommandAvailable().then(setDispatchCommandAvailable);
-  }, []);
+    if (!isTauri || !open) return;
+
+    let unlisten: (() => void) | null = null;
+
+    (async () => {
+      try {
+        const { listen } = await import('@tauri-apps/api/event');
+        unlisten = await listen<{ paths: string[]; kind: string }>('fs://workspace-changed', (event) => {
+          const change = event.payload;
+          if (change.kind === 'agent-feature-created') {
+            for (const p of change.paths) {
+              const match = p.match(/features\/pending-([^/]+)/);
+              if (match) {
+                setFeatureCreated(true);
+                setCreatedFeatureId(match[1]);
+                setStreamingOutput(prev => prev + `\n\nFeature ${match[1]} created successfully!`);
+                break;
+              }
+            }
+          }
+        });
+      } catch {
+        // Ignore listener setup errors
+      }
+    })();
+
+    return () => {
+      unlisten?.();
+    };
+  }, [open]);
 
   // Build agent options list
   const agentOptions: AgentOption[] = [
@@ -189,7 +214,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
 
   const selectedAgent = agentOptions.find(a => a.id === selectedAgentId);
   const isAgentDisabled = (agent: AgentOption) =>
-    !agent.isBuiltIn && (agent.status === 'not-installed' || dispatchCommandAvailable === false);
+    !agent.isBuiltIn && agent.status === 'not-installed';
 
   // -----------------------------------------------------------------------
   // Handlers
@@ -273,7 +298,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
           setExecError('Feature plan was generated but filesystem creation failed.');
         }
       } else {
-        // External runtime path: dispatch_to_runtime
+        // External runtime path: runtime_session_start + runtime_execute + agent://chunk
         const runtimeId = selectedAgentId;
         streamingRef.current = '';
 
@@ -294,83 +319,45 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
         const { invoke } = await import('@tauri-apps/api/core');
         const { listen } = await import('@tauri-apps/api/event');
 
-        // Listen for streaming output from external runtime
-        const unlisten = await listen<{ text: string; is_done: boolean; error?: string }>(
-          'runtime_dispatch_chunk',
+        // 1. Register agent://chunk listener for streaming output
+        const unlisten = await listen<{ text: string; is_done: boolean; error?: string; type?: string }>(
+          'agent://chunk',
           (event) => {
             const chunk = event.payload;
-            if (chunk.error) {
+            // Handle error chunks (but not stderr — those are just diagnostics)
+            if (chunk.error && chunk.type !== 'stderr') {
               setExecError(chunk.error);
+              if (chunk.is_done) {
+                unlisten();
+              }
               return;
             }
-            if (chunk.text) {
+            // Stream text from assistant / system / raw messages
+            if (chunk.text && (chunk.type === 'assistant' || chunk.type === 'system' || chunk.type === 'raw' || !chunk.type)) {
               streamingRef.current += chunk.text;
               setStreamingOutput(streamingRef.current);
             }
             if (chunk.is_done) {
               unlisten();
               setPreviewContent(streamingRef.current);
-              setFeatureCreated(true);
+              // Don't mark featureCreated here — wait for fs://workspace-changed event
             }
           }
         );
 
-        await invoke('dispatch_to_runtime', {
+        // 2. Start runtime session
+        await invoke('runtime_session_start', { runtimeId });
+
+        // 3. Send /new-feature message via runtime_execute
+        await invoke('runtime_execute', {
           runtimeId,
-          skill: '/new-feature',
-          args: { prompt: requirementText.trim() },
+          message: `/new-feature ${requirementText.trim()}`,
+          sessionId: null,
+          systemPrompt: null,
         });
       }
     } catch (e: any) {
-      // Graceful degradation: if dispatch_to_runtime command not found, fall back to PM Agent
-      if (!selectedAgent?.isBuiltIn && isCommandNotFoundError(e)) {
-        // Update cached availability so UI reflects it immediately
-        resetDispatchAvailabilityCache();
-        setDispatchCommandAvailable(false);
-
-        setStreamingOutput(prev => prev + '\n\n⚠️ External runtime unavailable (backend command not ready). Falling back to PM Agent...\n');
-
-        // Fall back to built-in PM Agent path
-        try {
-          const plan = await generateFeaturePlan(requirementText.trim());
-          if (plan) {
-            const planText = [
-              `# ${plan.name}`,
-              '',
-              `**ID**: ${plan.id}`,
-              `**Priority**: ${plan.priority}`,
-              `**Size**: ${plan.size}`,
-              '',
-              `## Description`,
-              plan.description,
-              '',
-              `## Value Points`,
-              ...plan.value_points.map((vp, i) => `${i + 1}. ${vp}`),
-              '',
-              `## Tasks`,
-              ...plan.tasks.map(tg => `### ${tg.group_name}\n${tg.items.map(it => `- ${it}`).join('\n')}`),
-            ].join('\n');
-
-            setStreamingOutput(prev => prev + '\nFeature plan generated via PM Agent:\n\n' + planText);
-            setPreviewContent(planText);
-
-            const featureId = await createFeature('', plan);
-            if (featureId) {
-              setFeatureCreated(true);
-              setCreatedFeatureId(featureId);
-              setStreamingOutput(prev => prev + `\n\nFeature ${featureId} created successfully via PM Agent fallback!`);
-            } else {
-              setExecError('PM Agent fallback: plan generated but filesystem creation failed.');
-            }
-          } else {
-            setExecError('External runtime unavailable and PM Agent failed to generate a plan. Please check your API key configuration.');
-          }
-        } catch (fallbackErr: any) {
-          setExecError(`Fallback to PM Agent also failed: ${fallbackErr?.toString() ?? 'Unknown error'}`);
-        }
-      } else {
-        setExecError(e?.toString() ?? 'An unexpected error occurred during execution');
-      }
+      setExecError(e?.toString() ?? 'An unexpected error occurred during execution');
     }
   }, [selectedAgent, selectedAgentId, requirementText, generateFeaturePlan, createFeature]);
 
@@ -530,11 +517,9 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
                         key={agent.id}
                         onClick={() => handleSelectAgent(agent.id)}
                         disabled={disabled}
-                        title={disabled && !agent.isBuiltIn && dispatchCommandAvailable === false
-                          ? 'External runtime dispatch is not available — Tauri backend command not ready'
-                          : disabled && agent.installHint
-                            ? `Install: ${agent.installHint}`
-                            : undefined}
+                        title={disabled && agent.installHint
+                          ? `Install: ${agent.installHint}`
+                          : undefined}
                         className={cn(
                           'w-full text-left glass-panel rounded-lg p-4 transition-all',
                           'border-2',
@@ -561,28 +546,22 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
                               )}
                             </div>
                             <p className="text-[10px] text-on-surface-variant mt-0.5">{agent.description}</p>
-                            {disabled && !agent.isBuiltIn && dispatchCommandAvailable === false && (
-                              <p className="text-[9px] text-warning/80 mt-1">
-                                Backend command not ready — use PM Agent instead
-                              </p>
-                            )}
-                            {disabled && agent.installHint && dispatchCommandAvailable !== false && (
+                            {disabled && agent.installHint && (
                               <p className="text-[9px] text-on-surface-variant/70 mt-1 font-mono">
                                 Install: {agent.installHint}
                               </p>
                             )}
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
-                            <StatusDot status={disabled && !agent.isBuiltIn && dispatchCommandAvailable === false ? 'not-installed' : agent.status} />
+                            <StatusDot status={agent.status} />
                             <span className={cn(
                               'text-[9px] font-bold uppercase tracking-wider',
-                              disabled && !agent.isBuiltIn && dispatchCommandAvailable === false ? 'text-warning' :
                               agent.status === 'available' ? 'text-tertiary' :
                               agent.status === 'unhealthy' ? 'text-error' :
                               agent.status === 'busy' ? 'text-warning' :
                               'text-outline',
                             )}>
-                              {disabled && !agent.isBuiltIn && dispatchCommandAvailable === false ? 'Unavailable' : statusLabel(agent.status)}
+                              {statusLabel(agent.status)}
                             </span>
                           </div>
                         </div>
