@@ -92,3 +92,12 @@ Then 显示提示信息 "Media playback is only available in Tauri desktop mode.
 - [x] 新建 `MediaPreview.tsx` 组件
 - [x] 视频使用 `<video>` 元素 + Tauri asset 协议
 - [x] 音频使用 `<audio>` 元素 + 自定义 UI
+
+## Merge Record
+- **Completed**: 2026-04-07T14:50:00Z
+- **Merged Branch**: feature/feat-file-preview-media
+- **Merge Commit**: 458ac77
+- **Archive Tag**: feat-file-preview-media-20260407
+- **Conflicts**: none
+- **Verification**: passed (4/4 Gherkin scenarios, build passes)
+- **Stats**: 1 commit, 8 files changed, 570 insertions, 29 deletions

@@ -1,10 +1,39 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-07T13:00:00Z"
+  last_updated: "2026-04-07T14:55:00Z"
   version: 1
-  total_completed: 68
+  total_completed: 69
 
 records:
+  - id: feat-file-preview-media
+    name: "视频/音频预览"
+    completed_at: "2026-04-07T14:55:00Z"
+    tag: feat-file-preview-media-20260407
+    merge_commit: 458ac77
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-file-preview-media
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-file-preview-media
+    parent: feat-file-preview-multi
+    depends_on:
+      - feat-file-preview-pdf
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-07T14:00:00Z"
+      duration: "~55min"
+      commits: 1
+      files_changed: 8
+      insertions: 570
+      deletions: 29
+    archive_path: features/archive/done-feat-file-preview-media-20260407
+
   - id: feat-file-preview-pdf
     name: "PDF 文件预览"
     completed_at: "2026-04-07T13:00:00Z"
