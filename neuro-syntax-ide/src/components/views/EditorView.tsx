@@ -5,6 +5,7 @@ import {
   FileJson,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   Terminal as TerminalIcon,
   Save,
   Check,
@@ -21,11 +22,13 @@ import {
   FileText,
   RefreshCw,
   Video,
-  Music
+  Music,
+  List
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
+import { useTabOverflow } from '../../lib/useTabOverflow';
 import { XTerminal, TerminalKind } from '../XTerminal';
 import { FileNode as WSFileNode, OpenFileState } from '../../types';
 import { NEURO_DARK_THEME, NEURO_LIGHT_THEME } from '../../lib/monaco-theme';
@@ -266,6 +269,18 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFileMenu, setShowFileMenu] = useState(false);
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
+
+  // Tab overflow state
+  const [showOverflowMenu, setShowOverflowMenu] = useState(false);
+  const [overflowFocusIndex, setOverflowFocusIndex] = useState(-1);
+  const {
+    containerRef: tabContainerRef,
+    canScrollLeft,
+    canScrollRight,
+    scrollLeft: scrollTabsLeft,
+    scrollRight: scrollTabsRight,
+    scrollToTab,
+  } = useTabOverflow();
 
   // Multi-tab terminal state
   const [tabs, setTabs] = useState<TerminalTab[]>([
@@ -656,6 +671,65 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
   const openFileEntries = useMemo(() => Array.from(openFiles.values()), [openFiles]);
 
   // -----------------------------------------------------------------------
+  // Auto-scroll active file tab into view
+  // -----------------------------------------------------------------------
+  useEffect(() => {
+    if (!activeFilePath) return;
+    const idx = openFileEntries.findIndex((f) => f.path === activeFilePath);
+    if (idx >= 0) {
+      // Small delay to allow tab DOM to render before scrolling
+      requestAnimationFrame(() => scrollToTab(idx));
+    }
+  }, [activeFilePath, openFileEntries, scrollToTab]);
+
+  // -----------------------------------------------------------------------
+  // Close overflow dropdown on outside click + keyboard navigation
+  // -----------------------------------------------------------------------
+  useEffect(() => {
+    if (!showOverflowMenu) {
+      setOverflowFocusIndex(-1);
+      return;
+    }
+    setOverflowFocusIndex(-1);
+    const clickHandler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-overflow-menu]')) {
+        setShowOverflowMenu(false);
+      }
+    };
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowOverflowMenu(false);
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setOverflowFocusIndex((prev) =>
+          prev < openFileEntries.length - 1 ? prev + 1 : 0
+        );
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setOverflowFocusIndex((prev) =>
+          prev > 0 ? prev - 1 : openFileEntries.length - 1
+        );
+      } else if (e.key === 'Enter' && overflowFocusIndex >= 0) {
+        e.preventDefault();
+        const file = openFileEntries[overflowFocusIndex];
+        if (file) {
+          setActiveFilePath(file.path);
+          setShowOverflowMenu(false);
+        }
+      }
+    };
+    document.addEventListener('mousedown', clickHandler);
+    document.addEventListener('keydown', keyHandler);
+    return () => {
+      document.removeEventListener('mousedown', clickHandler);
+      document.removeEventListener('keydown', keyHandler);
+    };
+  }, [showOverflowMenu, openFileEntries, overflowFocusIndex]);
+
+  // -----------------------------------------------------------------------
   // Monaco editor options — base options (aligned with design system)
   // -----------------------------------------------------------------------
   const baseEditorOptions: MonacoEditor.IStandaloneEditorConstructionOptions = useMemo(() => ({
@@ -845,8 +919,28 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
       <main className="flex-1 flex flex-col overflow-hidden relative">
         {/* Editor Tab Bar */}
         <div className="h-10 bg-surface-container-low border-b border-outline-variant/10 flex items-center shrink-0">
+          {/* Left scroll arrow */}
+          <AnimatePresence>
+            {canScrollLeft && (
+              <motion.button
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: 28 }}
+                exit={{ opacity: 0, width: 0 }}
+                transition={{ duration: 0.15 }}
+                onClick={scrollTabsLeft}
+                className="h-full flex items-center justify-center shrink-0 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors z-10"
+                aria-label="Scroll tabs left"
+              >
+                <ChevronLeft size={14} />
+              </motion.button>
+            )}
+          </AnimatePresence>
+
           {/* Open file tabs */}
-          <div className="flex items-center h-full overflow-x-auto scroll-hide flex-1">
+          <div
+            ref={tabContainerRef}
+            className="flex items-center h-full overflow-x-auto scroll-hide flex-1"
+          >
             {openFileEntries.map((file) => {
               const isActive = file.path === activeFilePath;
               const { Icon, color } = getFileIcon(file.name);
@@ -878,6 +972,98 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                 </div>
               );
             })}
+          </div>
+
+          {/* Right scroll arrow */}
+          <AnimatePresence>
+            {canScrollRight && (
+              <motion.button
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: 28 }}
+                exit={{ opacity: 0, width: 0 }}
+                transition={{ duration: 0.15 }}
+                onClick={scrollTabsRight}
+                className="h-full flex items-center justify-center shrink-0 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors z-10"
+                aria-label="Scroll tabs right"
+              >
+                <ChevronRight size={14} />
+              </motion.button>
+            )}
+          </AnimatePresence>
+
+          {/* Overflow dropdown menu */}
+          <div className="relative" data-overflow-menu>
+            <button
+              onClick={() => setShowOverflowMenu((prev) => !prev)}
+              className={cn(
+                "h-full flex items-center justify-center w-8 shrink-0 transition-colors",
+                showOverflowMenu
+                  ? "text-on-surface bg-surface-container-high"
+                  : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+              )}
+              aria-label="Show all open files"
+            >
+              <List size={14} />
+            </button>
+
+            <AnimatePresence>
+              {showOverflowMenu && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                  transition={{ duration: 0.12 }}
+                  className="absolute right-0 top-full mt-1 bg-surface-container-high border border-outline-variant/20 rounded-md shadow-lg z-50 min-w-[220px] max-h-[300px] overflow-y-auto py-1"
+                >
+                  {openFileEntries.length === 0 ? (
+                    <div className="px-3 py-2 text-[10px] text-outline uppercase tracking-widest text-center">
+                      No open files
+                    </div>
+                  ) : (
+                    openFileEntries.map((file, idx) => {
+                      const isActive = file.path === activeFilePath;
+                      const isFocused = idx === overflowFocusIndex;
+                      const { Icon: FIcon, color: fColor } = getFileIcon(file.name);
+                      return (
+                        <div
+                          key={file.path}
+                          onClick={() => {
+                            setActiveFilePath(file.path);
+                            setShowOverflowMenu(false);
+                          }}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors",
+                            isActive
+                              ? "bg-primary/10 text-primary"
+                              : isFocused
+                                ? "bg-surface-container-highest text-on-surface"
+                                : "text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface"
+                          )}
+                        >
+                          <FIcon size={13} className={isActive ? 'text-primary' : fColor} />
+                          <span className="text-xs font-medium truncate flex-1">{file.name}</span>
+                          {file.isDirty && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              closeFile(file.path);
+                            }}
+                            className="opacity-40 hover:opacity-100 transition-opacity shrink-0 ml-1"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+            {showOverflowMenu && (
+              <div className="fixed inset-0 z-40" onClick={() => setShowOverflowMenu(false)} />
+            )}
           </div>
 
           {/* Save status indicator / button */}
