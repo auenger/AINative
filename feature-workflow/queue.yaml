@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-07T13:05:00Z'
+  last_updated: '2026-04-07T14:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -19,14 +19,17 @@ parents:
   - feat-file-preview-pdf
   - feat-file-preview-media
   - feat-file-preview-image-enhance
-active: []
-pending:
+active:
 - id: feat-file-preview-media
   name: 视频/音频预览
   priority: 50
   parent: feat-file-preview-multi
   depends_on:
   - feat-file-preview-pdf
+  branch: feature/feat-file-preview-media
+  worktree: ../NeuroSyntaxIDE-feat-file-preview-media
+  started_at: '2026-04-07T14:00:00Z'
+pending:
 - id: feat-file-preview-image-enhance
   name: 图片预览增强
   priority: 50
