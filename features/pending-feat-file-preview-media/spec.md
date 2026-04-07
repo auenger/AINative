@@ -30,7 +30,14 @@
 - feat-file-preview-image-enhance (后续子功能)
 
 ## Technical Solution
-<!-- To be filled during implementation -->
+- `FileRendererType` extended with `'media'` type in `types.ts`
+- `file-type-router.ts` added `VIDEO_EXTENSIONS` and `AUDIO_EXTENSIONS` sets routing to `'media'`
+- New `MediaPreview.tsx` component uses Tauri `convertFileSrc()` to convert local paths to asset protocol URLs
+- Video mode: native `<video>` element with `object-contain` for responsive centering
+- Audio mode: visual placeholder with music icon + hidden `<audio>` element
+- Custom control bar: play/pause, progress bar (click-to-seek), volume slider, time display
+- Keyboard shortcuts: Space (play/pause), Arrow keys (seek +/-5s), M (mute)
+- `EditorView.tsx`: `media` treated as binary (no text read), new renderer branch, video/audio file icons
 
 ## Acceptance Criteria (Gherkin)
 ### User Story
@@ -79,9 +86,9 @@ Then 显示提示信息 "Media playback is only available in Tauri desktop mode.
 - 加载/错误状态与 ImagePreview 风格一致
 
 ### General Checklist
-- [ ] `FileRendererType` 扩展 `'media'`
-- [ ] `file-type-router.ts` 新增视频/音频扩展名 → `'media'`
-- [ ] `EditorView.tsx` 新增 `rendererType === 'media'` 分支
-- [ ] 新建 `MediaPreview.tsx` 组件
-- [ ] 视频使用 `<video>` 元素 + Tauri asset 协议
-- [ ] 音频使用 `<audio>` 元素 + 自定义 UI
+- [x] `FileRendererType` 扩展 `'media'`
+- [x] `file-type-router.ts` 新增视频/音频扩展名 → `'media'`
+- [x] `EditorView.tsx` 新增 `rendererType === 'media'` 分支
+- [x] 新建 `MediaPreview.tsx` 组件
+- [x] 视频使用 `<video>` 元素 + Tauri asset 协议
+- [x] 音频使用 `<audio>` 元素 + 自定义 UI

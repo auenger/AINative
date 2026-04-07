@@ -19,7 +19,9 @@ import {
   FolderOpen,
   File,
   FileText,
-  RefreshCw
+  RefreshCw,
+  Video,
+  Music
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
@@ -33,6 +35,7 @@ import { getEditorOptionsForLanguage } from '../../lib/language-presets';
 import { MarkdownSplitView } from './MarkdownSplitView';
 import { ImagePreview } from './ImagePreview';
 import { PdfPreview } from './PdfPreview';
+import { MediaPreview } from './MediaPreview';
 import { ConfigTreeView } from './ConfigTreeView';
 import { registerVueLanguage } from '../../lib/vue-language';
 
@@ -118,6 +121,19 @@ function getFileIcon(name: string): { Icon: React.ElementType; color: string } {
       return { Icon: FileCode, color: 'text-blue-300' };
     case 'pdf':
       return { Icon: FileText, color: 'text-red-400' };
+    case 'mp4':
+    case 'webm':
+    case 'mov':
+    case 'avi':
+    case 'mkv':
+      return { Icon: Video, color: 'text-purple-400' };
+    case 'mp3':
+    case 'wav':
+    case 'ogg':
+    case 'flac':
+    case 'aac':
+    case 'm4a':
+      return { Icon: Music, color: 'text-green-400' };
     default:
       return { Icon: File, color: 'text-outline' };
   }
@@ -343,7 +359,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
 
     // Determine renderer type first — binary files (image, pdf) handle their own loading
     const rendererType = getFileRendererType(filePath);
-    const isBinary = rendererType === 'image' || rendererType === 'pdf';
+    const isBinary = rendererType === 'image' || rendererType === 'pdf' || rendererType === 'media';
 
     try {
       const content = isBinary ? '' : await readFileContent(filePath);
@@ -948,6 +964,11 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                 />
               ) : activeFile.rendererType === 'pdf' ? (
                 <PdfPreview
+                  filePath={activeFile.path}
+                  isTauri={isTauri}
+                />
+              ) : activeFile.rendererType === 'media' ? (
+                <MediaPreview
                   filePath={activeFile.path}
                   isTauri={isTauri}
                 />
