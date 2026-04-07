@@ -25,6 +25,16 @@ const PDF_EXTENSIONS = new Set([
   'pdf',
 ]);
 
+/** Video extensions. */
+const VIDEO_EXTENSIONS = new Set([
+  'mp4', 'webm', 'mov', 'avi', 'mkv',
+]);
+
+/** Audio extensions. */
+const AUDIO_EXTENSIONS = new Set([
+  'mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a',
+]);
+
 /** Source code extensions handled by Monaco editor with full language support. */
 const MONACO_CODE_EXTENSIONS = new Set([
   'ts', 'tsx', 'js', 'jsx',
@@ -57,6 +67,8 @@ export function getFileRendererType(filePath: string): FileRendererType {
 
   if (MARKDOWN_EXTENSIONS.has(ext)) return 'markdown';
   if (PDF_EXTENSIONS.has(ext)) return 'pdf';
+  if (VIDEO_EXTENSIONS.has(ext)) return 'media';
+  if (AUDIO_EXTENSIONS.has(ext)) return 'media';
   if (IMAGE_EXTENSIONS.has(ext)) return 'image';
   if (CONFIG_EXTENSIONS.has(ext)) return 'config-tree';
   if (MONACO_CODE_EXTENSIONS.has(ext)) return 'monaco';
