@@ -1,10 +1,36 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-07T09:47:00Z"
+  last_updated: "2026-04-07T10:40:00Z"
   version: 1
-  total_completed: 66
+  total_completed: 67
 
 records:
+  - id: feat-new-task-runtime-execute
+    name: "New Task Runtime 直接执行（对齐 REQ Agent 方案）"
+    completed_at: "2026-04-07T10:40:00Z"
+    tag: feat-new-task-runtime-execute-20260407
+    merge_commit: 15c560c
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-new-task-runtime-execute
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-new-task-runtime-execute
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-07T10:15:00Z"
+      duration: "~25min"
+      commits: 3
+      files_changed: 8
+      insertions: 429
+      deletions: 199
+    archive_path: features/archive/done-feat-new-task-runtime-execute-20260407
+
   - id: feat-dispatch-runtime-graceful
     name: "Fix dispatch_to_runtime Command Not Found"
     completed_at: "2026-04-07T09:47:00Z"
