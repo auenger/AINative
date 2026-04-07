@@ -264,7 +264,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
   const [fileError, setFileError] = useState<string | null>(null);
 
   // Terminal state
-  const [terminalOpen, setTerminalOpen] = useState(true);
+  const [terminalOpen, setTerminalOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFileMenu, setShowFileMenu] = useState(false);
@@ -1331,6 +1331,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                     ptyId={tab.id}
                     kind={tab.kind}
                     active={tab.id === activeTabId}
+                    cwd={workspacePath || undefined}
                   />
                 ))}
               </div>

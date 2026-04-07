@@ -46,6 +46,10 @@ pub struct PtyConfig {
     pub args: Vec<String>,
     pub cols: u16,
     pub rows: u16,
+    /// Working directory for the spawned shell process. When empty/None the shell
+    /// uses its default (usually the user's home directory).
+    #[serde(default)]
+    pub cwd: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1927,6 +1931,16 @@ impl PtyManager {
         let mut cmd = CommandBuilder::new(&config.shell);
         if !config.args.is_empty() {
             cmd.args(&config.args);
+        }
+
+        // Set working directory if provided
+        if let Some(ref cwd) = config.cwd {
+            if !cwd.is_empty() {
+                let cwd_path = PathBuf::from(cwd);
+                if cwd_path.is_dir() {
+                    cmd.cwd(cwd_path);
+                }
+            }
         }
 
         let _child = pair
