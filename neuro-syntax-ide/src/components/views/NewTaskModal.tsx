@@ -158,6 +158,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
                 setFeatureCreated(true);
                 setCreatedFeatureId(match[1]);
                 setStreamingOutput(prev => prev + `\n\nFeature ${match[1]} created successfully!`);
+                setStep('result');
                 break;
               }
             }
@@ -294,6 +295,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
           setFeatureCreated(true);
           setCreatedFeatureId(featureId);
           setStreamingOutput(prev => prev + `\n\nFeature ${featureId} created successfully!`);
+          setStep('result');
         } else {
           setExecError('Feature plan was generated but filesystem creation failed.');
         }
@@ -340,7 +342,9 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
             if (chunk.is_done) {
               unlisten();
               setPreviewContent(streamingRef.current);
-              // Don't mark featureCreated here — wait for fs://workspace-changed event
+              // Mark execution done — fs://workspace-changed may still update createdFeatureId
+              setFeatureCreated(true);
+              setStep('result');
             }
           }
         );
@@ -445,13 +449,14 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
           position: 'relative',
           top: 0,
           left: 0,
-          minWidth: 480,
-          minHeight: 360,
+          minWidth: 560,
+          minHeight: 400,
+          width: 680,
           resize: 'both',
           overflow: 'hidden',
         }}
         className={cn(
-          "w-full max-w-xl bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl overflow-hidden",
+          "flex flex-col max-w-[900px] bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl overflow-hidden",
           isDraggingModal && "select-none"
         )}
       >
@@ -459,7 +464,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
         <div
           onMouseDown={handleModalHeaderMouseDown}
           className={cn(
-            "flex items-center justify-between px-6 py-4 border-b border-outline-variant/10",
+            "shrink-0 flex items-center justify-between px-6 py-4 border-b border-outline-variant/10",
             isDraggingModal ? "cursor-grabbing" : "cursor-grab"
           )}
         >
@@ -482,7 +487,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
         </div>
 
         {/* Body */}
-        <div className="p-6 min-h-[320px] max-h-[480px] overflow-y-auto">
+        <div className="flex-1 p-6 overflow-y-auto">
           <AnimatePresence mode="wait">
             {/* ---- Step 1: Agent Selection ---- */}
             {step === 'select-agent' && (
@@ -646,7 +651,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: -20, opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="space-y-4"
+                className="flex flex-col gap-4 h-full"
               >
                 <div className="flex items-center gap-2">
                   {!featureCreated && !execError ? (
@@ -671,7 +676,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
 
                 {/* Streaming output */}
                 {streamingOutput && (
-                  <div className="rounded-lg bg-surface-container-high border border-outline-variant/10 p-3 max-h-[260px] overflow-y-auto">
+                  <div className="flex-1 rounded-lg bg-surface-container-high border border-outline-variant/10 p-3 overflow-y-auto">
                     <pre className="text-[11px] text-on-surface-variant whitespace-pre-wrap font-mono leading-relaxed">
                       {streamingOutput}
                     </pre>
@@ -685,7 +690,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
                       <FileText size={10} />
                       Generated Feature Preview
                     </div>
-                    <div className="rounded-lg bg-surface-container-high border border-outline-variant/10 p-3 max-h-[200px] overflow-y-auto">
+                    <div className="rounded-lg bg-surface-container-high border border-outline-variant/10 p-3 overflow-y-auto">
                       <MarkdownRenderer content={previewContent} />
                     </div>
                   </div>
@@ -712,11 +717,57 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
                 )}
               </motion.div>
             )}
+
+            {/* ---- Step 4: Result ---- */}
+            {step === 'result' && (
+              <motion.div
+                key="result"
+                initial={{ x: 20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: -20, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="flex flex-col gap-4 h-full"
+              >
+                <div className="flex items-center gap-2 shrink-0">
+                  <CheckCircle2 size={16} className="text-tertiary" />
+                  <span className="text-sm font-bold text-on-surface">Feature created successfully!</span>
+                </div>
+
+                {createdFeatureId && (
+                  <div className="shrink-0 rounded-lg bg-primary/10 border border-primary/20 px-4 py-2">
+                    <span className="text-[10px] text-on-surface-variant">Feature ID:</span>
+                    <span className="ml-2 text-[11px] font-bold font-mono text-primary">{createdFeatureId}</span>
+                  </div>
+                )}
+
+                {/* Streaming output summary */}
+                {streamingOutput && (
+                  <div className="flex-1 rounded-lg bg-surface-container-high border border-outline-variant/10 p-3 overflow-y-auto">
+                    <pre className="text-[11px] text-on-surface-variant whitespace-pre-wrap font-mono leading-relaxed">
+                      {streamingOutput}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Preview */}
+                {previewContent && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                      <FileText size={10} />
+                      Generated Feature Preview
+                    </div>
+                    <div className="rounded-lg bg-surface-container-high border border-outline-variant/10 p-3 overflow-y-auto">
+                      <MarkdownRenderer content={previewContent} />
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-outline-variant/10">
+        <div className="shrink-0 flex items-center justify-between px-6 py-4 border-t border-outline-variant/10">
           <div>
             {step === 'input-requirement' && (
               <button
@@ -734,7 +785,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
               onClick={handleClose}
               className="px-4 py-1.5 text-[11px] font-medium text-on-surface-variant hover:text-on-surface transition-colors"
             >
-              {step === 'executing' && featureCreated ? 'Close' : 'Cancel'}
+              {(step === 'executing' && !featureCreated && !execError) ? 'Cancel' : 'Close'}
             </button>
 
             {/* Next / Execute button */}
@@ -773,6 +824,16 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
             )}
 
             {step === 'executing' && featureCreated && (
+              <button
+                onClick={handleClose}
+                className="flex items-center gap-1.5 px-5 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider bg-primary text-on-primary hover:bg-primary/90 transition-all"
+              >
+                <CheckCircle2 size={12} />
+                Done
+              </button>
+            )}
+
+            {step === 'result' && (
               <button
                 onClick={handleClose}
                 className="flex items-center gap-1.5 px-5 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider bg-primary text-on-primary hover:bg-primary/90 transition-all"
