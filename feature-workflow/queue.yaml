@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-07T17:20:00Z'
+  last_updated: '2026-04-07T17:36:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -26,15 +26,13 @@ active:
   branch: feature/feat-editor-terminal-workspace
   worktree: ../NeuroSyntaxIDE-feat-editor-terminal-workspace
   started_at: '2026-04-07T17:15:00Z'
-- id: feat-editor-tab-overflow
-  name: 编辑器 Tab 溢出优化
-  priority: 60
-  branch: feature/feat-editor-tab-overflow
-  worktree: ../NeuroSyntaxIDE-feat-editor-tab-overflow
-  started_at: '2026-04-07T17:20:00Z'
 pending: []
 blocked: []
 completed:
+- id: feat-editor-tab-overflow
+  name: 编辑器 Tab 溢出优化
+  completed_at: '2026-04-07T17:36:00Z'
+  tag: feat-editor-tab-overflow-20260407
 - id: feat-file-preview-image-enhance
   name: 图片预览增强
   completed_at: '2026-04-07T16:01:00Z'
