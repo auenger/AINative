@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-07T14:55:00Z'
+  last_updated: '2026-04-07T16:01:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -20,15 +20,14 @@ parents:
   - feat-file-preview-media
   - feat-file-preview-image-enhance
 active: []
-pending:
-- id: feat-file-preview-image-enhance
-  name: 图片预览增强
-  priority: 50
-  parent: feat-file-preview-multi
-  depends_on:
-  - feat-file-preview-media
+pending: []
 blocked: []
 completed:
+- id: feat-file-preview-image-enhance
+  name: 图片预览增强
+  completed_at: '2026-04-07T16:01:00Z'
+  tag: feat-file-preview-image-enhance-20260407
+  parent: feat-file-preview-multi
 - id: feat-file-preview-media
   name: 视频/音频预览
   completed_at: '2026-04-07T14:55:00Z'

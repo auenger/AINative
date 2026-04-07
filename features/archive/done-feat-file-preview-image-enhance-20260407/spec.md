@@ -29,7 +29,22 @@
 - feat-file-preview-media (前置依赖)
 
 ## Technical Solution
-<!-- To be filled during implementation -->
+
+### Implementation
+- **Tauri backend**: `read_image_meta` command in `lib.rs` — reads up to 64KB of image file header, parses dimensions (PNG/BMP/GIF/WebP/JPEG/TIFF), EXIF data (JPEG APP1/TIFF IFD/WebP EXIF chunk), GPS coordinates
+- **Frontend**: `MetadataPanel` sub-component in `ImagePreview.tsx` — collapsible sidebar showing general info + EXIF section (conditionally rendered)
+- **Extended formats**: `file-type-router.ts` adds HEIC/HEIF/TIFF/RAW/CR2/NEF/ARW/DNG/PSD/JFIF; `getMimeType()` helper maps all extensions to proper MIME types
+- **Keyboard shortcut**: Cmd+I toggles info panel; Info icon button in toolbar
+
+## Merge Record
+- **Completed**: 2026-04-07T16:01:00Z
+- **Merged branch**: feature/feat-file-preview-image-enhance
+- **Merge commit**: 219611b
+- **Feature commit**: 2dbc0f6
+- **Archive tag**: feat-file-preview-image-enhance-20260407
+- **Conflicts**: none
+- **Verification**: passed (4/4 Gherkin scenarios, TypeScript compilation clean)
+- **Stats**: 1 commit, 3 files changed, +832/-41 lines
 
 ## Acceptance Criteria (Gherkin)
 ### User Story

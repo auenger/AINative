@@ -1,10 +1,36 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-07T14:55:00Z"
+  last_updated: "2026-04-07T16:01:00Z"
   version: 1
-  total_completed: 69
+  total_completed: 70
 
 records:
+  - id: feat-file-preview-image-enhance
+    name: "图片预览增强"
+    completed_at: "2026-04-07T16:01:00Z"
+    tag: feat-file-preview-image-enhance-20260407
+    merge_commit: "219611b"
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-file-preview-image-enhance
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-file-preview-image-enhance
+    parent: feat-file-preview-multi
+    depends_on:
+      - feat-file-preview-media
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-07T15:30:00Z"
+      duration: "~31min"
+      commits: 1
+      files_changed: 3
+
   - id: feat-file-preview-media
     name: "视频/音频预览"
     completed_at: "2026-04-07T14:55:00Z"
