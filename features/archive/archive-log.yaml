@@ -1,10 +1,36 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-07T17:36:00Z"
+  last_updated: "2026-04-07T17:45:00Z"
   version: 1
-  total_completed: 71
+  total_completed: 72
 
 records:
+  - id: feat-editor-terminal-workspace
+    name: "编辑器终端工作空间目录绑定"
+    completed_at: "2026-04-07T17:45:00Z"
+    tag: feat-editor-terminal-workspace-20260407
+    merge_commit: 7d4c4f3
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-editor-terminal-workspace
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-editor-terminal-workspace
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 5
+      scenarios_passed: 5
+    stats:
+      started: "2026-04-07T17:15:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 3
+      insertions: 20
+      deletions: 2
+    archive_path: features/archive/done-feat-editor-terminal-workspace-20260407
+
   - id: feat-editor-tab-overflow
     name: "编辑器 Tab 溢出优化"
     completed_at: "2026-04-07T17:36:00Z"
