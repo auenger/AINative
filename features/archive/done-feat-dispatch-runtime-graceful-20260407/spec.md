@@ -10,6 +10,16 @@
 - **Children**: []
 - **Created**: 2026-04-06T12:00:00Z
 
+## Merge Record
+- **Completed**: 2026-04-07T09:47:00Z
+- **Merged Branch**: feature/feat-dispatch-runtime-graceful
+- **Merge Commit**: 95a9ef0
+- **Archive Tag**: feat-dispatch-runtime-graceful-20260407
+- **Conflicts**: none
+- **Verification**: passed (4/4 Gherkin scenarios, 7/7 tasks)
+- **Evidence**: evidence/verification-report.md
+- **Stats**: 2 commits, 3 files changed (utils.ts, NewTaskModal.tsx, TaskBoard.tsx)
+
 ## Description
 当用户在 NewTaskModal 中选择 Claude Code CLI 或 Codex 等外部 runtime agent 并执行时，Tauri `invoke('dispatch_to_runtime')` 因后端 Rust 命令未实现而抛出 "Command dispatch_to_runtime not found" 错误。
 

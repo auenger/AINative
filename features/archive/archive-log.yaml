@@ -1,10 +1,36 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-07T06:00:00Z"
+  last_updated: "2026-04-07T09:47:00Z"
   version: 1
-  total_completed: 65
+  total_completed: 66
 
 records:
+  - id: feat-dispatch-runtime-graceful
+    name: "Fix dispatch_to_runtime Command Not Found"
+    completed_at: "2026-04-07T09:47:00Z"
+    tag: feat-dispatch-runtime-graceful-20260407
+    merge_commit: 95a9ef0
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-dispatch-runtime-graceful
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-dispatch-runtime-graceful
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-07T09:31:00Z"
+      duration: "~16min"
+      commits: 2
+      files_changed: 3
+      insertions: 302
+      deletions: 31
+    archive_path: features/archive/done-feat-dispatch-runtime-graceful-20260407
+
   - id: feat-agent-multimodal-chat
     name: "Agent 对话多模态集成"
     completed_at: "2026-04-07T06:00:00Z"
