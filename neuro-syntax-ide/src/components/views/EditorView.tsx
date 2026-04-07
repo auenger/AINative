@@ -32,6 +32,7 @@ import { getFileRendererType } from '../../lib/file-type-router';
 import { getEditorOptionsForLanguage } from '../../lib/language-presets';
 import { MarkdownSplitView } from './MarkdownSplitView';
 import { ImagePreview } from './ImagePreview';
+import { PdfPreview } from './PdfPreview';
 import { ConfigTreeView } from './ConfigTreeView';
 import { registerVueLanguage } from '../../lib/vue-language';
 
@@ -115,6 +116,8 @@ function getFileIcon(name: string): { Icon: React.ElementType; color: string } {
       return { Icon: FileCode, color: 'text-green-300' };
     case 'sql':
       return { Icon: FileCode, color: 'text-blue-300' };
+    case 'pdf':
+      return { Icon: FileText, color: 'text-red-400' };
     default:
       return { Icon: File, color: 'text-outline' };
   }
@@ -338,9 +341,9 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
     setFileLoading(true);
     setFileError(null);
 
-    // Determine renderer type first — binary files (image, etc.) handle their own loading
+    // Determine renderer type first — binary files (image, pdf) handle their own loading
     const rendererType = getFileRendererType(filePath);
-    const isBinary = rendererType === 'image';
+    const isBinary = rendererType === 'image' || rendererType === 'pdf';
 
     try {
       const content = isBinary ? '' : await readFileContent(filePath);
@@ -940,6 +943,11 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                 />
               ) : activeFile.rendererType === 'image' ? (
                 <ImagePreview
+                  filePath={activeFile.path}
+                  isTauri={isTauri}
+                />
+              ) : activeFile.rendererType === 'pdf' ? (
+                <PdfPreview
                   filePath={activeFile.path}
                   isTauri={isTauri}
                 />

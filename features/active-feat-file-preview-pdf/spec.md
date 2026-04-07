@@ -33,7 +33,13 @@
 - feat-file-preview-image-enhance (后续子功能)
 
 ## Technical Solution
-<!-- To be filled during implementation -->
+- Library: `pdfjs-dist@4.10.38` (Mozilla PDF.js) for rendering PDF pages to HTML Canvas
+- Data loading: Tauri `read_file_base64` command reads PDF binary, decoded client-side to `Uint8Array` for pdfjs
+- Rendering: Each page rendered to a `<canvas>` element with HiDPI (devicePixelRatio) support
+- Zoom: Scale parameter on pdfjs viewport + CSS canvas sizing; keyboard shortcuts Cmd+=/Cmd+-/Cmd+0
+- Page navigation: `getPage(n)` API; PageUp/PageDown keyboard shortcuts
+- File type routing: `file-type-router.ts` maps `.pdf` extension to `'pdf'` renderer type
+- EditorView: PDF treated as binary (skip text read), renders `PdfPreview` component
 
 ## Acceptance Criteria (Gherkin)
 ### User Story

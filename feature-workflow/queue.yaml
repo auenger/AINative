@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-07T12:00:00Z"
+  last_updated: "2026-04-07T12:30:00Z"
   version: 1
 
 parents:
@@ -22,13 +22,16 @@ parents:
       - feat-file-preview-media
       - feat-file-preview-image-enhance
 
-active: []
-
-pending:
+active:
   - id: feat-file-preview-pdf
     name: "PDF 文件预览"
     priority: 50
     parent: feat-file-preview-multi
+    branch: feature/feat-file-preview-pdf
+    worktree: ../NeuroSyntaxIDE-feat-file-preview-pdf
+    started_at: "2026-04-07T12:30:00Z"
+
+pending:
   - id: feat-file-preview-media
     name: "视频/音频预览"
     priority: 50
