@@ -8,6 +8,9 @@ import type { FileRendererType } from '../types';
 /** Image extensions. */
 const IMAGE_EXTENSIONS = new Set([
   'png', 'jpg', 'jpeg', 'gif', 'bmp', 'ico', 'svg', 'webp', 'avif',
+  // Extended format support (feat-file-preview-image-enhance)
+  'heic', 'heif', 'tiff', 'tif', 'raw', 'cr2', 'nef', 'arw',
+  'dng', 'psd', 'jfif', 'pjpeg', 'pjp',
 ]);
 
 /** Config / data file extensions rendered as a structured tree view. */
