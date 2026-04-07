@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
-import { cn } from '../../lib/utils';
+import { cn, isCommandNotFoundError, isDispatchCommandAvailable } from '../../lib/utils';
 import { useQueueData, FeatureNode, QueueName } from '../../lib/useQueueData';
 import { useAgentRuntimes } from '../../lib/useAgentRuntimes';
 import type { AgentActionType } from '../../types';
@@ -302,6 +302,7 @@ export const TaskBoard: React.FC = () => {
   const [agentError, setAgentError] = useState<string | null>(null);
   const [agentDone, setAgentDone] = useState(false);
   const agentStreamingRef = useRef<string>('');
+  const [dispatchCommandAvailable, setDispatchCommandAvailable] = useState<boolean | null>(null);
 
   // Drag state
   const draggedIdRef = useRef<string | null>(null);
@@ -346,6 +347,11 @@ export const TaskBoard: React.FC = () => {
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isDraggingModal]);
+
+  // Check Tauri dispatch_to_runtime command availability on mount
+  useEffect(() => {
+    isDispatchCommandAvailable().then(setDispatchCommandAvailable);
+  }, []);
 
   // Close modal helper: resets modal position
   const closeModal = useCallback(() => {
@@ -500,7 +506,13 @@ export const TaskBoard: React.FC = () => {
         });
       }
     } catch (e: any) {
-      setAgentError(e?.toString() ?? 'An unexpected error occurred during agent execution');
+      // Graceful degradation: if dispatch_to_runtime command not found, show friendly message
+      if (isCommandNotFoundError(e)) {
+        setAgentError('External runtime dispatch is not available — the backend command has not been implemented yet. Please use PM Agent (built-in) for this action.');
+        setAgentOutput(prev => (prev ? prev + '\n\n' : '') + '⚠️ External runtime unavailable (backend command not ready). This feature requires a Tauri backend command that has not been implemented yet.');
+      } else {
+        setAgentError(e?.toString() ?? 'An unexpected error occurred during agent execution');
+      }
     } finally {
       setAgentSending(false);
     }
@@ -927,7 +939,9 @@ export const TaskBoard: React.FC = () => {
                     )}
                     {detailTab === 'agent' && (() => {
                       const claudeRuntime = runtimes.find(r => r.id === 'claude-code');
-                      const isRuntimeAvailable = claudeRuntime && claudeRuntime.status !== 'not-installed';
+                      const isRuntimeInstalled = claudeRuntime && claudeRuntime.status !== 'not-installed';
+                      const isDispatchReady = dispatchCommandAvailable !== false; // null = checking, true = available
+                      const isRuntimeAvailable = isRuntimeInstalled && isDispatchReady;
                       const isSendDisabled = agentSending || !isRuntimeAvailable || (agentAction === 'modify' && !agentInput.trim());
 
                       return (
@@ -938,13 +952,26 @@ export const TaskBoard: React.FC = () => {
                               <div className="flex items-start gap-2">
                                 <AlertCircle size={14} className="text-[#ffb4ab] shrink-0 mt-0.5" />
                                 <div>
-                                  <p className="text-[11px] text-[#ffb4ab] font-medium">
-                                    Claude Code runtime is not available
-                                  </p>
-                                  {claudeRuntime?.install_hint && (
-                                    <p className="text-[9px] text-on-surface-variant mt-1 font-mono">
-                                      Install: {claudeRuntime.install_hint}
-                                    </p>
+                                  {!isRuntimeInstalled ? (
+                                    <>
+                                      <p className="text-[11px] text-[#ffb4ab] font-medium">
+                                        Claude Code runtime is not available
+                                      </p>
+                                      {claudeRuntime?.install_hint && (
+                                        <p className="text-[9px] text-on-surface-variant mt-1 font-mono">
+                                          Install: {claudeRuntime.install_hint}
+                                        </p>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <>
+                                      <p className="text-[11px] text-[#ffb4ab] font-medium">
+                                        External runtime dispatch not available
+                                      </p>
+                                      <p className="text-[9px] text-on-surface-variant mt-1">
+                                        Tauri backend command not ready — this feature requires a backend implementation that is not yet available.
+                                      </p>
+                                    </>
                                   )}
                                 </div>
                               </div>
