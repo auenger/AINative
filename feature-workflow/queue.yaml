@@ -1,6 +1,6 @@
 # feature-workflow/queue.yaml
 meta:
-  last_updated: "2026-04-07T06:00:00Z"
+  last_updated: "2026-04-07T09:31:00Z"
   version: 1
 
 parents:
@@ -15,7 +15,13 @@ parents:
       - feat-hardware-monitor
       - feat-ai-agent-service
 
-active: []
+active:
+  - id: feat-dispatch-runtime-graceful
+    name: "Fix dispatch_to_runtime Command Not Found"
+    priority: 80
+    branch: feature/feat-dispatch-runtime-graceful
+    worktree: ../NeuroSyntaxIDE-feat-dispatch-runtime-graceful
+    started_at: "2026-04-07T09:31:00Z"
 
 pending: []
 
