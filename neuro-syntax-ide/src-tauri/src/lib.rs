@@ -2103,7 +2103,10 @@ struct AppState {
     /// Session output buffer: session_id -> Vec<StreamEvent> (feat-runtime-session-output)
     session_output: Arc<Mutex<HashMap<String, Vec<StreamEvent>>>>,
     /// Currently active session id (feat-runtime-session-output)
+    /// Kept for backward compatibility; active_sessions is the primary source (feat-runtime-output-polish)
     active_session_id: Mutex<Option<String>>,
+    /// Per-runtime active session tracking: runtime_id -> session_id (feat-runtime-output-polish)
+    active_sessions: Mutex<HashMap<String, String>>,
 }
 
 // ===========================================================================
@@ -5025,11 +5028,17 @@ async fn runtime_execute(
     };
 
     // Spawn thread to forward events to frontend via Tauri events
-    // Also buffer events into session_output (feat-runtime-session-output)
+    // Also buffer events into session_output (feat-runtime-session-output, feat-runtime-output-polish)
     let session_output = state.session_output.clone();
+    // Prefer per-runtime session tracking, fall back to global active_session_id
     let active_session_id = {
-        let sid = state.active_session_id.lock().map_err(|e| e.to_string())?;
-        sid.clone()
+        let sessions = state.active_sessions.lock().map_err(|e| e.to_string())?;
+        if let Some(sid) = sessions.get(&runtime_id) {
+            Some(sid.clone())
+        } else {
+            let sid = state.active_session_id.lock().map_err(|e| e.to_string())?;
+            sid.clone()
+        }
     };
     std::thread::spawn(move || {
         while let Ok(event) = receiver.recv() {
@@ -5080,6 +5089,12 @@ async fn runtime_session_start(
         buf.insert(session_id.clone(), Vec::new());
     }
 
+    // Store per-runtime active session (feat-runtime-output-polish)
+    {
+        let mut sessions = state.active_sessions.lock().map_err(|e| e.to_string())?;
+        sessions.insert(runtime_id, session_id.clone());
+    }
+
     Ok(session_id)
 }
 
@@ -5120,15 +5135,26 @@ pub struct ActiveSessionInfo {
     pub chunk_count: usize,
 }
 
-/// Get the currently active session's buffered output (feat-runtime-session-output)
+/// Get the currently active session's buffered output (feat-runtime-session-output, feat-runtime-output-polish)
+/// Accepts optional runtime_id to look up per-runtime session; falls back to global active session.
 #[tauri::command]
 fn get_active_session(
     state: tauri::State<'_, AppState>,
+    runtime_id: Option<String>,
 ) -> Result<Option<ActiveSessionInfo>, String> {
-    let active_id = {
-        let sid = state.active_session_id.lock().map_err(|e| e.to_string())?;
-        sid.clone()
+    // Prefer per-runtime session lookup (feat-runtime-output-polish)
+    let active_id = if let Some(rid) = &runtime_id {
+        let sessions = state.active_sessions.lock().map_err(|e| e.to_string())?;
+        sessions.get(rid).cloned()
+    } else {
+        None
     };
+
+    // Fall back to global active session for backward compatibility
+    let active_id = active_id.or_else(|| {
+        let sid = state.active_session_id.lock().ok()?;
+        sid.clone()
+    });
 
     let Some(session_id) = active_id else {
         return Ok(None);
@@ -5153,11 +5179,23 @@ fn get_active_session(
     }))
 }
 
-/// Clear session output buffer and active session (feat-runtime-session-output)
+/// Clear session output buffer and active session (feat-runtime-session-output, feat-runtime-output-polish)
+/// Accepts optional runtime_id to clear a specific runtime's session.
 #[tauri::command]
 fn clear_session_output(
     state: tauri::State<'_, AppState>,
+    runtime_id: Option<String>,
 ) -> Result<(), String> {
+    // Clear per-runtime session (feat-runtime-output-polish)
+    if let Some(rid) = &runtime_id {
+        let mut sessions = state.active_sessions.lock().map_err(|e| e.to_string())?;
+        if let Some(session_id) = sessions.remove(rid) {
+            let mut buf = state.session_output.lock().map_err(|e| e.to_string())?;
+            buf.remove(&session_id);
+        }
+    }
+
+    // Also clear the global active session for backward compatibility
     let mut sid = state.active_session_id.lock().map_err(|e| e.to_string())?;
     if let Some(ref session_id) = *sid {
         let mut buf = state.session_output.lock().map_err(|e| e.to_string())?;
@@ -7362,6 +7400,7 @@ pub fn run() {
             router_engine: Mutex::new(RouterEngine::with_defaults()),
             session_output: Arc::new(Mutex::new(HashMap::new())),
             active_session_id: Mutex::new(None),
+            active_sessions: Mutex::new(HashMap::new()),
         })
         .invoke_handler(tauri::generate_handler![
             greet,

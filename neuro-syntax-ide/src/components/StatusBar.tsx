@@ -63,8 +63,15 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
     scan: scanRuntimes,
   } = useRuntimeMonitor();
   const [showRuntimes, setShowRuntimes] = useState(false);
+
+  // Multi-runtime session output state (feat-runtime-output-polish)
   const [showOutputModal, setShowOutputModal] = useState(false);
-  const [activeSession, setActiveSession] = useState<ActiveSessionInfo | null>(null);
+  const [outputModalRuntimeId, setOutputModalRuntimeId] = useState<string>('');
+  const [outputModalRuntimeName, setOutputModalRuntimeName] = useState<string>('');
+
+  // Per-runtime active session tracking
+  const [activeSessions, setActiveSessions] = useState<Record<string, ActiveSessionInfo | null>>({});
+
   const popoverRef = useRef<HTMLDivElement>(null);
   const monitorStarted = useRef(false);
 
@@ -94,23 +101,27 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
     return () => document.removeEventListener('mousedown', handler);
   }, [showRuntimes]);
 
-  // Poll active session every 3s (feat-runtime-session-output)
+  // Poll active sessions per runtime every 3s (feat-runtime-output-polish)
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
     const poll = async () => {
-      try {
-        const info = await invoke<ActiveSessionInfo | null>('get_active_session');
-        setActiveSession(info);
-      } catch {
-        setActiveSession(null);
+      const results: Record<string, ActiveSessionInfo | null> = {};
+      for (const rt of runtimes) {
+        try {
+          const info = await invoke<ActiveSessionInfo | null>('get_active_session', { runtimeId: rt.id });
+          results[rt.id] = info;
+        } catch {
+          results[rt.id] = null;
+        }
       }
+      setActiveSessions(results);
     };
     poll();
     interval = setInterval(poll, 3000);
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, []);
+  }, [runtimes]);
 
   // Group active processes by runtime_id (multiple processes may share same id)
   const activeByRuntimeId = new Map<string, RuntimeProcessInfo[]>();
@@ -125,6 +136,14 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
     const processes = activeByRuntimeId.get(rt.id) || [];
     return { ...rt, activeProcesses: processes };
   });
+
+  /** Open output modal for a specific runtime */
+  const handleViewOutput = (runtimeId: string, runtimeName: string) => {
+    setOutputModalRuntimeId(runtimeId);
+    setOutputModalRuntimeName(runtimeName);
+    setShowOutputModal(true);
+    setShowRuntimes(false);
+  };
 
   return (
     <footer
@@ -183,6 +202,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
               <div className="max-h-64 overflow-y-auto">
                 {mergedRuntimes.map((rt) => {
                   const hasRunning = rt.activeProcesses.length > 0;
+                  const sessionInfo = activeSessions[rt.id];
                   return (
                     <div key={rt.id} className="px-3 py-2 hover:bg-surface-container/50 border-b border-outline-variant/5 last:border-b-0">
                       <div className="flex items-center justify-between">
@@ -226,18 +246,17 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
                           <span>Uptime: {formatUptime(process.started_at)}</span>
                         </div>
                       ))}
-                      {/* View Output button (feat-runtime-session-output) */}
-                      {rt.id === 'claude-code' && activeSession && (
+                      {/* View Output button — available for any runtime with active session (feat-runtime-output-polish) */}
+                      {sessionInfo && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setShowRuntimes(false);
-                            setShowOutputModal(true);
+                            handleViewOutput(rt.id, rt.name);
                           }}
                           className="mt-1.5 ml-3.5 flex items-center gap-1 text-[9px] text-primary hover:underline cursor-pointer"
                         >
                           <Eye size={8} />
-                          View Output{activeSession.is_done ? '' : ' (Live)'}
+                          View Output{sessionInfo.is_done ? '' : ' (Live)'}
                         </button>
                       )}
                     </div>
@@ -269,10 +288,12 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
         <Bell size={10} className="text-on-surface-variant" />
       </div>
 
-      {/* Runtime Output Modal (feat-runtime-session-output) */}
+      {/* Runtime Output Modal (feat-runtime-output-polish) */}
       <RuntimeOutputModal
         visible={showOutputModal}
         onClose={() => setShowOutputModal(false)}
+        runtimeId={outputModalRuntimeId}
+        runtimeName={outputModalRuntimeName}
       />
     </footer>
   );
