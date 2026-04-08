@@ -285,6 +285,35 @@ export const XTerminal: React.FC<XTerminalProps> = ({
   }, [active]);
 
   // -----------------------------------------------------------------------
+  // Re-fit when the container is resized (e.g. terminal panel drag-resize)
+  // Uses ResizeObserver for reliable detection of parent dimension changes.
+  // -----------------------------------------------------------------------
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    let rafId = 0;
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        if (fitAddonRef.current && active) {
+          try {
+            fitAddonRef.current.fit();
+          } catch {
+            // Container may not be ready yet
+          }
+        }
+      });
+    });
+
+    observer.observe(el);
+    return () => {
+      cancelAnimationFrame(rafId);
+      observer.disconnect();
+    };
+  }, [active]);
+
+  // -----------------------------------------------------------------------
   // Sync resize to Rust pty when terminal dimensions change
   // -----------------------------------------------------------------------
   useEffect(() => {
