@@ -88,6 +88,8 @@ interface FileUploadAreaProps {
   analyzeStates?: Map<string, AnalyzeFileState>;
   /** Whether analysis is in progress. */
   isAnalyzing?: boolean;
+  /** Callback to get count of unanalyzed files for button state. */
+  getUnanalyzedCount?: (files: PMFileEntry[]) => number;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,6 +110,7 @@ export const FileUploadArea: React.FC<FileUploadAreaProps> = ({
   isFileAnalyzed,
   analyzeStates,
   isAnalyzing = false,
+  getUnanalyzedCount,
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -161,6 +164,12 @@ export const FileUploadArea: React.FC<FileUploadAreaProps> = ({
 
   // Count analyzed files
   const analyzedCount = isFileAnalyzed ? files.filter(f => isFileAnalyzed(f.name)).length : 0;
+
+  // Count unanalyzed files for button state
+  const unanalyzedCount = getUnanalyzedCount ? getUnanalyzedCount(files) : files.length - analyzedCount;
+
+  // Whether Analyze All button should be disabled
+  const allAnalyzed = unanalyzedCount === 0;
 
   // Sort files: un-analyzed first, then analyzed
   const sortedFiles = useMemo(() => {
@@ -220,10 +229,10 @@ export const FileUploadArea: React.FC<FileUploadAreaProps> = ({
           </div>
           <button
             onClick={onAnalyzeAll}
-            disabled={isAnalyzing || disabled}
+            disabled={isAnalyzing || disabled || allAnalyzed}
             className={cn(
               "flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-medium transition-all",
-              isAnalyzing || disabled
+              isAnalyzing || disabled || allAnalyzed
                 ? "text-outline-variant cursor-not-allowed"
                 : "text-primary hover:bg-primary/10"
             )}
