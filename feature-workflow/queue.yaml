@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-08T14:00:00Z'
+  last_updated: '2026-04-08T00:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -20,14 +20,6 @@ parents:
   - feat-file-preview-media
   - feat-file-preview-image-enhance
 active:
-- id: fix-terminal-io-resize
-  name: "终端输入输出修复 + 面板动态调整"
-  priority: 90
-  size: M
-  dependencies: []
-  branch: feature/fix-terminal-io-resize
-  worktree: ../NeuroSyntaxIDE-fix-terminal-io-resize
-  started_at: '2026-04-08T00:00:00Z'
 - id: feat-claude-code-runtime-monitor
   name: Claude Code Runtime 状态监听
   priority: 75
@@ -39,6 +31,10 @@ active:
 pending: []
 blocked: []
 completed:
+- id: fix-terminal-io-resize
+  name: "终端输入输出修复 + 面板动态调整"
+  completed_at: '2026-04-08T00:00:00Z'
+  tag: fix-terminal-io-resize-20260408
 - id: feat-editor-terminal-workspace
   name: 编辑器终端工作空间目录绑定
   completed_at: '2026-04-07T17:45:00Z'

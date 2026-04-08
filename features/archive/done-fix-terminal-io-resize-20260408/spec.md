@@ -139,3 +139,13 @@ Scenario: 终端宽度占满面板
 - [x] PTY reader 不再依赖 `\n` 分隔
 - [x] 拖拽 resize 不引入性能问题（requestAnimationFrame）
 - [x] resize 后正确通知 Rust 侧 resize_pty
+
+## Merge Record
+
+- **Completed**: 2026-04-08
+- **Branch**: feature/fix-terminal-io-resize
+- **Merge Commit**: ac355e1
+- **Archive Tag**: fix-terminal-io-resize-20260408
+- **Conflicts**: none
+- **Verification**: passed (code analysis, cargo check, 5/5 Gherkin scenarios)
+- **Stats**: 3 files changed, 93 insertions, 8 deletions, 1 commit
