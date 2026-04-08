@@ -497,3 +497,43 @@ export interface FileReference {
   /** PMDM analysis MD file path, if analyzed. */
   analysisPath?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Runtime Process Monitor types (feat-claude-code-runtime-monitor)
+// ---------------------------------------------------------------------------
+
+/** Info about a detected runtime process (e.g. Claude Code CLI). */
+export interface RuntimeProcessInfo {
+  /** Runtime identifier (e.g. "claude-code") */
+  runtime_id: string;
+  /** Human-readable name */
+  name: string;
+  /** Process ID */
+  pid: number;
+  /** Process status: "running" | "idle" */
+  status: 'running' | 'idle';
+  /** Working directory of the process */
+  working_dir: string;
+  /** CPU usage percentage */
+  cpu_usage: number;
+  /** Memory usage in bytes */
+  memory_bytes: number;
+  /** Process start time as unix timestamp (seconds) */
+  started_at: number | null;
+}
+
+/** Claude Code session detail read from ~/.claude/ session files. */
+export interface ClaudeSessionDetail {
+  /** Session ID */
+  session_id: string;
+  /** Session status */
+  status: 'active' | 'idle' | 'error';
+  /** Model being used */
+  model: string | null;
+  /** Token usage statistics */
+  token_count: { input: number; output: number } | null;
+  /** Current task description */
+  current_task: string | null;
+  /** Session start time (ISO string) */
+  started_at: string | null;
+}
