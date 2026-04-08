@@ -270,18 +270,27 @@ export const XTerminal: React.FC<XTerminalProps> = ({
 
   // -----------------------------------------------------------------------
   // Re-fit when the tab becomes active
+  // Uses double-RAF to ensure CSS changes (visibility/position) have taken
+  // effect before measuring and fitting.
   // -----------------------------------------------------------------------
   useEffect(() => {
     if (!active || !fitAddonRef.current || !termRef.current) return;
-    // Small delay so layout has settled
-    const timer = setTimeout(() => {
-      try {
-        fitAddonRef.current!.fit();
-      } catch {
-        // ignore
-      }
-    }, 50);
-    return () => clearTimeout(timer);
+    // Double-RAF: first frame lets CSS changes apply, second frame fits
+    let raf1: number;
+    let raf2: number;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        try {
+          fitAddonRef.current!.fit();
+        } catch {
+          // Container may not be ready yet — safe to ignore
+        }
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
   }, [active]);
 
   // -----------------------------------------------------------------------
@@ -343,6 +352,7 @@ export const XTerminal: React.FC<XTerminalProps> = ({
       ref={containerRef}
       className={cn(
         'w-full h-full',
+        active ? 'relative' : 'absolute inset-0 invisible pointer-events-none',
         // Ensure xterm fills its container
         '[&_.xterm]:h-full [&_.xterm]:w-full',
         // xterm v6 scrollable wrapper must also fill height
@@ -350,7 +360,6 @@ export const XTerminal: React.FC<XTerminalProps> = ({
         '[&_.xterm-viewport]:!overflow-y-auto',
         className,
       )}
-      style={{ display: active ? 'block' : 'none' }}
     />
   );
 };
