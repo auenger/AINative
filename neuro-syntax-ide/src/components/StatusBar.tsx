@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, FolderOpen, Terminal, Cpu, ChevronDown, RefreshCw, Eye } from 'lucide-react';
+import { Bell, FolderOpen, Terminal, Cpu, ChevronDown, RefreshCw, Eye, Square } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { useAgentRuntimes } from '../lib/useAgentRuntimes';
 import { useRuntimeMonitor } from '../lib/useRuntimeMonitor';
@@ -72,6 +72,10 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
   // Per-runtime active session tracking
   const [activeSessions, setActiveSessions] = useState<Record<string, ActiveSessionInfo | null>>({});
 
+  // Stop process error state (feat-runtime-process-stop)
+  const [stopErrors, setStopErrors] = useState<Record<number, string>>({});
+  const [stoppingPids, setStoppingPids] = useState<Set<number>>(new Set());
+
   const popoverRef = useRef<HTMLDivElement>(null);
   const monitorStarted = useRef(false);
 
@@ -143,6 +147,29 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
     setOutputModalRuntimeName(runtimeName);
     setShowOutputModal(true);
     setShowRuntimes(false);
+  };
+
+  /** Stop a runtime process by PID (feat-runtime-process-stop) */
+  const handleStopProcess = async (pid: number) => {
+    setStoppingPids(prev => new Set(prev).add(pid));
+    setStopErrors(prev => { const next = { ...prev }; delete next[pid]; return next; });
+
+    try {
+      await invoke('kill_process_by_pid', { pid });
+      // Refresh process list after successful kill
+      if (workspacePath) {
+        scanRuntimes(workspacePath);
+      }
+    } catch (e: any) {
+      const errMsg = typeof e === 'string' ? e : (e?.toString() ?? 'Failed to stop process');
+      setStopErrors(prev => ({ ...prev, [pid]: errMsg }));
+    } finally {
+      setStoppingPids(prev => {
+        const next = new Set(prev);
+        next.delete(pid);
+        return next;
+      });
+    }
   };
 
   return (
@@ -239,13 +266,43 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
                       </div>
                       {/* Process details — show all active processes */}
                       {rt.activeProcesses.map((process: RuntimeProcessInfo) => (
-                        <div key={process.pid} className="mt-1.5 pl-3.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[8px] text-on-surface-variant">
-                          <span>PID: {process.pid}</span>
-                          <span>CPU: {process.cpu_usage.toFixed(1)}%</span>
-                          <span>MEM: {formatBytes(process.memory_bytes)}</span>
-                          <span>Uptime: {formatUptime(process.started_at)}</span>
+                        <div key={process.pid} className="mt-1.5 pl-3.5 flex items-start gap-2">
+                          <div className="flex-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[8px] text-on-surface-variant">
+                            <span>PID: {process.pid}</span>
+                            <span>CPU: {process.cpu_usage.toFixed(1)}%</span>
+                            <span>MEM: {formatBytes(process.memory_bytes)}</span>
+                            <span>Uptime: {formatUptime(process.started_at)}</span>
+                          </div>
+                          {/* Stop button (feat-runtime-process-stop) */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStopProcess(process.pid);
+                            }}
+                            disabled={stoppingPids.has(process.pid)}
+                            className={
+                              'flex items-center justify-center w-5 h-5 rounded transition-colors cursor-pointer shrink-0 mt-0.5 ' +
+                              (stoppingPids.has(process.pid)
+                                ? 'bg-surface-container text-on-surface-variant/40 cursor-wait'
+                                : 'bg-red-500/10 text-red-400 hover:bg-red-500/25 hover:text-red-300')
+                            }
+                            title={`Stop process ${process.pid}`}
+                          >
+                            <Square size={7} fill="currentColor" />
+                          </button>
                         </div>
                       ))}
+                      {/* Stop error display (feat-runtime-process-stop) */}
+                      {rt.activeProcesses.some(p => stopErrors[p.pid]) && (
+                        <div className="mt-1 ml-3.5 text-[8px] text-red-400">
+                          {rt.activeProcesses
+                            .filter(p => stopErrors[p.pid])
+                            .map(p => (
+                              <span key={p.pid} className="block">PID {p.pid}: {stopErrors[p.pid]}</span>
+                            ))
+                          }
+                        </div>
+                      )}
                       {/* View Output button — available for any runtime with active session (feat-runtime-output-polish) */}
                       {sessionInfo && (
                         <button
