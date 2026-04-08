@@ -11,7 +11,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, Config as NotifyConfig, Event as NotifyEvent};
-use sysinfo::System;
+use sysinfo::{System, ProcessesToUpdate};
 use futures::StreamExt;
 
 // ===========================================================================
@@ -173,6 +173,64 @@ pub struct RecentCommit {
     pub message: String,
     pub author: String,
     pub time_ago: String,
+}
+
+// ===========================================================================
+// Data types - Runtime process monitor (feat-claude-code-runtime-monitor)
+// ===========================================================================
+
+/// Info about a detected runtime process (e.g. Claude Code CLI).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RuntimeProcessInfo {
+    /// Runtime identifier (e.g. "claude-code")
+    pub runtime_id: String,
+    /// Human-readable name (e.g. "Claude Code")
+    pub name: String,
+    /// Process ID
+    pub pid: u32,
+    /// Process status: "running" | "idle"
+    pub status: String,
+    /// Working directory of the process
+    pub working_dir: String,
+    /// CPU usage percentage
+    pub cpu_usage: f32,
+    /// Memory usage in bytes
+    pub memory_bytes: u64,
+    /// Process start time as unix timestamp (seconds)
+    pub started_at: Option<u64>,
+}
+
+/// Payload emitted via `runtime://status-changed` event.
+#[derive(Debug, Serialize, Clone)]
+pub struct RuntimeStatusPayload {
+    /// List of detected runtime processes
+    pub runtimes: Vec<RuntimeProcessInfo>,
+    /// Timestamp of this scan
+    pub timestamp: u64,
+}
+
+/// Claude Code session info read from `~/.claude/` session files.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ClaudeSessionInfo {
+    /// Session ID
+    pub session_id: String,
+    /// Session status: "active" | "idle" | "error"
+    pub status: String,
+    /// Model being used
+    pub model: Option<String>,
+    /// Token usage statistics
+    pub token_count: Option<TokenCount>,
+    /// Current task description (if available)
+    pub current_task: Option<String>,
+    /// Session start time (ISO string)
+    pub started_at: Option<String>,
+}
+
+/// Token usage for a Claude session.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TokenCount {
+    pub input: u64,
+    pub output: u64,
 }
 
 // ===========================================================================
@@ -2035,6 +2093,8 @@ struct AppState {
     workspace_path: Mutex<String>,
     fs_watcher: Mutex<Option<RecommendedWatcher>>,
     hw_monitor_stop: Mutex<Option<std::sync::mpsc::Sender<()>>>,
+    /// Runtime process monitor stop channel (feat-claude-code-runtime-monitor)
+    runtime_monitor_stop: Mutex<Option<std::sync::mpsc::Sender<()>>>,
     req_agent: Mutex<ReqAgentState>,
     /// Agent runtime registry (feat-agent-runtime-core)
     agent_runtime_registry: Mutex<RuntimeRegistry>,
@@ -5129,6 +5189,248 @@ fn get_task_routing_decision(
 }
 
 // ===========================================================================
+// Tauri commands - Runtime process monitor (feat-claude-code-runtime-monitor)
+// ===========================================================================
+
+/// Keywords used to match Claude-related processes.
+const CLAUDE_PROCESS_KEYWORDS: &[&str] = &["claude", "claude-code"];
+
+/// Scan the system for runtime processes matching Claude-related keywords
+/// whose working directory is within (or related to) the given workspace path.
+#[tauri::command]
+async fn scan_runtime_processes(
+    state: tauri::State<'_, AppState>,
+    workspace_path: String,
+) -> Result<Vec<RuntimeProcessInfo>, String> {
+    Ok(scan_runtime_processes_inner(&workspace_path))
+}
+
+/// Inner implementation that performs the actual process scan.
+fn scan_runtime_processes_inner(workspace_path: &str) -> Vec<RuntimeProcessInfo> {
+    let mut sys = System::new_all();
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+
+    let mut results = Vec::new();
+
+    for (pid, process) in sys.processes() {
+        let name = process.name().to_string_lossy().to_lowercase();
+        let exe = process.exe().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+
+        // Check if this process matches any Claude-related keyword
+        let is_match = CLAUDE_PROCESS_KEYWORDS.iter().any(|kw| {
+            name.contains(kw) || exe.contains(kw)
+        });
+
+        // Also match node processes that have "claude" in their command line
+        let cmdline = process.cmd().iter()
+            .map(|s| s.to_string_lossy().to_string())
+            .collect::<Vec<_>>()
+            .join(" ")
+            .to_lowercase();
+
+        let is_node_claude = (name.contains("node") || name.contains("node")) &&
+            CLAUDE_PROCESS_KEYWORDS.iter().any(|kw| cmdline.contains(kw));
+
+        if !is_match && !is_node_claude {
+            continue;
+        }
+
+        let working_dir = process.cwd()
+            .map(|d| d.to_string_lossy().to_string())
+            .unwrap_or_default();
+
+        // Check if process cwd is within the workspace path (or if we can't determine, still include it)
+        let in_workspace = if workspace_path.is_empty() {
+            true
+        } else if working_dir.is_empty() {
+            true // Include if we can't determine cwd
+        } else {
+            working_dir.starts_with(workspace_path) || workspace_path.starts_with(&working_dir)
+        };
+
+        if !in_workspace {
+            continue;
+        }
+
+        let cpu = process.cpu_usage();
+        let memory = process.memory();
+
+        // Determine runtime_id and display name
+        let (runtime_id, display_name) = if is_match {
+            ("claude-code".to_string(), "Claude Code".to_string())
+        } else {
+            ("claude-code".to_string(), "Claude Code (node)".to_string())
+        };
+
+        // Try to get start time
+        let started_at = process.start_time();
+
+        results.push(RuntimeProcessInfo {
+            runtime_id,
+            name: display_name,
+            pid: pid.as_u32(),
+            status: if cpu > 0.1 { "running".to_string() } else { "idle".to_string() },
+            working_dir,
+            cpu_usage: cpu,
+            memory_bytes: memory,
+            started_at: Some(started_at),
+        });
+    }
+
+    results
+}
+
+/// Start the runtime process monitor background thread.
+/// Polls every 2 seconds and emits `runtime://status-changed` events.
+#[tauri::command]
+async fn start_runtime_monitor(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+    workspace_path: String,
+) -> Result<(), String> {
+    // Stop any existing monitor
+    stop_runtime_monitor_inner(&state)?;
+
+    let (tx, rx) = std::sync::mpsc::channel::<()>();
+    *state.runtime_monitor_stop.lock().map_err(|e| e.to_string())? = Some(tx);
+
+    let app_handle = app.clone();
+    std::thread::spawn(move || {
+        loop {
+            // Check stop signal
+            if rx.try_recv().is_ok() {
+                break;
+            }
+
+            // Scan processes
+            let runtimes = scan_runtime_processes_inner(&workspace_path);
+            let timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+
+            let payload = RuntimeStatusPayload {
+                runtimes,
+                timestamp,
+            };
+
+            let _ = app_handle.emit("runtime://status-changed", &payload);
+
+            // Sleep 2 seconds, checking for stop signal every 100ms
+            for _ in 0..20 {
+                std::thread::sleep(Duration::from_millis(100));
+                if rx.try_recv().is_ok() {
+                    return;
+                }
+            }
+        }
+    });
+
+    Ok(())
+}
+
+/// Stop the runtime process monitor.
+#[tauri::command]
+async fn stop_runtime_monitor(
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    stop_runtime_monitor_inner(&state)
+}
+
+fn stop_runtime_monitor_inner(state: &tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut stop = state.runtime_monitor_stop.lock().map_err(|e| e.to_string())?;
+    if let Some(tx) = stop.take() {
+        let _ = tx.send(());
+    }
+    Ok(())
+}
+
+/// Read Claude Code session info from ~/.claude/ directory.
+/// Looks for session files under the project directory matching the workspace.
+#[tauri::command]
+async fn read_claude_session(
+    session_id: String,
+) -> Result<Option<ClaudeSessionInfo>, String> {
+    let home = dirs_home()?;
+    let claude_dir = PathBuf::from(home).join(".claude");
+
+    if !claude_dir.exists() {
+        return Ok(None);
+    }
+
+    // Look for session files under projects/*/sessions/{session_id}.json
+    let projects_dir = claude_dir.join("projects");
+    if !projects_dir.exists() {
+        return Ok(None);
+    }
+
+    // Search all project directories for the session
+    if let Ok(entries) = fs::read_dir(&projects_dir) {
+        for entry in entries.flatten() {
+            let sessions_dir = entry.path().join("sessions");
+            if !sessions_dir.is_dir() { continue; }
+
+            let session_file = sessions_dir.join(format!("{}.json", session_id));
+            if !session_file.exists() { continue; }
+
+            match fs::read_to_string(&session_file) {
+                Ok(content) => {
+                    match serde_json::from_str::<serde_json::Value>(&content) {
+                        Ok(json) => {
+                            let status = json.get("status")
+                                .and_then(|s| s.as_str())
+                                .unwrap_or("unknown")
+                                .to_string();
+
+                            let model = json.get("model")
+                                .and_then(|m| m.as_str())
+                                .map(|s| s.to_string());
+
+                            let current_task = json.get("current_task")
+                                .and_then(|t| t.as_str())
+                                .map(|s| s.to_string());
+
+                            let started_at = json.get("started_at")
+                                .and_then(|t| t.as_str())
+                                .map(|s| s.to_string());
+
+                            let token_count = if let Some(tc) = json.get("token_count") {
+                                Some(TokenCount {
+                                    input: tc.get("input").and_then(|v| v.as_u64()).unwrap_or(0),
+                                    output: tc.get("output").and_then(|v| v.as_u64()).unwrap_or(0),
+                                })
+                            } else {
+                                None
+                            };
+
+                            return Ok(Some(ClaudeSessionInfo {
+                                session_id,
+                                status,
+                                model,
+                                token_count,
+                                current_task,
+                                started_at,
+                            }));
+                        }
+                        Err(_) => continue,
+                    }
+                }
+                Err(_) => continue,
+            }
+        }
+    }
+
+    Ok(None)
+}
+
+/// Helper: get the user's home directory.
+fn dirs_home() -> Result<String, String> {
+    std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .map_err(|e| format!("Cannot determine home directory: {}", e))
+}
+
+// ===========================================================================
 // Misc commands
 // ===========================================================================
 
@@ -6965,6 +7267,7 @@ pub fn run() {
             workspace_path: Mutex::new(String::new()),
             fs_watcher: Mutex::new(None),
             hw_monitor_stop: Mutex::new(None),
+            runtime_monitor_stop: Mutex::new(None),
             req_agent: Mutex::new(ReqAgentState::new()),
             agent_runtime_registry: Mutex::new(create_default_registry()),
             router_engine: Mutex::new(RouterEngine::with_defaults()),
@@ -7053,6 +7356,11 @@ pub fn run() {
             // PMDM management (feat-agent-multimodal-analyze)
             pmdm_write,
             pmdm_list,
+            // Runtime process monitor (feat-claude-code-runtime-monitor)
+            scan_runtime_processes,
+            start_runtime_monitor,
+            stop_runtime_monitor,
+            read_claude_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

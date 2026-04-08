@@ -3,6 +3,7 @@ import { Target, Activity, Terminal, Brain, ArrowRight, Bot, GitBranch, GitCommi
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { HardwareStats, GitStats, RecentCommit } from '../../types';
+import { RuntimeMonitorPanel } from './RuntimeMonitorPanel';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -85,7 +86,7 @@ async function listen<T>(event: string, cb: (payload: T) => void): Promise<(() =
 // Component
 // ---------------------------------------------------------------------------
 
-export const MissionControl: React.FC = () => {
+export const MissionControl: React.FC<{ workspacePath?: string }> = ({ workspacePath }) => {
   const { t } = useTranslation();
 
   // Hardware state
@@ -492,6 +493,11 @@ export const MissionControl: React.FC = () => {
               {t('missionControl.manageAgents')} <ArrowRight size={14} />
             </button>
           </div>
+        </div>
+
+        {/* Runtime Monitor Panel (feat-claude-code-runtime-monitor) */}
+        <div className="col-span-12 lg:col-span-6">
+          <RuntimeMonitorPanel workspacePath={workspacePath} />
         </div>
       </div>
     </div>

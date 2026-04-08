@@ -65,7 +65,7 @@ const App: React.FC = () => {
               <WorkflowEditor />
             </div>
             <div className={cn("absolute inset-0 overflow-hidden", activeView === 'mission-control' ? 'flex' : 'hidden')}>
-              <MissionControl />
+              <MissionControl workspacePath={workspace.workspacePath} />
             </div>
             <div className={cn("absolute inset-0 overflow-hidden", activeView === 'settings' ? 'flex' : 'hidden')}>
               <SettingsView />
