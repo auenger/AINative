@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-07T17:45:00Z'
+  last_updated: '2026-04-08T00:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -20,7 +20,15 @@ parents:
   - feat-file-preview-media
   - feat-file-preview-image-enhance
 active:
-pending: []
+- id: fix-terminal-io-resize
+  name: "终端输入输出修复 + 面板动态调整"
+  priority: 90
+  size: M
+  dependencies: []
+  branch: feature/fix-terminal-io-resize
+  worktree: ../NeuroSyntaxIDE-fix-terminal-io-resize
+  started_at: '2026-04-08T00:00:00Z'
+pending:
 blocked: []
 completed:
 - id: feat-editor-terminal-workspace
