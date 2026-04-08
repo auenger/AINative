@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-08T19:00:00Z'
+  last_updated: '2026-04-08T19:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -20,18 +20,19 @@ parents:
   - feat-file-preview-media
   - feat-file-preview-image-enhance
 active:
-- id: feat-file-tree-resizable
-  name: 文件树横向拖拽调整宽度
-  priority: 60
-  branch: feature/feat-file-tree-resizable
-  worktree: ../NeuroSyntaxIDE-feat-file-tree-resizable
-  started_at: '2026-04-08T19:00:00Z'
-pending:
 - id: feat-runtime-session-output
   name: Claude Code Runtime Session 输出持久化与监控
   priority: 70
+  branch: feature/feat-runtime-session-output
+  worktree: ../NeuroSyntaxIDE-feat-runtime-session-output
+  started_at: '2026-04-08T19:05:00Z'
+pending: []
 blocked: []
 completed:
+- id: feat-file-tree-resizable
+  name: 文件树横向拖拽调整宽度
+  completed_at: '2026-04-08T19:30:00Z'
+  tag: feat-file-tree-resizable-20260408
 - id: fix-analyze-all-state
   name: Analyze All 按钮状态管理与防重复分析
   completed_at: '2026-04-08T16:30:00Z'

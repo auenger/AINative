@@ -1,10 +1,36 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-08T16:30:00Z"
+  last_updated: "2026-04-08T19:30:00Z"
   version: 1
-  total_completed: 75
+  total_completed: 76
 
 records:
+  - id: feat-file-tree-resizable
+    name: "文件树横向拖拽调整宽度"
+    completed_at: "2026-04-08T19:30:00Z"
+    tag: feat-file-tree-resizable-20260408
+    merge_commit: 561b4ce
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-file-tree-resizable
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-file-tree-resizable
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 5
+      scenarios_passed: 5
+    stats:
+      started: "2026-04-08T19:00:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 1
+      insertions: 62
+      deletions: 1
+    archive_path: features/archive/done-feat-file-tree-resizable-20260408
+
   - id: fix-analyze-all-state
     name: "Analyze All 按钮状态管理与防重复分析"
     completed_at: "2026-04-08T16:30:00Z"
