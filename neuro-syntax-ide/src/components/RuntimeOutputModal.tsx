@@ -4,7 +4,7 @@ import { X, Trash2, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react
 import { invoke } from '@tauri-apps/api/core';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { cn } from '../lib/utils';
-import type { ActiveSessionInfo } from '../types';
+import type { ActiveSessionInfo, StreamEventChunk } from '../types';
 
 // StreamEvent type matching Rust StreamEvent (agent://chunk)
 interface StreamEvent {
@@ -71,6 +71,17 @@ function tryParseJson(text: string): ParsedJsonChunk | null {
 
 /** Maximum character length before a content block is collapsed */
 const COLLAPSE_THRESHOLD = 300;
+
+/** Check if a chunk has meaningful content to display */
+function hasContent(chunk: StreamEvent): boolean {
+  // Has text content
+  if (chunk.text.trim().length > 0) return true;
+  // Has error
+  if (chunk.error && chunk.error.trim().length > 0) return true;
+  // System messages with no text but a type tag are still meaningful
+  if (chunk.type === 'system') return false;
+  return false;
+}
 
 // ---------------------------------------------------------------------------
 // Smart chunk renderer
@@ -305,8 +316,8 @@ export const RuntimeOutputModal: React.FC<RuntimeOutputModalProps> = ({
   const [isDraggingModal, setIsDraggingModal] = useState(false);
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // Modal resize state
-  const [modalSize, setModalSize] = useState<{ w: number; h: number }>({ w: 640, h: 480 });
+  // Modal resize state (fix-runtime-output-render: 800x560 for better readability)
+  const [modalSize, setModalSize] = useState<{ w: number; h: number }>({ w: 800, h: 560 });
   const modalRef = useRef<HTMLDivElement>(null);
 
   // Track the runtimeId for which we have loaded data
@@ -401,16 +412,37 @@ export const RuntimeOutputModal: React.FC<RuntimeOutputModalProps> = ({
       if (loadedRuntimeRef.current !== runtimeId) return;
       setLoading(true);
       try {
-        const info = await invoke<ActiveSessionInfo | null>('get_active_session', { runtimeId });
+        // Try structured chunk loading first (fix-runtime-output-render)
+        const structuredChunks = await invoke<StreamEventChunk[] | null>('get_session_chunks', { runtimeId });
         if (cancelled) return;
 
-        if (info) {
-          setSessionInfo(info);
-          setIsDone(info.is_done);
+        if (structuredChunks && structuredChunks.length > 0) {
+          // Filter empty chunks (no text and no error)
+          const filteredChunks = structuredChunks.filter(
+            (c) => c.text.trim().length > 0 || (c.error && c.error.trim().length > 0)
+          );
+          setChunks(filteredChunks as StreamEvent[]);
+          const lastChunk = structuredChunks[structuredChunks.length - 1];
+          setIsDone(lastChunk?.is_done ?? false);
 
-          // Reconstruct chunks from session info
-          if (info.chunk_count > 0 && info.output_text) {
-            setChunks([{ text: info.output_text, is_done: info.is_done, error: undefined, type: 'raw', session_id: info.session_id }]);
+          // Also get session info for header display
+          const info = await invoke<ActiveSessionInfo | null>('get_active_session', { runtimeId });
+          if (!cancelled && info) {
+            setSessionInfo(info);
+          }
+        } else {
+          // Fallback to legacy get_active_session (backward compatibility)
+          const info = await invoke<ActiveSessionInfo | null>('get_active_session', { runtimeId });
+          if (cancelled) return;
+
+          if (info) {
+            setSessionInfo(info);
+            setIsDone(info.is_done);
+
+            // Reconstruct chunks from session info
+            if (info.chunk_count > 0 && info.output_text) {
+              setChunks([{ text: info.output_text, is_done: info.is_done, error: undefined, type: 'raw', session_id: info.session_id }]);
+            }
           }
         }
       } catch (err) {
@@ -427,6 +459,8 @@ export const RuntimeOutputModal: React.FC<RuntimeOutputModalProps> = ({
       const unlisten = await listen<StreamEvent>('agent://chunk', (event) => {
         if (cancelled) return;
         const chunk = event.payload;
+        // Skip empty chunks in live stream
+        if (!chunk.text.trim() && !chunk.error?.trim()) return;
         setChunks((prev) => [...prev, chunk]);
         if (chunk.is_done) {
           setIsDone(true);
@@ -510,7 +544,7 @@ export const RuntimeOutputModal: React.FC<RuntimeOutputModalProps> = ({
               "bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl"
             )}
           >
-            {/* Header — draggable */}
+            {/* Header -- draggable */}
             <div
               className={cn(
                 "flex items-center justify-between px-4 py-3 border-b border-outline-variant/10",
