@@ -1015,14 +1015,27 @@ impl AgentRuntime for ClaudeCodeRuntime {
                                     } else if let Some(arr) = val.as_array() {
                                         arr.iter()
                                             .filter_map(|item| {
-                                                if item.get("type").and_then(|t| t.as_str()) == Some("text") {
-                                                    item.get("text").and_then(|t| t.as_str()).map(|s| s.to_string())
-                                                } else {
-                                                    None
+                                                let item_type = item.get("type").and_then(|t| t.as_str()).unwrap_or("");
+                                                match item_type {
+                                                    "text" => {
+                                                        item.get("text").and_then(|t| t.as_str()).map(|s| s.to_string())
+                                                    }
+                                                    "tool_use" => {
+                                                        let name = item.get("name").and_then(|n| n.as_str()).unwrap_or("unknown");
+                                                        let input_preview = item.get("input")
+                                                            .and_then(|i| serde_json::to_string(i).ok())
+                                                            .map(|s| {
+                                                                let s = s.replace('\n', " ");
+                                                                if s.len() > 100 { format!("{}...", &s[..100]) } else { s }
+                                                            })
+                                                            .unwrap_or_default();
+                                                        Some(format!("[tool: {}] {}", name, input_preview))
+                                                    }
+                                                    _ => None
                                                 }
                                             })
                                             .collect::<Vec<_>>()
-                                            .join("")
+                                            .join("\n")
                                     } else {
                                         String::new()
                                     }
@@ -1043,8 +1056,26 @@ impl AgentRuntime for ClaudeCodeRuntime {
                                 } else if is_result {
                                     String::new()
                                 } else if msg_type == "system" {
-                                    // system init messages have no displayable text content
-                                    String::new()
+                                    // Extract meaningful info from system messages
+                                    let subtype = json_obj.get("subtype")
+                                        .and_then(|s| s.as_str())
+                                        .unwrap_or("");
+                                    let tools_count = json_obj.get("tools")
+                                        .and_then(|t| t.as_array())
+                                        .map(|a| a.len())
+                                        .unwrap_or(0);
+                                    let model = json_obj.get("model")
+                                        .and_then(|m| m.as_str())
+                                        .unwrap_or("");
+                                    if subtype == "init" && tools_count > 0 {
+                                        format!("init — {} tools available{}", tools_count,
+                                            if model.is_empty() { String::new() } else { format!(", model: {}", model) })
+                                    } else if !subtype.is_empty() {
+                                        format!("{}{}", subtype,
+                                            if model.is_empty() { String::new() } else { format!(" — model: {}", model) })
+                                    } else {
+                                        String::new()
+                                    }
                                 } else {
                                     trimmed.to_string()
                                 };
@@ -4787,14 +4818,27 @@ async fn req_agent_send_message(
                                 } else if let Some(arr) = val.as_array() {
                                     arr.iter()
                                         .filter_map(|item| {
-                                            if item.get("type").and_then(|t| t.as_str()) == Some("text") {
-                                                item.get("text").and_then(|t| t.as_str()).map(|s| s.to_string())
-                                            } else {
-                                                None
+                                            let item_type = item.get("type").and_then(|t| t.as_str()).unwrap_or("");
+                                            match item_type {
+                                                "text" => {
+                                                    item.get("text").and_then(|t| t.as_str()).map(|s| s.to_string())
+                                                }
+                                                "tool_use" => {
+                                                    let name = item.get("name").and_then(|n| n.as_str()).unwrap_or("unknown");
+                                                    let input_preview = item.get("input")
+                                                        .and_then(|i| serde_json::to_string(i).ok())
+                                                        .map(|s| {
+                                                            let s = s.replace('\n', " ");
+                                                            if s.len() > 100 { format!("{}...", &s[..100]) } else { s }
+                                                        })
+                                                        .unwrap_or_default();
+                                                    Some(format!("[tool: {}] {}", name, input_preview))
+                                                }
+                                                _ => None
                                             }
                                         })
                                         .collect::<Vec<_>>()
-                                        .join("")
+                                        .join("\n")
                                 } else {
                                     String::new()
                                 }
@@ -4813,7 +4857,26 @@ async fn req_agent_send_message(
                             } else if is_result {
                                 String::new()
                             } else if msg_type == "system" {
-                                String::new()
+                                // Extract meaningful info from system messages
+                                let subtype = json_obj.get("subtype")
+                                    .and_then(|s| s.as_str())
+                                    .unwrap_or("");
+                                let tools_count = json_obj.get("tools")
+                                    .and_then(|t| t.as_array())
+                                    .map(|a| a.len())
+                                    .unwrap_or(0);
+                                let model = json_obj.get("model")
+                                    .and_then(|m| m.as_str())
+                                    .unwrap_or("");
+                                if subtype == "init" && tools_count > 0 {
+                                    format!("init — {} tools available{}", tools_count,
+                                        if model.is_empty() { String::new() } else { format!(", model: {}", model) })
+                                } else if !subtype.is_empty() {
+                                    format!("{}{}", subtype,
+                                        if model.is_empty() { String::new() } else { format!(" — model: {}", model) })
+                                } else {
+                                    String::new()
+                                }
                             } else {
                                 trimmed.to_string()
                             };
@@ -5177,6 +5240,39 @@ fn get_active_session(
         is_done,
         chunk_count,
     }))
+}
+
+/// Get the full list of StreamEvent chunks for a session (fix-runtime-output-render)
+/// Returns structured chunk data so the frontend can render each chunk with its type/color.
+/// Accepts optional runtime_id to look up per-runtime session; falls back to global active session.
+#[tauri::command]
+fn get_session_chunks(
+    state: tauri::State<'_, AppState>,
+    runtime_id: Option<String>,
+) -> Result<Vec<StreamEvent>, String> {
+    // Prefer per-runtime session lookup
+    let active_id = if let Some(rid) = &runtime_id {
+        let sessions = state.active_sessions.lock().map_err(|e| e.to_string())?;
+        sessions.get(rid).cloned()
+    } else {
+        None
+    };
+
+    // Fall back to global active session for backward compatibility
+    let active_id = active_id.or_else(|| {
+        let sid = state.active_session_id.lock().ok()?;
+        sid.clone()
+    });
+
+    let Some(session_id) = active_id else {
+        return Ok(Vec::new());
+    };
+
+    let buf = state.session_output.lock().map_err(|e| e.to_string())?;
+    match buf.get(&session_id) {
+        Some(evts) => Ok(evts.clone()),
+        None => Ok(Vec::new()),
+    }
 }
 
 /// Clear session output buffer and active session (feat-runtime-session-output, feat-runtime-output-polish)
@@ -7511,6 +7607,7 @@ pub fn run() {
             runtime_session_stop,
             // Session Output (feat-runtime-session-output)
             get_active_session,
+            get_session_chunks,
             clear_session_output,
             // Smart Router (feat-agent-runtime-router)
             submit_task,

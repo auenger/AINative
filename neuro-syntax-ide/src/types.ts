@@ -553,3 +553,17 @@ export interface ActiveSessionInfo {
   /** Number of buffered chunks */
   chunk_count: number;
 }
+
+/** A streaming event produced by an AgentRuntime (matches Rust StreamEvent). */
+export interface StreamEventChunk {
+  /** Text content of the event */
+  text: string;
+  /** Whether this is the final event */
+  is_done: boolean;
+  /** Error message if something went wrong */
+  error?: string;
+  /** The type of this event: "assistant", "result", "system", "tool_use", "raw", "stderr", "timeout" */
+  type?: string;
+  /** Session ID from the CLI */
+  session_id?: string;
+}
