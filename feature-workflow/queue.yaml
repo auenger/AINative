@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-08T00:00:00Z'
+  last_updated: '2026-04-08T14:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -28,7 +28,15 @@ active:
   branch: feature/fix-terminal-io-resize
   worktree: ../NeuroSyntaxIDE-fix-terminal-io-resize
   started_at: '2026-04-08T00:00:00Z'
-pending:
+- id: feat-claude-code-runtime-monitor
+  name: Claude Code Runtime 状态监听
+  priority: 75
+  size: M
+  dependencies: []
+  branch: feature/feat-claude-code-runtime-monitor
+  worktree: ../NeuroSyntaxIDE-feat-claude-code-runtime-monitor
+  started_at: '2026-04-08T14:00:00Z'
+pending: []
 blocked: []
 completed:
 - id: feat-editor-terminal-workspace
