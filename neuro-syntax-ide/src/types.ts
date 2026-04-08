@@ -537,3 +537,19 @@ export interface ClaudeSessionDetail {
   /** Session start time (ISO string) */
   started_at: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// Session Output types (feat-runtime-session-output)
+// ---------------------------------------------------------------------------
+
+/** Information about the currently active session's output. */
+export interface ActiveSessionInfo {
+  /** The active session ID */
+  session_id: string;
+  /** Concatenated output text from all buffered StreamEvents */
+  output_text: string;
+  /** Whether the session execution is complete */
+  is_done: boolean;
+  /** Number of buffered chunks */
+  chunk_count: number;
+}
