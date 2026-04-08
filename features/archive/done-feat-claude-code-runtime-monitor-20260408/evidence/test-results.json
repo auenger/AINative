@@ -1,0 +1,28 @@
+{
+  "feature_id": "feat-claude-code-runtime-monitor",
+  "verification_date": "2026-04-08",
+  "status": "pass",
+  "tasks": {
+    "total": 23,
+    "completed": 23,
+    "pending": 0
+  },
+  "code_quality": {
+    "typescript": "pass",
+    "rust": "pass"
+  },
+  "gherkin_scenarios": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "details": [
+      { "scenario": 1, "name": "检测到 Claude Code 进程运行", "status": "pass" },
+      { "scenario": 2, "name": "Claude Code 进程结束", "status": "pass" },
+      { "scenario": 3, "name": "无 Claude Code 进程", "status": "pass" },
+      { "scenario": 4, "name": "MissionControl Runtime 面板展示详情", "status": "pass" },
+      { "scenario": 5, "name": "多 runtime 同时运行", "status": "pass" },
+      { "scenario": 6, "name": "手动重新扫描", "status": "pass" }
+    ]
+  },
+  "warnings": []
+}
