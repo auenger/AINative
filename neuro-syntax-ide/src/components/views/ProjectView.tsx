@@ -1056,6 +1056,7 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                         isFileAnalyzed={multimodalAnalyzer.isAnalyzed}
                         analyzeStates={multimodalAnalyzer.fileStates}
                         isAnalyzing={multimodalAnalyzer.status === 'analyzing'}
+                        getUnanalyzedCount={multimodalAnalyzer.getUnanalyzedCount}
                       />
                     )}
                     <div className="p-4">
@@ -1410,6 +1411,7 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                         isFileAnalyzed={multimodalAnalyzer.isAnalyzed}
                         analyzeStates={multimodalAnalyzer.fileStates}
                         isAnalyzing={multimodalAnalyzer.status === 'analyzing'}
+                        getUnanalyzedCount={multimodalAnalyzer.getUnanalyzedCount}
                       />
                     )}
                     <div className="p-4">

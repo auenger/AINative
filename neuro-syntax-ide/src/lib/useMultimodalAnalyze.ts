@@ -253,6 +253,17 @@ export function useMultimodalAnalyze(workspacePath: string) {
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
 
+          // Skip files that have already been analyzed
+          const stem = file.name.split('.').slice(0, -1).join('.') || file.name;
+          if (analyzedFiles.has(stem)) {
+            setFileStates((prev) => {
+              const next = new Map(prev);
+              next.set(file.name, { name: file.name, status: 'done', progress: 100 });
+              return next;
+            });
+            continue;
+          }
+
           setFileStates((prev) => {
             const next = new Map(prev);
             next.set(file.name, {
@@ -307,7 +318,7 @@ export function useMultimodalAnalyze(workspacePath: string) {
 
       setStatus('done');
     },
-    [workspacePath, registerListeners],
+    [workspacePath, registerListeners, analyzedFiles],
   );
 
   /** Reset analysis state. */
@@ -331,6 +342,14 @@ export function useMultimodalAnalyze(workspacePath: string) {
     [analyzedFiles],
   );
 
+  /** Get count of unanalyzed files from a given list. */
+  const getUnanalyzedCount = useCallback(
+    (files: PMFileEntry[]): number => {
+      return files.filter((f) => !isAnalyzed(f.name)).length;
+    },
+    [isAnalyzed],
+  );
+
   /** Get the overall progress (0-100). */
   const overallProgress = useCallback((): number => {
     if (fileStates.size === 0) return 0;
@@ -352,5 +371,6 @@ export function useMultimodalAnalyze(workspacePath: string) {
     isAnalyzed,
     checkAnalyzedFiles,
     overallProgress,
+    getUnanalyzedCount,
   };
 }
