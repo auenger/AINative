@@ -265,6 +265,45 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
 
   // Terminal state
   const [terminalOpen, setTerminalOpen] = useState(false);
+  const [terminalHeight, setTerminalHeight] = useState(240);
+  const isDraggingTerminal = useRef(false);
+  const dragStartY = useRef(0);
+  const dragStartHeight = useRef(0);
+
+  // Terminal panel drag-resize handlers
+  const handleTerminalDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingTerminal.current = true;
+    dragStartY.current = e.clientY;
+    dragStartHeight.current = terminalHeight;
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+  }, [terminalHeight]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingTerminal.current) return;
+      // Moving mouse UP increases height (dragStartY - currentY is positive when dragging up)
+      const delta = dragStartY.current - e.clientY;
+      const newHeight = Math.max(100, Math.min(window.innerHeight * 0.8, dragStartHeight.current + delta));
+      setTerminalHeight(newHeight);
+    };
+
+    const handleMouseUp = () => {
+      if (!isDraggingTerminal.current) return;
+      isDraggingTerminal.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFileMenu, setShowFileMenu] = useState(false);
@@ -1228,9 +1267,18 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
           {terminalOpen && (
             <motion.div
               initial={{ height: 0 }}
-              animate={{ height: 240 }}
+              animate={{ height: terminalHeight }}
               className="bg-app border-t border-outline-variant/20 flex flex-col shrink-0"
+              style={{ height: terminalHeight }}
             >
+              {/* Drag handle — resize terminal panel by dragging this bar */}
+              <div
+                onMouseDown={handleTerminalDragStart}
+                className="h-1.5 cursor-row-resize hover:bg-primary/20 active:bg-primary/30 transition-colors flex items-center justify-center shrink-0"
+                title="Drag to resize terminal"
+              >
+                <div className="w-8 h-0.5 rounded-full bg-outline-variant/30" />
+              </div>
               {/* Tab bar */}
               <div className="h-9 bg-surface-container-low flex items-center px-2 justify-between border-b border-outline-variant/10">
                 <div className="flex items-center h-full overflow-x-auto scroll-hide">
@@ -1324,7 +1372,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
               </div>
 
               {/* xterm.js terminal instances — all mounted but only active visible */}
-              <div className="flex-1 relative overflow-hidden">
+              <div className="flex-1 w-full relative overflow-hidden">
                 {tabs.map((tab) => (
                   <XTerminal
                     key={tab.id}

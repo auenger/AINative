@@ -2,7 +2,7 @@ use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::io::{BufRead, BufReader, BufWriter, Write as IoWrite};
+use std::io::{BufRead, BufReader, BufWriter, Read as IoRead, Write as IoWrite};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -1963,13 +1963,21 @@ impl PtyManager {
         let emit_id = pty_id.clone();
         let ah = app_handle.clone();
         std::thread::spawn(move || {
-            let reader = BufReader::new(reader);
-            for line in reader.lines() {
-                match line {
-                    Ok(text) => {
+            // Use BufReader for efficient buffering, but read raw chunks via
+            // `read()` instead of `lines()`.  The old `lines()` iterator only
+            // yields on `\n`, which means prompts, spinners, and other
+            // interactive output that doesn't end with a newline get stuck in
+            // the buffer and never reach the frontend.
+            let mut reader = BufReader::new(reader);
+            let mut buf = [0u8; 4096];
+            loop {
+                match reader.read(&mut buf) {
+                    Ok(0) => break, // EOF — child process exited
+                    Ok(n) => {
+                        let data = String::from_utf8_lossy(&buf[..n]);
                         let payload = PtyOutputEvent {
                             pty_id: emit_id.clone(),
-                            data: format!("{}\n", text),
+                            data: data.to_string(),
                         };
                         let _ = ah.emit("pty-out", &payload);
                     }
