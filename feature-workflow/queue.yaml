@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-08T15:30:00Z'
+  last_updated: '2026-04-08T16:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -20,14 +20,13 @@ parents:
   - feat-file-preview-media
   - feat-file-preview-image-enhance
 active: []
-pending:
-- id: fix-analyze-all-state
-  name: Analyze All 按钮状态管理与防重复分析
-  priority: 60
-  size: S
-  dependencies: []
+pending: []
 blocked: []
 completed:
+- id: fix-analyze-all-state
+  name: Analyze All 按钮状态管理与防重复分析
+  completed_at: '2026-04-08T16:30:00Z'
+  tag: fix-analyze-all-state-20260408
 - id: feat-claude-code-runtime-monitor
   name: Claude Code Runtime 状态监听
   completed_at: '2026-04-08T15:30:00Z'

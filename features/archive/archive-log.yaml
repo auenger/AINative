@@ -1,10 +1,36 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-08T15:30:00Z"
+  last_updated: "2026-04-08T16:30:00Z"
   version: 1
-  total_completed: 74
+  total_completed: 75
 
 records:
+  - id: fix-analyze-all-state
+    name: "Analyze All 按钮状态管理与防重复分析"
+    completed_at: "2026-04-08T16:30:00Z"
+    tag: fix-analyze-all-state-20260408
+    merge_commit: 7f9bccf
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/fix-analyze-all-state
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-fix-analyze-all-state
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-04-08T16:00:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 3
+      insertions: 34
+      deletions: 3
+    archive_path: features/archive/done-fix-analyze-all-state-20260408
+
   - id: feat-claude-code-runtime-monitor
     name: "Claude Code Runtime 状态监听"
     completed_at: "2026-04-08T15:30:00Z"
