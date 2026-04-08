@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, FolderOpen, Terminal, Cpu, ChevronDown, RefreshCw } from 'lucide-react';
+import { Bell, FolderOpen, Terminal, Cpu, ChevronDown, RefreshCw, Eye } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 import { useAgentRuntimes } from '../lib/useAgentRuntimes';
 import { useRuntimeMonitor } from '../lib/useRuntimeMonitor';
-import type { AgentRuntimeInfo, RuntimeProcessInfo } from '../types';
+import { RuntimeOutputModal } from './RuntimeOutputModal';
+import type { AgentRuntimeInfo, RuntimeProcessInfo, ActiveSessionInfo } from '../types';
 
 interface StatusBarProps {
   workspacePath?: string;
@@ -61,6 +63,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
     scan: scanRuntimes,
   } = useRuntimeMonitor();
   const [showRuntimes, setShowRuntimes] = useState(false);
+  const [showOutputModal, setShowOutputModal] = useState(false);
+  const [activeSession, setActiveSession] = useState<ActiveSessionInfo | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const monitorStarted = useRef(false);
 
@@ -89,6 +93,24 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [showRuntimes]);
+
+  // Poll active session every 3s (feat-runtime-session-output)
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const poll = async () => {
+      try {
+        const info = await invoke<ActiveSessionInfo | null>('get_active_session');
+        setActiveSession(info);
+      } catch {
+        setActiveSession(null);
+      }
+    };
+    poll();
+    interval = setInterval(poll, 3000);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, []);
 
   // Group active processes by runtime_id (multiple processes may share same id)
   const activeByRuntimeId = new Map<string, RuntimeProcessInfo[]>();
@@ -204,6 +226,20 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
                           <span>Uptime: {formatUptime(process.started_at)}</span>
                         </div>
                       ))}
+                      {/* View Output button (feat-runtime-session-output) */}
+                      {rt.id === 'claude-code' && activeSession && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowRuntimes(false);
+                            setShowOutputModal(true);
+                          }}
+                          className="mt-1.5 ml-3.5 flex items-center gap-1 text-[9px] text-primary hover:underline cursor-pointer"
+                        >
+                          <Eye size={8} />
+                          View Output{activeSession.is_done ? '' : ' (Live)'}
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -232,6 +268,12 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
         <span className="text-tertiary font-bold">Ready</span>
         <Bell size={10} className="text-on-surface-variant" />
       </div>
+
+      {/* Runtime Output Modal (feat-runtime-session-output) */}
+      <RuntimeOutputModal
+        visible={showOutputModal}
+        onClose={() => setShowOutputModal(false)}
+      />
     </footer>
   );
 };

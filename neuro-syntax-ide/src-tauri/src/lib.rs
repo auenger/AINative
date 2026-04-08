@@ -2100,6 +2100,10 @@ struct AppState {
     agent_runtime_registry: Mutex<RuntimeRegistry>,
     /// Smart routing engine (feat-agent-runtime-router)
     router_engine: Mutex<RouterEngine>,
+    /// Session output buffer: session_id -> Vec<StreamEvent> (feat-runtime-session-output)
+    session_output: Arc<Mutex<HashMap<String, Vec<StreamEvent>>>>,
+    /// Currently active session id (feat-runtime-session-output)
+    active_session_id: Mutex<Option<String>>,
 }
 
 // ===========================================================================
@@ -5021,9 +5025,23 @@ async fn runtime_execute(
     };
 
     // Spawn thread to forward events to frontend via Tauri events
+    // Also buffer events into session_output (feat-runtime-session-output)
+    let session_output = state.session_output.clone();
+    let active_session_id = {
+        let sid = state.active_session_id.lock().map_err(|e| e.to_string())?;
+        sid.clone()
+    };
     std::thread::spawn(move || {
         while let Ok(event) = receiver.recv() {
             let _ = app.emit("agent://chunk", &event);
+            // Buffer the event for session output (feat-runtime-session-output)
+            if let Some(ref sid) = active_session_id {
+                if let Ok(mut buf) = session_output.lock() {
+                    if let Some(events) = buf.get_mut(sid) {
+                        events.push(event.clone());
+                    }
+                }
+            }
             if event.is_done { break; }
         }
     });
@@ -5055,6 +5073,13 @@ async fn runtime_session_start(
         agent.session_id = Some(session_id.clone());
     }
 
+    // Store as active session and initialize output buffer (feat-runtime-session-output)
+    {
+        *state.active_session_id.lock().map_err(|e| e.to_string())? = Some(session_id.clone());
+        let mut buf = state.session_output.lock().map_err(|e| e.to_string())?;
+        buf.insert(session_id.clone(), Vec::new());
+    }
+
     Ok(session_id)
 }
 
@@ -5075,6 +5100,70 @@ fn runtime_session_stop(
     agent.stdin = None;
     agent.session_id = None;
 
+    Ok(())
+}
+
+// ===========================================================================
+// Tauri commands - Session Output (feat-runtime-session-output)
+// ===========================================================================
+
+/// Information about the currently active session (feat-runtime-session-output)
+#[derive(Debug, Clone, Serialize)]
+pub struct ActiveSessionInfo {
+    /// The active session ID
+    pub session_id: String,
+    /// Concatenated output text from all buffered StreamEvents
+    pub output_text: String,
+    /// Whether the session execution is complete (last event had is_done=true)
+    pub is_done: bool,
+    /// Number of buffered chunks
+    pub chunk_count: usize,
+}
+
+/// Get the currently active session's buffered output (feat-runtime-session-output)
+#[tauri::command]
+fn get_active_session(
+    state: tauri::State<'_, AppState>,
+) -> Result<Option<ActiveSessionInfo>, String> {
+    let active_id = {
+        let sid = state.active_session_id.lock().map_err(|e| e.to_string())?;
+        sid.clone()
+    };
+
+    let Some(session_id) = active_id else {
+        return Ok(None);
+    };
+
+    let buf = state.session_output.lock().map_err(|e| e.to_string())?;
+    let events = match buf.get(&session_id) {
+        Some(evts) => evts,
+        None => return Ok(None),
+    };
+
+    // Build output text from events
+    let output_text = events.iter().map(|e| e.text.clone()).collect::<Vec<_>>().join("");
+    let is_done = events.last().map_or(false, |e| e.is_done);
+    let chunk_count = events.len();
+
+    Ok(Some(ActiveSessionInfo {
+        session_id,
+        output_text,
+        is_done,
+        chunk_count,
+    }))
+}
+
+/// Clear session output buffer and active session (feat-runtime-session-output)
+#[tauri::command]
+fn clear_session_output(
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut sid = state.active_session_id.lock().map_err(|e| e.to_string())?;
+    if let Some(ref session_id) = *sid {
+        let mut buf = state.session_output.lock().map_err(|e| e.to_string())?;
+        buf.remove(session_id);
+    }
+    *sid = None;
     Ok(())
 }
 
@@ -7271,6 +7360,8 @@ pub fn run() {
             req_agent: Mutex::new(ReqAgentState::new()),
             agent_runtime_registry: Mutex::new(create_default_registry()),
             router_engine: Mutex::new(RouterEngine::with_defaults()),
+            session_output: Arc::new(Mutex::new(HashMap::new())),
+            active_session_id: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
             greet,
@@ -7328,6 +7419,9 @@ pub fn run() {
             runtime_execute,
             runtime_session_start,
             runtime_session_stop,
+            // Session Output (feat-runtime-session-output)
+            get_active_session,
+            clear_session_output,
             // Smart Router (feat-agent-runtime-router)
             submit_task,
             get_routing_rules,
