@@ -263,12 +263,60 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
   const [fileLoading, setFileLoading] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
 
+  // Sidebar (file tree) width state
+  const DEFAULT_SIDEBAR_WIDTH = 256;
+  const MIN_SIDEBAR_WIDTH = 150;
+  const MAX_SIDEBAR_WIDTH = 500;
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const isDraggingSidebar = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartWidth = useRef(0);
+
   // Terminal state
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [terminalHeight, setTerminalHeight] = useState(240);
   const isDraggingTerminal = useRef(false);
   const dragStartY = useRef(0);
   const dragStartHeight = useRef(0);
+
+  // Sidebar (file tree) drag-resize handler
+  const handleSidebarDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingSidebar.current = true;
+    dragStartX.current = e.clientX;
+    dragStartWidth.current = sidebarWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [sidebarWidth]);
+
+  // Double-click to reset sidebar width
+  const handleSidebarDoubleClick = useCallback(() => {
+    setSidebarWidth(DEFAULT_SIDEBAR_WIDTH);
+  }, []);
+
+  // Sidebar drag-resize mousemove/mouseup effect
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingSidebar.current) return;
+      const delta = e.clientX - dragStartX.current;
+      const newWidth = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, dragStartWidth.current + delta));
+      setSidebarWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      if (!isDraggingSidebar.current) return;
+      isDraggingSidebar.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
 
   // Terminal panel drag-resize handlers
   const handleTerminalDragStart = useCallback((e: React.MouseEvent) => {
@@ -824,7 +872,10 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
   return (
     <div className="flex-1 flex overflow-hidden bg-surface">
       {/* File Explorer Sidebar */}
-      <aside className="w-64 bg-surface-container-low border-r border-outline-variant/10 flex flex-col shrink-0">
+      <aside
+        className="bg-surface-container-low border-r border-outline-variant/10 flex flex-col shrink-0"
+        style={{ width: sidebarWidth }}
+      >
         <div className="p-4 border-b border-outline-variant/10 flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <h2 className="font-headline text-xs font-bold uppercase tracking-widest text-on-surface-variant">
@@ -953,6 +1004,16 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
           )}
         </div>
       </aside>
+
+      {/* Sidebar resize divider */}
+      <div
+        onMouseDown={handleSidebarDragStart}
+        onDoubleClick={handleSidebarDoubleClick}
+        className="w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/30 transition-colors shrink-0 relative group"
+        title="Drag to resize sidebar, double-click to reset"
+      >
+        <div className="absolute inset-y-0 -left-1 -right-1" />
+      </div>
 
       {/* Main Editor Area */}
       <main className="flex-1 flex flex-col overflow-hidden relative">
