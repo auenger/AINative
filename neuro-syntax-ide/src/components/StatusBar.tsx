@@ -90,16 +90,18 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
     return () => document.removeEventListener('mousedown', handler);
   }, [showRuntimes]);
 
-  // Build a map of active process info by runtime id
-  const activeRuntimeMap = new Map<string, RuntimeProcessInfo>();
+  // Group active processes by runtime_id (multiple processes may share same id)
+  const activeByRuntimeId = new Map<string, RuntimeProcessInfo[]>();
   for (const ar of activeRuntimes) {
-    activeRuntimeMap.set(ar.runtime_id, ar);
+    const list = activeByRuntimeId.get(ar.runtime_id) || [];
+    list.push(ar);
+    activeByRuntimeId.set(ar.runtime_id, list);
   }
 
-  // Merge static runtime info with active process info
-  const mergedRuntimes = runtimes.map((rt: AgentRuntimeInfo) => {
-    const active = activeRuntimeMap.get(rt.id);
-    return { ...rt, activeProcess: active };
+  // Build merged list: static runtimes + all their active processes
+  const mergedRuntimes: Array<AgentRuntimeInfo & { activeProcesses: RuntimeProcessInfo[] }> = runtimes.map((rt: AgentRuntimeInfo) => {
+    const processes = activeByRuntimeId.get(rt.id) || [];
+    return { ...rt, activeProcesses: processes };
   });
 
   return (
@@ -157,24 +159,23 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
                 </button>
               </div>
               <div className="max-h-64 overflow-y-auto">
-                {mergedRuntimes.map((rt: AgentRuntimeInfo & { activeProcess?: RuntimeProcessInfo }) => {
-                  const isActive = !!rt.activeProcess;
-                  const process = rt.activeProcess;
+                {mergedRuntimes.map((rt) => {
+                  const hasRunning = rt.activeProcesses.length > 0;
                   return (
                     <div key={rt.id} className="px-3 py-2 hover:bg-surface-container/50 border-b border-outline-variant/5 last:border-b-0">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className={`w-1.5 h-1.5 rounded-full ${
-                            isActive
+                            hasRunning
                               ? 'bg-green-400 animate-pulse'
                               : statusColor(rt.status)
                           }`} />
                           <div>
                             <div className="text-on-surface text-[10px] font-medium">
                               {rt.name}
-                              {isActive && (
+                              {hasRunning && (
                                 <span className="ml-1.5 text-green-400 text-[9px] font-bold">
-                                  Running
+                                  {rt.activeProcesses.length} Running
                                 </span>
                               )}
                             </div>
@@ -185,7 +186,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
                         </div>
                         <div className="text-right">
                           <div className="text-on-surface-variant text-[9px]">
-                            {isActive ? 'Running' : statusLabel(rt.status)}
+                            {hasRunning ? `${rt.activeProcesses.length} Running` : statusLabel(rt.status)}
                           </div>
                           {rt.status === 'not-installed' && (
                             <div className="text-primary text-[8px] cursor-pointer" title={rt.install_hint}>
@@ -194,15 +195,15 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
                           )}
                         </div>
                       </div>
-                      {/* Process details when running */}
-                      {isActive && process && (
-                        <div className="mt-1.5 pl-3.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[8px] text-on-surface-variant">
+                      {/* Process details — show all active processes */}
+                      {rt.activeProcesses.map((process: RuntimeProcessInfo) => (
+                        <div key={process.pid} className="mt-1.5 pl-3.5 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[8px] text-on-surface-variant">
                           <span>PID: {process.pid}</span>
                           <span>CPU: {process.cpu_usage.toFixed(1)}%</span>
                           <span>MEM: {formatBytes(process.memory_bytes)}</span>
                           <span>Uptime: {formatUptime(process.started_at)}</span>
                         </div>
-                      )}
+                      ))}
                     </div>
                   );
                 })}
