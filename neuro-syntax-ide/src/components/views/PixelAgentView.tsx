@@ -1,62 +1,110 @@
 /**
- * PixelAgentView — Observatory Tab entry component.
+ * PixelAgentView -- Observatory Tab entry component.
  *
- * Manages OfficeState, game loop, and integrates with the runtime monitor
- * to reflect Claude Code Agent states as pixel characters.
+ * Full composition root based on the reference App.tsx, adapted for the
+ * standalone Neuro Syntax IDE shell. No VS Code or extension messaging --
+ * runs entirely in the browser/Tauri webview with demo agents for testing.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Eye, Plus, Minus, RotateCcw } from 'lucide-react';
-import { cn } from '../../lib/utils';
-import { useRuntimeMonitor } from '../../lib/useRuntimeMonitor';
-import { OfficeState } from '../../office/engine/pixelOfficeState';
-import { startGameLoop } from '../../office/engine/pixelGameLoop';
-import { renderFrame } from '../../office/engine/pixelRenderer';
-import { deserializeLayout } from '../../office/layout/pixelLayoutSerializer';
-import { loadCharacterSprites } from '../../office/sprites/pixelSpriteData';
-import { useWorkspace } from '../../lib/useWorkspace';
-import type { PixelAgentStatus } from '../../office/pixelTypes';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-// Agent status display labels
-const STATUS_LABELS: Record<PixelAgentStatus, string> = {
-  typing: 'Agent is typing...',
-  reading: 'Agent is reading...',
-  writing: 'Agent is writing code...',
-  command: 'Agent is running commands...',
-  processing: 'Agent is processing...',
-  waiting: 'Agent is waiting for input',
-  idle: 'Agent is idle',
-  offline: 'No active agent',
-};
+import { OfficeCanvas } from '../../office/components/OfficeCanvas';
+import { BottomToolbar } from '../../office/components/BottomToolbar';
+import { SettingsModal } from '../../office/components/SettingsModal';
+import { ToolOverlay } from '../../office/components/ToolOverlay';
+import { ZoomControls } from '../../office/components/ZoomControls';
+import { EditorToolbar } from '../../office/editor/EditorToolbar';
+import { EditorState } from '../../office/editor/editorState';
+import { OfficeState } from '../../office/engine/officeState';
+import { useEditorActions } from '../../office/hooks/useEditorActions';
+import { useEditorKeyboard } from '../../office/hooks/useEditorKeyboard';
+import { deserializeLayout } from '../../office/layout/layoutSerializer';
+import { isRotatable } from '../../office/layout/furnitureCatalog';
+import type { OfficeLayout, ToolActivity } from '../../office/types';
+import { EditTool } from '../../office/types';
+
+// ── Game state lives outside React ─────────────────────────────
+const officeStateRef = { current: null as OfficeState | null };
+const editorState = new EditorState();
+
+function getOfficeState(): OfficeState {
+  if (!officeStateRef.current) {
+    officeStateRef.current = new OfficeState();
+  }
+  return officeStateRef.current;
+}
+
+// ── Demo Agent Helpers ─────────────────────────────────────────
+
+const DEMO_TOOLS = ['Read', 'Write', 'Bash', 'Grep', 'Glob', 'Edit', 'Task'];
+let demoToolIdx = 0;
+
+/** Simulate agent activity by cycling tools */
+function startDemoSimulation(office: OfficeState, agentIds: number[]): () => void {
+  const tick = () => {
+    for (const id of agentIds) {
+      const tool = DEMO_TOOLS[demoToolIdx % DEMO_TOOLS.length];
+      office.setAgentTool(id, tool);
+      office.setAgentActive(id, true);
+    }
+    demoToolIdx++;
+  };
+
+  tick();
+  const timer = setInterval(tick, 6000);
+
+  // Return cleanup via a stored ref (component will call on unmount)
+  return () => clearInterval(timer);
+}
+
+// ── Component ──────────────────────────────────────────────────
 
 export const PixelAgentView: React.FC = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [layoutReady, setLayoutReady] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isDebugMode, setIsDebugMode] = useState(false);
+  const [alwaysShowOverlay, setAlwaysShowOverlay] = useState(false);
+
+  // Simplified agent tracking for demo mode
+  const [agents, setAgents] = useState<number[]>([]);
+  const [agentTools, setAgentTools] = useState<Record<number, ToolActivity[]>>({});
+  const demoTimerRef = useRef<(() => void) | null>(null);
+  const demoAgentIdsRef = useRef<number[]>([]);
+
   const containerRef = useRef<HTMLDivElement>(null);
-  const officeRef = useRef<OfficeState | null>(null);
-  const offsetRef = useRef({ x: 0, y: 0 });
-  const isPanningRef = useRef(false);
-  const panStartRef = useRef({ mouseX: 0, mouseY: 0, panX: 0, panY: 0 });
-  const panRef = useRef({ x: 0, y: 0 });
-  const zoomRef = useRef(Math.round(2 * (window.devicePixelRatio || 1)));
-  const [zoom, setZoom] = useState(zoomRef.current);
-  const [agentStatus, setAgentStatus] = useState<PixelAgentStatus>('offline');
-  const [assetsLoaded, setAssetsLoaded] = useState(false);
-  const isActiveRef = useRef(true);
 
-  const { workspacePath } = useWorkspace();
-  const { runtimes, isMonitoring, start, stop } = useRuntimeMonitor();
+  // ── Editor state + actions ────────────────────────────────────
+  const editor = useEditorActions(getOfficeState, editorState);
 
-  // Track which runtime processes correspond to which agent IDs
-  const agentMapRef = useRef<Map<number, { pid: number; lastActivity: number }>>(new Map());
-  const lastActivityRef = useRef<Map<number, number>>(new Map());
+  const isEditDirty = useCallback(
+    () => editor.isEditMode && editor.isDirty,
+    [editor.isEditMode, editor.isDirty],
+  );
 
-  // Initialize office and load assets
+  // Keyboard shortcuts for editor
+  const [editorTickForKeyboard, setEditorTickForKeyboard] = useState(0);
+  useEditorKeyboard(
+    editor.isEditMode,
+    editorState,
+    editor.handleDeleteSelected,
+    editor.handleRotateSelected,
+    editor.handleToggleState,
+    editor.handleUndo,
+    editor.handleRedo,
+    useCallback(() => setEditorTickForKeyboard((n) => n + 1), []),
+    editor.handleToggleEditMode,
+  );
+
+  // Consume the keyboard tick to trigger re-renders
+  void editorTickForKeyboard;
+
+  // ── Layout & asset loading ────────────────────────────────────
   useEffect(() => {
     let mounted = true;
 
     const init = async () => {
-      // Load layout
-      let layout = null;
+      // Load layout from bundled asset
+      let layout: OfficeLayout | null = null;
       try {
         const resp = await fetch('/assets/pixel/default-layout.json');
         if (resp.ok) {
@@ -68,376 +116,183 @@ export const PixelAgentView: React.FC = () => {
       }
 
       if (!mounted) return;
-      const office = new OfficeState(layout ?? undefined);
-      officeRef.current = office;
 
-      // Load character sprites
-      try {
-        const loaded = await loadCharacterSprites();
-        if (mounted) setAssetsLoaded(loaded);
-      } catch {
-        // Use fallback sprites
-        if (mounted) setAssetsLoaded(false);
+      const office = getOfficeState();
+      if (layout) {
+        office.rebuildFromLayout(layout);
+        editor.setLastSavedLayout(layout);
       }
+
+      // ── Create demo agents ────────────────────────────────────
+      const agent1Id = 1;
+      const agent2Id = 2;
+      office.addAgent(agent1Id, 0, 0, undefined, true); // skip spawn for instant display
+      office.addAgent(agent2Id, 1, 45, undefined, true);
+      demoAgentIdsRef.current = [agent1Id, agent2Id];
+
+      setAgents([agent1Id, agent2Id]);
+
+      // Start demo simulation
+      const cleanup = startDemoSimulation(office, [agent1Id, agent2Id]);
+      demoTimerRef.current = cleanup;
+
+      setLayoutReady(true);
     };
 
     init();
 
-    return () => { mounted = false; };
-  }, []);
-
-  // Start runtime monitor and track agent processes
-  useEffect(() => {
-    if (workspacePath && !isMonitoring) {
-      start(workspacePath);
-    }
     return () => {
-      // Don't stop the monitor — it's shared
+      mounted = false;
+      if (demoTimerRef.current) {
+        demoTimerRef.current();
+      }
     };
-  }, [workspacePath, isMonitoring, start]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Sync runtime processes with office characters
-  useEffect(() => {
-    const office = officeRef.current;
-    if (!office) return;
+  // ── Handlers ──────────────────────────────────────────────────
+  const handleToggleDebugMode = useCallback(() => setIsDebugMode((prev) => !prev), []);
 
-    const activePids = new Set<number>();
+  const handleToggleAlwaysShowOverlay = useCallback(() => {
+    setAlwaysShowOverlay((prev) => !prev);
+  }, []);
 
-    for (const runtime of runtimes) {
-      if (runtime.runtime_id === 'claude-code' && runtime.status === 'running') {
-        activePids.add(runtime.pid);
+  const handleClick = useCallback((agentId: number) => {
+    // Select the agent in the office
+    const os = getOfficeState();
+    os.selectedAgentId = os.selectedAgentId === agentId ? null : agentId;
+  }, []);
 
-        if (!agentMapRef.current.has(runtime.pid)) {
-          // New agent — spawn character
-          const agentId = runtime.pid; // Use PID as agent ID
-          agentMapRef.current.set(runtime.pid, { pid: runtime.pid, lastActivity: Date.now() });
-          lastActivityRef.current.set(runtime.pid, Date.now());
-          office.addAgent(agentId);
-          office.setAgentActive(agentId, true);
-        } else {
-          // Existing agent — check activity
-          const agentId = runtime.pid;
-          office.setAgentActive(agentId, true);
-        }
+  const handleCloseAgent = useCallback((_id: number) => {
+    // Demo mode: no-op (agents are not closable in demo)
+    console.log('[PixelAgent] closeAgent not available in demo mode');
+  }, []);
+
+  // ── Render ────────────────────────────────────────────────────
+  const officeState = getOfficeState();
+
+  // Show "Rotate (R)" hint when a rotatable item is selected or being placed
+  const showRotateHint =
+    editor.isEditMode &&
+    (() => {
+      if (editorState.selectedFurnitureUid) {
+        const item = officeState
+          .getLayout()
+          .furniture.find((f) => f.uid === editorState.selectedFurnitureUid);
+        if (item && isRotatable(item.type)) return true;
       }
-    }
-
-    // Remove agents for processes that no longer exist
-    for (const [pid] of agentMapRef.current) {
-      if (!activePids.has(pid)) {
-        const agentId = pid;
-        office.setAgentActive(agentId, false);
-        office.removeAgent(agentId);
-        agentMapRef.current.delete(pid);
-        lastActivityRef.current.delete(pid);
+      if (
+        editorState.activeTool === EditTool.FURNITURE_PLACE &&
+        isRotatable(editorState.selectedFurnitureType)
+      ) {
+        return true;
       }
-    }
+      return false;
+    })();
 
-    // Update agent status text
-    if (activePids.size > 0) {
-      setAgentStatus('typing'); // Default to typing when running
-    } else {
-      setAgentStatus('offline');
-    }
-  }, [runtimes]);
-
-  // Simulate periodic agent status changes for visual demo
-  // In production, this would be driven by Tauri events from Rust backend
-  useEffect(() => {
-    const office = officeRef.current;
-    if (!office) return;
-
-    const tools = ['Read', 'Write', 'Bash', 'Grep', 'Glob', 'Edit'];
-    let toolIndex = 0;
-
-    const timer = setInterval(() => {
-      const characters = office.getCharacters();
-      if (characters.length === 0) return;
-
-      const ch = characters[0];
-      const statuses: PixelAgentStatus[] = ['typing', 'reading', 'writing', 'command', 'processing', 'idle'];
-      const status = statuses[toolIndex % statuses.length];
-      toolIndex++;
-
-      // Set tool
-      if (status === 'reading') {
-        office.setAgentTool(ch.id, 'Read');
-        setAgentStatus('reading');
-      } else if (status === 'writing') {
-        office.setAgentTool(ch.id, 'Write');
-        setAgentStatus('writing');
-      } else if (status === 'command') {
-        office.setAgentTool(ch.id, 'Bash');
-        setAgentStatus('command');
-      } else if (status === 'processing') {
-        office.setAgentTool(ch.id, null);
-        setAgentStatus('processing');
-      } else if (status === 'idle') {
-        office.setAgentActive(ch.id, false);
-        office.setAgentTool(ch.id, null);
-        setAgentStatus('idle');
-        // Re-activate after a moment
-        setTimeout(() => {
-          office.setAgentActive(ch.id, true);
-          setAgentStatus('typing');
-        }, 3000);
-      } else {
-        office.setAgentTool(ch.id, null);
-        setAgentStatus('typing');
-      }
-    }, 8000);
-
-    return () => clearInterval(timer);
-  }, [assetsLoaded]);
-
-  // Canvas resize
-  const resizeCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
-    const rect = container.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.round(rect.width * dpr);
-    canvas.height = Math.round(rect.height * dpr);
-    canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `${rect.height}px`;
-  }, []);
-
-  // Game loop
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const office = officeRef.current;
-    if (!canvas || !office) return;
-
-    resizeCanvas();
-
-    const observer = new ResizeObserver(() => resizeCanvas());
-    if (containerRef.current) {
-      observer.observe(containerRef.current);
-    }
-
-    const stopLoop = startGameLoop(canvas, {
-      update: (dt) => {
-        if (isActiveRef.current) {
-          office.update(dt);
-        }
-      },
-      render: (ctx) => {
-        if (!isActiveRef.current) return;
-        const w = canvas.width;
-        const h = canvas.height;
-
-        const { offsetX, offsetY } = renderFrame(
-          ctx,
-          w,
-          h,
-          office.tileMap,
-          office.furniture,
-          office.getCharacters(),
-          zoomRef.current,
-          panRef.current.x,
-          panRef.current.y,
-          office.selectedAgentId,
-          office.hoveredAgentId,
-        );
-        offsetRef.current = { x: offsetX, y: offsetY };
-      },
-    });
-
-    return () => {
-      stopLoop();
-      observer.disconnect();
-    };
-  }, [assetsLoaded, resizeCanvas]);
-
-  // Tab visibility: pause rendering when not visible
-  useEffect(() => {
-    isActiveRef.current = true;
-    return () => {
-      isActiveRef.current = false;
-    };
-  }, []);
-
-  // Mouse handlers
-  const screenToWorld = useCallback((clientX: number, clientY: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    const deviceX = (clientX - rect.left) * dpr;
-    const deviceY = (clientY - rect.top) * dpr;
-    const worldX = (deviceX - offsetRef.current.x) / zoomRef.current;
-    const worldY = (deviceY - offsetRef.current.y) / zoomRef.current;
-    return { worldX, worldY, deviceX, deviceY };
-  }, []);
-
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    const office = officeRef.current;
-    if (!office) return;
-    const pos = screenToWorld(e.clientX, e.clientY);
-    if (!pos) return;
-
-    const hitId = office.getCharacterAt(pos.worldX, pos.worldY);
-    if (hitId !== null) {
-      if (office.selectedAgentId === hitId) {
-        office.selectedAgentId = null;
-      } else {
-        office.selectedAgentId = hitId;
-      }
-    } else {
-      office.selectedAgentId = null;
-    }
-  }, [screenToWorld]);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isPanningRef.current) {
-      const dpr = window.devicePixelRatio || 1;
-      const dx = (e.clientX - panStartRef.current.mouseX) * dpr;
-      const dy = (e.clientY - panStartRef.current.mouseY) * dpr;
-      panRef.current = {
-        x: panStartRef.current.panX + dx,
-        y: panStartRef.current.panY + dy,
-      };
-      return;
-    }
-
-    const office = officeRef.current;
-    if (!office) return;
-    const pos = screenToWorld(e.clientX, e.clientY);
-    if (!pos) return;
-    office.hoveredAgentId = office.getCharacterAt(pos.worldX, pos.worldY);
-  }, [screenToWorld]);
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button === 1) {
-      e.preventDefault();
-      isPanningRef.current = true;
-      panStartRef.current = {
-        mouseX: e.clientX,
-        mouseY: e.clientY,
-        panX: panRef.current.x,
-        panY: panRef.current.y,
-      };
-    }
-  }, []);
-
-  const handleMouseUp = useCallback((e: React.MouseEvent) => {
-    if (e.button === 1) {
-      isPanningRef.current = false;
-    }
-  }, []);
-
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    if (e.ctrlKey || e.metaKey) {
-      const delta = e.deltaY < 0 ? 1 : -1;
-      const newZoom = Math.max(1, Math.min(10, zoomRef.current + delta));
-      if (newZoom !== zoomRef.current) {
-        zoomRef.current = newZoom;
-        setZoom(newZoom);
-      }
-    } else {
-      const dpr = window.devicePixelRatio || 1;
-      panRef.current = {
-        x: panRef.current.x - e.deltaX * dpr,
-        y: panRef.current.y - e.deltaY * dpr,
-      };
-    }
-  }, []);
-
-  const handleZoomIn = useCallback(() => {
-    const newZoom = Math.min(10, zoomRef.current + 1);
-    zoomRef.current = newZoom;
-    setZoom(newZoom);
-  }, []);
-
-  const handleZoomOut = useCallback(() => {
-    const newZoom = Math.max(1, zoomRef.current - 1);
-    zoomRef.current = newZoom;
-    setZoom(newZoom);
-  }, []);
-
-  const handleZoomReset = useCallback(() => {
-    zoomRef.current = Math.round(2 * (window.devicePixelRatio || 1));
-    setZoom(zoomRef.current);
-    panRef.current = { x: 0, y: 0 };
-  }, []);
-
-  const characters = officeRef.current?.getCharacters() ?? [];
-  const hasAgents = characters.length > 0;
+  if (!layoutReady) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-[#1a1a2e]">
+        <span className="text-slate-400 font-mono text-sm">Loading office...</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#1a1a2e] relative overflow-hidden">
-      {/* Canvas container */}
-      <div ref={containerRef} className="flex-1 relative overflow-hidden">
-        <canvas
-          ref={canvasRef}
-          onClick={handleClick}
-          onMouseMove={handleMouseMove}
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
-          onWheel={handleWheel}
-          onContextMenu={(e) => e.preventDefault()}
-          className="block w-full h-full cursor-crosshair"
-        />
+    <div ref={containerRef} className="w-full h-full relative overflow-hidden">
+      <OfficeCanvas
+        officeState={officeState}
+        onClick={handleClick}
+        isEditMode={editor.isEditMode}
+        editorState={editorState}
+        onEditorTileAction={editor.handleEditorTileAction}
+        onEditorEraseAction={editor.handleEditorEraseAction}
+        onEditorSelectionChange={editor.handleEditorSelectionChange}
+        onDeleteSelected={editor.handleDeleteSelected}
+        onRotateSelected={editor.handleRotateSelected}
+        onDragMove={editor.handleDragMove}
+        editorTick={editor.editorTick}
+        zoom={editor.zoom}
+        onZoomChange={editor.handleZoomChange}
+        panRef={editor.panRef}
+      />
 
-        {/* No agent overlay */}
-        {!hasAgents && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="flex flex-col items-center gap-3 opacity-50">
-              <Eye size={48} className="text-slate-400" />
-              <p className="text-slate-400 text-sm font-mono">No active agent</p>
-              <p className="text-slate-500 text-xs font-mono">
-                Start a Claude Code session to see the pixel agent
-              </p>
+      {!isDebugMode && (
+        <>
+          <ZoomControls zoom={editor.zoom} onZoomChange={editor.handleZoomChange} />
+
+          {/* Vignette overlay */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ background: 'var(--vignette)' }}
+          />
+
+          {showRotateHint && (
+            <div
+              className="absolute left-1/2 -translate-x-1/2 z-11 bg-accent-bright text-white text-sm py-3 px-8 rounded-none border-2 border-accent shadow-pixel pointer-events-none whitespace-nowrap"
+              style={{ top: editor.isDirty ? 64 : 8 }}
+            >
+              Rotate (R)
             </div>
-          </div>
-        )}
-      </div>
+          )}
 
-      {/* Zoom controls */}
-      <div className="absolute top-3 right-3 flex flex-col gap-1">
-        <button
-          onClick={handleZoomIn}
-          className="w-8 h-8 flex items-center justify-center bg-[#2a2a3e]/90 border border-slate-600/50 text-slate-300 hover:bg-[#3a3a4e] hover:text-white transition-colors rounded-sm"
-          title="Zoom In"
-        >
-          <Plus size={14} />
-        </button>
-        <div className="text-center text-[10px] font-mono text-slate-400 py-0.5">
-          {zoom}x
-        </div>
-        <button
-          onClick={handleZoomOut}
-          className="w-8 h-8 flex items-center justify-center bg-[#2a2a3e]/90 border border-slate-600/50 text-slate-300 hover:bg-[#3a3a4e] hover:text-white transition-colors rounded-sm"
-          title="Zoom Out"
-        >
-          <Minus size={14} />
-        </button>
-        <button
-          onClick={handleZoomReset}
-          className="w-8 h-8 flex items-center justify-center bg-[#2a2a3e]/90 border border-slate-600/50 text-slate-300 hover:bg-[#3a3a4e] hover:text-white transition-colors rounded-sm mt-1"
-          title="Reset View"
-        >
-          <RotateCcw size={12} />
-        </button>
-      </div>
+          {editor.isEditMode &&
+            (() => {
+              const selUid = editorState.selectedFurnitureUid;
+              const selColor = selUid
+                ? (officeState.getLayout().furniture.find((f) => f.uid === selUid)?.color ?? null)
+                : null;
+              return (
+                <EditorToolbar
+                  activeTool={editorState.activeTool}
+                  selectedTileType={editorState.selectedTileType}
+                  selectedFurnitureType={editorState.selectedFurnitureType}
+                  selectedFurnitureUid={selUid}
+                  selectedFurnitureColor={selColor}
+                  floorColor={editorState.floorColor}
+                  wallColor={editorState.wallColor}
+                  selectedWallSet={editorState.selectedWallSet}
+                  onToolChange={editor.handleToolChange}
+                  onTileTypeChange={editor.handleTileTypeChange}
+                  onFloorColorChange={editor.handleFloorColorChange}
+                  onWallColorChange={editor.handleWallColorChange}
+                  onWallSetChange={editor.handleWallSetChange}
+                  onSelectedFurnitureColorChange={editor.handleSelectedFurnitureColorChange}
+                  onFurnitureTypeChange={editor.handleFurnitureTypeChange}
+                />
+              );
+            })()}
 
-      {/* Bottom status bar */}
-      <div className="h-8 bg-[#252538] border-t border-slate-700/50 flex items-center px-4 gap-3 shrink-0">
-        <div className={cn(
-          'w-2 h-2 rounded-full',
-          agentStatus === 'offline' ? 'bg-slate-500' : 'bg-green-400 animate-pulse'
-        )} />
-        <span className="text-[11px] font-mono text-slate-400">
-          {STATUS_LABELS[agentStatus]}
-        </span>
-        {hasAgents && (
-          <span className="text-[10px] font-mono text-slate-500 ml-auto">
-            {characters.length} agent{characters.length !== 1 ? 's' : ''} | scroll to pan, ctrl+scroll to zoom
-          </span>
-        )}
-      </div>
+          <ToolOverlay
+            officeState={officeState}
+            agents={agents}
+            agentTools={agentTools}
+            subagentCharacters={[]}
+            containerRef={containerRef}
+            zoom={editor.zoom}
+            panRef={editor.panRef}
+            onCloseAgent={handleCloseAgent}
+            alwaysShowOverlay={alwaysShowOverlay}
+          />
+        </>
+      )}
+
+      <BottomToolbar
+        isEditMode={editor.isEditMode}
+        onOpenClaude={editor.handleOpenClaude}
+        onToggleEditMode={editor.handleToggleEditMode}
+        isSettingsOpen={isSettingsOpen}
+        onToggleSettings={() => setIsSettingsOpen((v) => !v)}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        isDebugMode={isDebugMode}
+        onToggleDebugMode={handleToggleDebugMode}
+        alwaysShowOverlay={alwaysShowOverlay}
+        onToggleAlwaysShowOverlay={handleToggleAlwaysShowOverlay}
+      />
     </div>
   );
 };

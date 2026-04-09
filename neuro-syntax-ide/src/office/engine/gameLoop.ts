@@ -1,11 +1,6 @@
-/**
- * Game loop: requestAnimationFrame with delta time.
- *
- * Ported from pixel-agents (MIT License).
- */
+import { MAX_DELTA_TIME_SEC } from '../constants';
 
-import { MAX_DELTA_TIME_SEC } from '../pixelConstants';
-
+/** @internal */
 export interface GameLoopCallbacks {
   update: (dt: number) => void;
   render: (ctx: CanvasRenderingContext2D) => void;
