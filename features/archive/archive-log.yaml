@@ -1,10 +1,136 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-08T19:30:00Z"
+  last_updated: "2026-04-08T23:30:00Z"
   version: 1
-  total_completed: 76
+  total_completed: 81
 
 records:
+  - id: fix-runtime-output-render
+    name: "Runtime Output 弹窗宽度与内容渲染修复"
+    completed_at: "2026-04-08T23:30:00Z"
+    tag: fix-runtime-output-render-20260408
+    merge_commit: "33a519a"
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/fix-runtime-output-render
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-fix-runtime-output-render
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-08T23:00:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 5
+      insertions: 170
+      deletions: 25
+    archive_path: features/archive/done-fix-runtime-output-render-20260408
+  - id: feat-runtime-process-stop
+    name: "Agent Runtime 进程 Stop 按钮（PID Kill）"
+    completed_at: "2026-04-08T22:36:00Z"
+    tag: feat-runtime-process-stop-20260408
+    merge_commit: "4349f65"
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-runtime-process-stop
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-runtime-process-stop
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-04-08T22:10:00Z"
+      duration: "~26min"
+      commits: 1
+      files_changed: 2
+      insertions: 116
+      deletions: 6
+    archive_path: features/archive/done-feat-runtime-process-stop-20260408
+  - id: fix-terminal-tab-render
+    name: "Terminal Tab 渲染修复（初始宽度 + 切换 + 缩放）"
+    completed_at: "2026-04-08T22:40:00Z"
+    tag: fix-terminal-tab-render-20260408
+    merge_commit: 4a68e85
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/fix-terminal-tab-render
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-fix-terminal-tab-render
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-08T22:30:00Z"
+      duration: "~15min"
+      commits: 1
+      files_changed: 1
+      insertions: 19
+      deletions: 10
+    archive_path: features/archive/done-fix-terminal-tab-render-20260408
+  - id: feat-runtime-output-polish
+    name: "Runtime Session Output 弹窗与渲染优化"
+    completed_at: "2026-04-08T15:53:00Z"
+    tag: feat-runtime-output-polish-20260408
+    merge_commit: 7b1e16b
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-runtime-output-polish
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-runtime-output-polish
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 6
+      scenarios_passed: 6
+    stats:
+      started: "2026-04-08T20:30:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 3
+      insertions: 456
+      deletions: 62
+    archive_path: features/archive/done-feat-runtime-output-polish-20260408
+  - id: feat-runtime-session-output
+    name: "Claude Code Runtime Session 输出持久化与监控"
+    completed_at: "2026-04-08T19:35:00Z"
+    tag: feat-runtime-session-output-20260408
+    merge_commit: e555dcf
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-runtime-session-output
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-runtime-session-output
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-08T19:05:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 4
+      insertions: 422
+      deletions: 2
+    archive_path: features/archive/done-feat-runtime-session-output-20260408
+
   - id: feat-file-tree-resizable
     name: "文件树横向拖拽调整宽度"
     completed_at: "2026-04-08T19:30:00Z"

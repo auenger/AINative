@@ -5205,19 +5205,15 @@ fn get_active_session(
     state: tauri::State<'_, AppState>,
     runtime_id: Option<String>,
 ) -> Result<Option<ActiveSessionInfo>, String> {
-    // Prefer per-runtime session lookup (feat-runtime-output-polish)
+    // Per-runtime session lookup (feat-runtime-output-polish)
     let active_id = if let Some(rid) = &runtime_id {
         let sessions = state.active_sessions.lock().map_err(|e| e.to_string())?;
         sessions.get(rid).cloned()
     } else {
-        None
-    };
-
-    // Fall back to global active session for backward compatibility
-    let active_id = active_id.or_else(|| {
-        let sid = state.active_session_id.lock().ok()?;
+        // No runtime_id specified — fall back to global active session
+        let sid = state.active_session_id.lock().map_err(|e| e.to_string())?;
         sid.clone()
-    });
+    };
 
     let Some(session_id) = active_id else {
         return Ok(None);
@@ -5550,7 +5546,7 @@ fn cleanup_session_for_pid(state: &AppState, pid: u32) {
         // We don't have a direct PID->runtime_id mapping in active_sessions,
         // but runtime_session_stop uses the agent.process PID.
         // For externally detected processes, just let the next scan refresh.
-        let _ = sessions; // Hold lock briefly for consistency
+        drop(sessions); // Hold lock briefly for consistency
     }
 }
 

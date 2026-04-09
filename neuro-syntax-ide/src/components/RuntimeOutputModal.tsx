@@ -312,9 +312,19 @@ export const RuntimeOutputModal: React.FC<RuntimeOutputModalProps> = ({
   const autoScrollRef = useRef(true);
 
   // Modal drag state (feat-runtime-output-polish: Task 1)
+  // Reset position when modal opens so it starts centered
   const [modalPos, setModalPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDraggingModal, setIsDraggingModal] = useState(false);
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const prevVisibleRef = useRef(false);
+
+  // Reset drag position when modal reopens
+  useEffect(() => {
+    if (visible && !prevVisibleRef.current) {
+      setModalPos({ x: 0, y: 0 });
+    }
+    prevVisibleRef.current = visible;
+  }, [visible]);
 
   // Modal resize state (fix-runtime-output-render: 800x560 for better readability)
   const [modalSize, setModalSize] = useState<{ w: number; h: number }>({ w: 800, h: 560 });
@@ -340,8 +350,9 @@ export const RuntimeOutputModal: React.FC<RuntimeOutputModalProps> = ({
     const handleMouseMove = (e: MouseEvent) => {
       const newX = e.clientX - dragOffsetRef.current.x;
       const newY = e.clientY - dragOffsetRef.current.y;
-      const clampedX = Math.max(-window.innerWidth * 0.3, Math.min(window.innerWidth * 0.5, newX));
-      const clampedY = Math.max(-window.innerHeight * 0.4, Math.min(window.innerHeight - 80, newY));
+      // Allow dragging across most of the screen, only keep header accessible
+      const clampedX = Math.max(-window.innerWidth * 0.8, Math.min(window.innerWidth * 0.8, newX));
+      const clampedY = Math.max(-window.innerHeight * 0.8, Math.min(window.innerHeight * 0.8, newY));
       setModalPos({ x: clampedX, y: clampedY });
     };
 
@@ -524,9 +535,8 @@ export const RuntimeOutputModal: React.FC<RuntimeOutputModalProps> = ({
             animate={{
               scale: 1,
               opacity: 1,
-              y: 0,
               x: modalPos.x,
-              top: `calc(50% + ${modalPos.y}px)`,
+              y: modalPos.y,
             }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
             style={{

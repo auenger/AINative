@@ -303,8 +303,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
                           }
                         </div>
                       )}
-                      {/* View Output button — available for any runtime with active session (feat-runtime-output-polish) */}
-                      {sessionInfo && (
+                      {/* View Output button — only for app-started sessions (feat-runtime-output-polish) */}
+                      {sessionInfo ? (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -313,9 +313,13 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
                           className="mt-1.5 ml-3.5 flex items-center gap-1 text-[9px] text-primary hover:underline cursor-pointer"
                         >
                           <Eye size={8} />
-                          View Output{sessionInfo.is_done ? '' : ' (Live)'}
+                          View Output{!sessionInfo.is_done ? ' (Live)' : ''}
                         </button>
-                      )}
+                      ) : hasRunning ? (
+                        <span className="mt-1.5 ml-3.5 flex items-center gap-1 text-[9px] text-on-surface-variant/50 italic">
+                          External process
+                        </span>
+                      ) : null}
                     </div>
                   );
                 })}

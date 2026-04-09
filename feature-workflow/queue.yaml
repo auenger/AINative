@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-08T19:30:00Z'
+  last_updated: '2026-04-08T23:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -19,16 +19,30 @@ parents:
   - feat-file-preview-pdf
   - feat-file-preview-media
   - feat-file-preview-image-enhance
-active:
-- id: feat-runtime-session-output
-  name: Claude Code Runtime Session 输出持久化与监控
-  priority: 70
-  branch: feature/feat-runtime-session-output
-  worktree: ../NeuroSyntaxIDE-feat-runtime-session-output
-  started_at: '2026-04-08T19:05:00Z'
+active: []
 pending: []
 blocked: []
 completed:
+- id: fix-runtime-output-render
+  name: Runtime Output 弹窗宽度与内容渲染修复
+  completed_at: '2026-04-08T23:30:00Z'
+  tag: fix-runtime-output-render-20260408
+- id: feat-runtime-process-stop
+  name: Agent Runtime 进程 Stop 按钮（PID Kill）
+  completed_at: '2026-04-08T22:36:00Z'
+  tag: feat-runtime-process-stop-20260408
+- id: fix-terminal-tab-render
+  name: Terminal Tab 渲染修复（初始宽度 + 切换 + 缩放）
+  completed_at: '2026-04-08T22:40:00Z'
+  tag: fix-terminal-tab-render-20260408
+- id: feat-runtime-output-polish
+  name: Runtime Session Output 弹窗与渲染优化
+  completed_at: '2026-04-08T15:53:00Z'
+  tag: feat-runtime-output-polish-20260408
+- id: feat-runtime-session-output
+  name: Claude Code Runtime Session 输出持久化与监控
+  completed_at: '2026-04-08T19:35:00Z'
+  tag: feat-runtime-session-output-20260408
 - id: feat-file-tree-resizable
   name: 文件树横向拖拽调整宽度
   completed_at: '2026-04-08T19:30:00Z'
