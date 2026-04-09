@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-09T16:30:00Z'
+  last_updated: '2026-04-09T21:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -19,17 +19,18 @@ parents:
   - feat-file-preview-pdf
   - feat-file-preview-media
   - feat-file-preview-image-enhance
-active:
-- id: feat-runtime-timeout-reminder
-  name: Runtime Session 超时策略优化（智能超时 + 静默提醒）
-  priority: 70
-  created_at: '2026-04-09T12:00:00Z'
-  started_at: '2026-04-09T14:30:00Z'
-  branch: feature/feat-runtime-timeout-reminder
-  worktree: ../NeuroSyntaxIDE-feat-runtime-timeout-reminder
+active: []
 pending: []
 blocked: []
 completed:
+- id: feat-pixel-observatory-rework
+  name: Pixel Agent Observatory 100% 复刻（MIT Reference 直接移植）
+  completed_at: '2026-04-09T21:00:00Z'
+  tag: feat-pixel-observatory-rework-20260409
+- id: feat-runtime-timeout-reminder
+  name: Runtime Session 超时策略优化（智能超时 + 静默提醒）
+  completed_at: '2026-04-09T12:42:00Z'
+  tag: feat-runtime-timeout-reminder-20260409
 - id: feat-pixel-agent-observatory
   name: Pixel Agent 可观测 Tab — Claude Code Agent 像素小人实时可视化
   completed_at: '2026-04-09T16:30:00Z'

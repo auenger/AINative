@@ -1,10 +1,38 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-09T16:30:00Z"
+  last_updated: "2026-04-09T21:00:00Z"
   version: 1
-  total_completed: 82
+  total_completed: 84
 
 records:
+  - id: feat-pixel-observatory-rework
+    name: "Pixel Agent Observatory 100% 复刻（MIT Reference 直接移植）"
+    completed_at: "2026-04-09T21:00:00Z"
+    tag: feat-pixel-observatory-rework-20260409
+
+  - id: feat-runtime-timeout-reminder
+    name: "Runtime Session 超时策略优化（智能超时 + 静默提醒）"
+    completed_at: "2026-04-09T12:42:00Z"
+    tag: feat-runtime-timeout-reminder-20260409
+    merge_commit: "b81c23f"
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-runtime-timeout-reminder
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-runtime-timeout-reminder
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-09T17:00:00Z"
+      duration: "~1h"
+      commits: 1
+      files_changed: 5
+
   - id: feat-pixel-agent-observatory
     name: "Pixel Agent 可观测 Tab — Claude Code Agent 像素小人实时可视化"
     completed_at: "2026-04-09T16:30:00Z"
