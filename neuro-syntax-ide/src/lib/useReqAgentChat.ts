@@ -20,10 +20,12 @@ export interface ReqAgentChunkEvent {
   text: string;
   is_done: boolean;
   error?: string;
-  /** stream-json message type: "assistant", "result", "system", "tool_use", "raw", "disconnect", "stderr", "timeout", "process_exit" */
+  /** stream-json message type: "assistant", "result", "system", "tool_use", "raw", "disconnect", "stderr", "timeout", "process_exit", "idle_warning" */
   type?: string;
   /** Session ID from the Claude CLI */
   session_id?: string;
+  /** Idle seconds (only set for idle_warning events) */
+  idle_seconds?: number;
 }
 
 export interface ReqAgentStatus {
@@ -81,6 +83,9 @@ export function useReqAgentChat() {
   const [lastCreatedFeature, setLastCreatedFeature] = useState<FeatureCreatedNotification | null>(null);
   const streamingTextRef = useRef<string>('');
 
+  // Idle warning state — set when idle_warning events are received, cleared on new output
+  const [idleWarningSeconds, setIdleWarningSeconds] = useState<number | null>(null);
+
   // Ref to hold the persistent chunk listener unlisten function
   const chunkUnlistenRef = useRef<(() => void) | null>(null);
 
@@ -111,6 +116,17 @@ export function useReqAgentChat() {
     const { listen } = await import('@tauri-apps/api/event');
     const unlisten = await listen<ReqAgentChunkEvent>('agent://chunk', (event) => {
       const chunk = event.payload;
+
+      // Handle idle_warning: non-error, informational — update UI state only
+      if (chunk.type === 'idle_warning') {
+        setIdleWarningSeconds(chunk.idle_seconds ?? null);
+        return;
+      }
+
+      // Any real output clears the idle warning
+      if (chunk.text || chunk.error) {
+        setIdleWarningSeconds(null);
+      }
 
       // Handle error chunks (but not stderr — those are just diagnostics)
       if (chunk.error && chunk.type !== 'stderr') {
@@ -397,5 +413,8 @@ export function useReqAgentChat() {
     resumeSession,
     checkStatus,
     clearFeatureNotification,
+    // Idle warning state (feat-runtime-timeout-reminder)
+    idleWarningSeconds,
+    setIdleWarningSeconds,
   };
 }
