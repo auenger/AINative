@@ -8,10 +8,12 @@ export interface AgentStreamEvent {
   text: string;
   is_done: boolean;
   error?: string;
-  /** Stream message type: "assistant", "system", "raw", "tool_use", "result", "stderr", "disconnect", "timeout", "process_exit" */
+  /** Stream message type: "assistant", "system", "raw", "tool_use", "result", "stderr", "disconnect", "timeout", "process_exit", "idle_warning" */
   type?: string;
   /** Session ID from the runtime */
   session_id?: string;
+  /** Idle seconds (only set for idle_warning events) */
+  idle_seconds?: number;
 }
 
 export interface TaskGroup {
@@ -116,6 +118,9 @@ export function useAgentStream(options: UseAgentStreamOptions) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [lastCreatedFeature, setLastCreatedFeature] = useState<FeatureCreatedNotification | null>(null);
 
+  // Idle warning state — set when idle_warning events are received, cleared on new output
+  const [idleWarningSeconds, setIdleWarningSeconds] = useState<number | null>(null);
+
   // Ref to track current runtimeId in sendMessage closures
   const optionsRef = useRef(options);
   optionsRef.current = options;
@@ -209,6 +214,17 @@ export function useAgentStream(options: UseAgentStreamOptions) {
         setSessionId(chunk.session_id);
         sessionIdRef.current = chunk.session_id; // Immediate sync for ref
         try { localStorage.setItem(`${optionsRef.current.storageKey ?? `agent-stream-${optionsRef.current.runtimeId}`}-session`, chunk.session_id); } catch { /* ignore */ }
+      }
+
+      // Handle idle_warning: non-error, informational — update UI state only
+      if (chunk.type === 'idle_warning') {
+        setIdleWarningSeconds(chunk.idle_seconds ?? null);
+        return;
+      }
+
+      // Any real output clears the idle warning
+      if (chunk.text || chunk.error) {
+        setIdleWarningSeconds(null);
       }
 
       // Handle error chunks
@@ -661,6 +677,10 @@ export function useAgentStream(options: UseAgentStreamOptions) {
     // Feature creation notification (for REQ Agent)
     lastCreatedFeature,
     clearFeatureNotification,
+
+    // Idle warning state (feat-runtime-timeout-reminder)
+    idleWarningSeconds,
+    setIdleWarningSeconds,
 
     // Identity
     runtimeId,

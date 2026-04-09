@@ -541,12 +541,15 @@ pub struct StreamEvent {
     /// Error message if something went wrong
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
-    /// The type of this event: "assistant", "result", "system", "tool_use", "raw", "stderr", "timeout"
+    /// The type of this event: "assistant", "result", "system", "tool_use", "raw", "stderr", "timeout", "idle_warning"
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub msg_type: Option<String>,
     /// Session ID from the CLI
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
+    /// Idle seconds (only set for idle_warning events)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub idle_seconds: Option<u64>,
 }
 
 /// Trait that all agent runtimes must implement.
@@ -1102,6 +1105,7 @@ impl AgentRuntime for ClaudeCodeRuntime {
                                     error,
                                     msg_type: Some(msg_type),
                                     session_id: response_session_id,
+                                    idle_seconds: None,
                                 };
 
                                 if tx_stdout.send(event).is_err() { break; }
@@ -1114,6 +1118,7 @@ impl AgentRuntime for ClaudeCodeRuntime {
                                     error: None,
                                     msg_type: Some("raw".to_string()),
                                     session_id: None,
+                                    idle_seconds: None,
                                 };
                                 if tx_stdout.send(event).is_err() { break; }
                             }
@@ -1136,6 +1141,7 @@ impl AgentRuntime for ClaudeCodeRuntime {
                     error: None,
                     msg_type: Some("process_exit".to_string()),
                     session_id: None,
+                    idle_seconds: None,
                 });
             }
         });
@@ -1163,6 +1169,7 @@ impl AgentRuntime for ClaudeCodeRuntime {
                                 error: Some(format!("CLI stderr: {}", trimmed)),
                                 msg_type: Some("stderr".to_string()),
                                 session_id: None,
+                                idle_seconds: None,
                             };
                             if tx_stderr.send(event).is_err() { break; }
                         }
@@ -1173,10 +1180,13 @@ impl AgentRuntime for ClaudeCodeRuntime {
         });
 
         // --- idle watchdog thread ---
-        // Instead of a fixed wall-clock timeout, uses an activity-based idle timeout.
-        // As long as stdout/stderr keep producing data, the timer keeps resetting.
-        // Only triggers timeout after `timeout_secs` of continuous silence.
-        let idle_timeout_secs = params.timeout_secs;
+        // Sends periodic idle_warning events instead of killing the session.
+        // The session continues running; the user can decide to stop it manually.
+        // First warning after `timeout_secs`, then every 30 seconds thereafter.
+        let idle_threshold_secs = params.timeout_secs;
+        let idle_warning_interval_secs: u64 = 30;
+        let mut last_warning_sent_at: u64 = 0; // epoch seconds of last warning sent
+        let mut first_warning_sent = false;
         std::thread::spawn(move || {
             loop {
                 std::thread::sleep(Duration::from_secs(5));
@@ -1192,18 +1202,31 @@ impl AgentRuntime for ClaudeCodeRuntime {
                     .unwrap_or_default()
                     .as_secs();
 
-                if now_secs.saturating_sub(last) > idle_timeout_secs {
-                    let _ = tx.send(StreamEvent {
-                        text: String::new(),
-                        is_done: true,
-                        error: Some(format!(
-                            "Timeout: no CLI output for {} seconds (idle timeout)",
-                            idle_timeout_secs
-                        )),
-                        msg_type: Some("timeout".to_string()),
-                        session_id: None,
-                    });
-                    break;
+                let idle_secs = now_secs.saturating_sub(last);
+
+                if idle_secs > idle_threshold_secs {
+                    let should_send = if !first_warning_sent {
+                        true
+                    } else {
+                        // Send subsequent warnings every idle_warning_interval_secs
+                        now_secs.saturating_sub(last_warning_sent_at) >= idle_warning_interval_secs
+                    };
+
+                    if should_send {
+                        first_warning_sent = true;
+                        last_warning_sent_at = now_secs;
+                        let _ = tx.send(StreamEvent {
+                            text: format!(
+                                "Session idle for {} seconds, still running...",
+                                idle_secs
+                            ),
+                            is_done: false,
+                            error: None,
+                            msg_type: Some("idle_warning".to_string()),
+                            session_id: None,
+                            idle_seconds: Some(idle_secs),
+                        });
+                    }
                 }
             }
         });
@@ -1444,6 +1467,7 @@ impl AgentRuntime for GeminiHttpRuntime {
                             error: Some(format!("连接 AI API 失败: {}", e)),
                             msg_type: Some("error".to_string()),
                             session_id: None,
+                            idle_seconds: None,
                         });
                         return;
                     }
@@ -1458,6 +1482,7 @@ impl AgentRuntime for GeminiHttpRuntime {
                         error: Some(format!("AI API 错误 ({}): {}", status, error_body)),
                         msg_type: Some("error".to_string()),
                         session_id: None,
+                        idle_seconds: None,
                     });
                     return;
                 }
@@ -1485,6 +1510,7 @@ impl AgentRuntime for GeminiHttpRuntime {
                                             error: None,
                                             msg_type: Some("assistant".to_string()),
                                             session_id: None,
+                                            idle_seconds: None,
                                         });
                                         return;
                                     }
@@ -1500,6 +1526,7 @@ impl AgentRuntime for GeminiHttpRuntime {
                                                             error: None,
                                                             msg_type: Some("assistant".to_string()),
                                                             session_id: None,
+                                                            idle_seconds: None,
                                                         });
                                                     }
                                                 }
@@ -1511,6 +1538,7 @@ impl AgentRuntime for GeminiHttpRuntime {
                                                             error: None,
                                                             msg_type: Some("assistant".to_string()),
                                                             session_id: None,
+                                                            idle_seconds: None,
                                                         });
                                                         return;
                                                     }
@@ -1528,6 +1556,7 @@ impl AgentRuntime for GeminiHttpRuntime {
                                 error: Some(format!("Stream 错误: {}", e)),
                                 msg_type: Some("error".to_string()),
                                 session_id: None,
+                                idle_seconds: None,
                             });
                             return;
                         }
@@ -1541,6 +1570,7 @@ impl AgentRuntime for GeminiHttpRuntime {
                     error: None,
                     msg_type: Some("assistant".to_string()),
                     session_id: None,
+                    idle_seconds: None,
                 });
             });
         });

@@ -13,6 +13,8 @@ interface StreamEvent {
   error?: string;
   type?: string;
   session_id?: string;
+  /** Idle seconds (only set for idle_warning events) */
+  idle_seconds?: number;
 }
 
 interface RuntimeOutputModalProps {
@@ -311,6 +313,9 @@ export const RuntimeOutputModal: React.FC<RuntimeOutputModalProps> = ({
   const unlistenRef = useRef<UnlistenFn | null>(null);
   const autoScrollRef = useRef(true);
 
+  // Idle warning state (feat-runtime-timeout-reminder)
+  const [idleWarningSeconds, setIdleWarningSeconds] = useState<number | null>(null);
+
   // Modal drag state (feat-runtime-output-polish: Task 1)
   // Reset position when modal opens so it starts centered
   const [modalPos, setModalPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -416,6 +421,7 @@ export const RuntimeOutputModal: React.FC<RuntimeOutputModalProps> = ({
       setChunks([]);
       setSessionInfo(null);
       setIsDone(false);
+      setIdleWarningSeconds(null);
       setLoading(true);
     }
 
@@ -470,6 +476,18 @@ export const RuntimeOutputModal: React.FC<RuntimeOutputModalProps> = ({
       const unlisten = await listen<StreamEvent>('agent://chunk', (event) => {
         if (cancelled) return;
         const chunk = event.payload;
+
+        // Handle idle_warning: update warning state, don't add to chunks
+        if (chunk.type === 'idle_warning') {
+          setIdleWarningSeconds(chunk.idle_seconds ?? null);
+          return;
+        }
+
+        // Any real output clears the idle warning
+        if (chunk.text.trim() || chunk.error?.trim()) {
+          setIdleWarningSeconds(null);
+        }
+
         // Skip empty chunks in live stream
         if (!chunk.text.trim() && !chunk.error?.trim()) return;
         setChunks((prev) => [...prev, chunk]);
@@ -619,6 +637,28 @@ export const RuntimeOutputModal: React.FC<RuntimeOutputModalProps> = ({
                 <SessionChunkRenderer key={idx} chunk={chunk} index={idx} />
               ))}
             </div>
+
+            {/* Idle warning bar (feat-runtime-timeout-reminder) */}
+            <AnimatePresence>
+              {idleWarningSeconds !== null && !isDone && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="px-4 py-2 border-t border-outline-variant/10"
+                >
+                  <div className="flex items-center gap-2 bg-[#ffb4ab]/15 rounded-md px-3 py-1.5">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ffb4ab] opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#ffb4ab]" />
+                    </span>
+                    <span className="text-[#ffb4ab] text-[10px] font-mono animate-pulse">
+                      Session idle for {idleWarningSeconds}s, still running...
+                    </span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Footer */}
             <div className="flex items-center justify-between px-4 py-2 border-t border-outline-variant/10 text-[9px] text-on-surface-variant font-mono">
