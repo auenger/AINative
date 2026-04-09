@@ -1,4 +1,4 @@
-export type ViewType = 'project' | 'editor' | 'tasks' | 'workflow' | 'mission-control' | 'settings' | 'person' | 'agents';
+export type ViewType = 'project' | 'editor' | 'tasks' | 'workflow' | 'mission-control' | 'settings' | 'person' | 'agents' | 'agent-pixel';
 
 export interface FileNode {
   name: string;

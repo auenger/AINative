@@ -7,7 +7,8 @@ import {
   User,
   FileCode,
   Layout,
-  Bot
+  Bot,
+  Eye
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/utils';
@@ -27,6 +28,7 @@ export const SideNav: React.FC<SideNavProps> = ({ activeView, onViewChange }) =>
     { id: 'editor', icon: FileCode, label: t('nav.editor') },
     { id: 'mission-control', icon: Rocket, label: t('nav.missionControl') },
     { id: 'agents', icon: Bot, label: t('nav.agents') },
+    { id: 'agent-pixel', icon: Eye, label: t('nav.observatory') },
     { id: 'workflow', icon: GitBranch, label: t('nav.workflow') },
   ];
 
