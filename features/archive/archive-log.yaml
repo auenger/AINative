@@ -1,10 +1,36 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-08T23:30:00Z"
+  last_updated: "2026-04-09T16:30:00Z"
   version: 1
-  total_completed: 81
+  total_completed: 82
 
 records:
+  - id: feat-pixel-agent-observatory
+    name: "Pixel Agent 可观测 Tab — Claude Code Agent 像素小人实时可视化"
+    completed_at: "2026-04-09T16:30:00Z"
+    tag: feat-pixel-agent-observatory-20260409
+    merge_commit: "2487d64"
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-pixel-agent-observatory
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-pixel-agent-observatory
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 6
+      scenarios_passed: 6
+    stats:
+      started: "2026-04-09T15:00:00Z"
+      duration: "~90min"
+      commits: 3
+      files_changed: 18
+      insertions: 3200
+      deletions: 10
+    archive_path: features/archive/done-feat-pixel-agent-observatory-20260409
+
   - id: fix-runtime-output-render
     name: "Runtime Output 弹窗宽度与内容渲染修复"
     completed_at: "2026-04-08T23:30:00Z"

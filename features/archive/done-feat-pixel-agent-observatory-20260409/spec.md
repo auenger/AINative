@@ -211,3 +211,13 @@ And 角色应立即开始 idle 动画
 - [ ] 无外部运行时依赖新增（仅 Canvas 2D API）
 - [ ] Tab 切换时正确暂停/恢复渲染循环
 - [ ] 内存泄漏测试 — 长时间运行无内存增长
+
+## Merge Record
+
+- **Completed**: 2026-04-09T16:30:00Z
+- **Merged Branch**: feature/feat-pixel-agent-observatory
+- **Merge Commit**: 2487d64
+- **Archive Tag**: feat-pixel-agent-observatory-20260409
+- **Conflicts**: None
+- **Verification**: PASS (36/40 tasks, 6/6 Gherkin scenarios via code analysis, 4 deferred by design)
+- **Stats**: ~90min duration, 3 commits, 18 files changed (14 new + 4 modified)

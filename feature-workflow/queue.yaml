@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-09T15:00:00Z'
+  last_updated: '2026-04-09T16:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -27,16 +27,13 @@ active:
   started_at: '2026-04-09T14:30:00Z'
   branch: feature/feat-runtime-timeout-reminder
   worktree: ../NeuroSyntaxIDE-feat-runtime-timeout-reminder
-- id: feat-pixel-agent-observatory
-  name: Pixel Agent 可观测 Tab — Claude Code Agent 像素小人实时可视化
-  priority: 65
-  created_at: '2026-04-09T14:00:00Z'
-  started_at: '2026-04-09T15:00:00Z'
-  branch: feature/feat-pixel-agent-observatory
-  worktree: ../NeuroSyntaxIDE-feat-pixel-agent-observatory
 pending: []
 blocked: []
 completed:
+- id: feat-pixel-agent-observatory
+  name: Pixel Agent 可观测 Tab — Claude Code Agent 像素小人实时可视化
+  completed_at: '2026-04-09T16:30:00Z'
+  tag: feat-pixel-agent-observatory-20260409
 - id: fix-runtime-output-render
   name: Runtime Output 弹窗宽度与内容渲染修复
   completed_at: '2026-04-08T23:30:00Z'
