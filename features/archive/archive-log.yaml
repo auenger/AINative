@@ -1,10 +1,36 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-10T19:15:00Z"
+  last_updated: "2026-04-10T23:30:00Z"
   version: 1
-  total_completed: 85
+  total_completed: 86
 
 records:
+  - id: feat-i18n-complete
+    name: "中英文国际化完善"
+    completed_at: "2026-04-10T23:30:00Z"
+    tag: feat-i18n-complete-20260410
+    merge_commit: 236c7be
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/i18n-complete
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-i18n-complete
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 27
+      scenarios_passed: 27
+    stats:
+      started: "2026-04-10T22:10:00Z"
+      duration: "~1h20min"
+      commits: 1
+      files_changed: 10
+      insertions: 155
+      deletions: 63
+    archive_path: features/archive/done-feat-i18n-complete-20260410
+
   - id: fix-terminal-add-tab
     name: "终端 Tab 新增与切换修复"
     completed_at: "2026-04-10T19:15:00Z"

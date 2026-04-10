@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-10T19:15:00Z'
+  last_updated: '2026-04-10T23:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -23,6 +23,10 @@ active: []
 pending: []
 blocked: []
 completed:
+- id: feat-i18n-complete
+  name: 中英文国际化完善
+  completed_at: '2026-04-10T23:30:00Z'
+  tag: feat-i18n-complete-20260410
 - id: fix-terminal-add-tab
   name: 终端 Tab 新增与切换修复
   completed_at: '2026-04-10T19:15:00Z'
