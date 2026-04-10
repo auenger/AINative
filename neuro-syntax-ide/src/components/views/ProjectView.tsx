@@ -285,7 +285,7 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
 
   const reqAgent = useAgentStream({
     runtimeId: reqRuntimeId,
-    greetingMessage: "你好！我是需求分析 Agent。我可以帮你分析和文档化软件需求。告诉我你想构建什么功能？",
+    greetingMessage: t('agent.greetReqAgent'),
     useSessions: true,
     persistMessages: true,
     storageKey: 'req_agent_messages',

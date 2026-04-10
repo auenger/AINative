@@ -17,6 +17,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useTranslation } from 'react-i18next';
 import { formatFileSize } from '../../lib/usePMFiles';
 import type { PMFileEntry, PMFileUploading } from '../../types';
 import type { AnalyzeFileState } from '../../lib/useMultimodalAnalyze';
@@ -112,6 +113,7 @@ export const FileUploadArea: React.FC<FileUploadAreaProps> = ({
   isAnalyzing = false,
   getUnanalyzedCount,
 }) => {
+  const { t } = useTranslation();
   const [isDragOver, setIsDragOver] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [fileListCollapsed, setFileListCollapsed] = useState(false);
@@ -202,7 +204,7 @@ export const FileUploadArea: React.FC<FileUploadAreaProps> = ({
         <div className="absolute inset-0 z-10 bg-primary/10 border-2 border-dashed border-primary/40 rounded-lg flex items-center justify-center">
           <div className="flex items-center gap-2 text-primary">
             <Upload size={20} />
-            <span className="text-xs font-bold">Drop files to upload</span>
+            <span className="text-xs font-bold">{t('upload.dropFiles')}</span>
           </div>
         </div>
       )}
@@ -236,14 +238,14 @@ export const FileUploadArea: React.FC<FileUploadAreaProps> = ({
                 ? "text-outline-variant cursor-not-allowed"
                 : "text-primary hover:bg-primary/10"
             )}
-            title="Analyze all files"
+            title={t('upload.analyzeFiles')}
           >
             {isAnalyzing ? (
               <Loader2 size={9} className="animate-spin" />
             ) : (
               <Zap size={9} />
             )}
-            {isAnalyzing ? "Analyzing..." : "Analyze All"}
+            {isAnalyzing ? t('upload.analyzing') : t('upload.analyzeAll')}
           </button>
         </div>
       )}
@@ -329,7 +331,7 @@ export const FileUploadArea: React.FC<FileUploadAreaProps> = ({
                         ? "text-outline-variant cursor-not-allowed"
                         : "text-primary hover:bg-primary/10 opacity-0 group-hover:opacity-100"
                     )}
-                    title="Analyze this file"
+                    title={t('upload.analyzeFile')}
                   >
                     <Sparkles size={10} />
                   </button>
@@ -350,7 +352,7 @@ export const FileUploadArea: React.FC<FileUploadAreaProps> = ({
                       ? "text-error bg-error/10 hover:bg-error/20"
                       : "text-outline-variant hover:text-error opacity-0 group-hover:opacity-100"
                   )}
-                  title={confirmDelete === file.name ? "Click again to confirm delete" : "Delete file"}
+                  title={confirmDelete === file.name ? t('upload.confirmDelete') : t('upload.deleteFile')}
                 >
                   {confirmDelete === file.name ? (
                     <Trash2 size={11} />
@@ -377,6 +379,7 @@ interface AttachButtonProps {
 }
 
 export const AttachButton: React.FC<AttachButtonProps> = ({ onClick, disabled }) => {
+  const { t } = useTranslation();
   return (
     <button
       onClick={onClick}
@@ -387,7 +390,7 @@ export const AttachButton: React.FC<AttachButtonProps> = ({ onClick, disabled })
           ? "text-outline-variant cursor-not-allowed"
           : "text-on-surface-variant hover:text-primary hover:bg-primary/10"
       )}
-      title="Attach files"
+      title={t('upload.attachFiles')}
     >
       <Paperclip size={16} />
     </button>

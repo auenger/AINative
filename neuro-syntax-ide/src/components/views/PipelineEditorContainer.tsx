@@ -11,6 +11,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useTranslation } from 'react-i18next';
 import {
   usePipelineDualMode,
   fromYaml,
@@ -86,6 +87,7 @@ export const PipelineEditorContainer: React.FC<PipelineEditorContainerProps> = (
   onCancel,
   initialMode = 'visual',
 }) => {
+  const { t } = useTranslation();
   const dualMode = usePipelineDualMode({ initialConfig });
   const [switchError, setSwitchError] = useState<string | null>(null);
   const isNew = !initialConfig;
@@ -174,7 +176,7 @@ export const PipelineEditorContainer: React.FC<PipelineEditorContainerProps> = (
             currentMode={dualMode.mode}
             onClick={() => handleModeSwitch('visual')}
             icon={<Eye size={11} />}
-            label="Visual"
+            label={t('pipeline.visual')}
           />
           <ModeButton
             mode="yaml"

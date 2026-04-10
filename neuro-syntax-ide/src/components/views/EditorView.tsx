@@ -937,7 +937,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-on-surface hover:bg-primary/10 hover:text-primary transition-colors"
                       >
                         <RefreshCw size={12} />
-                        {t('editor.refreshTree', '刷新文件树')}
+                        {t('editor.refreshTree')}
                       </button>
                     </motion.div>
                   )}
@@ -1473,7 +1473,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
             <button
               onClick={() => setTerminalOpen(true)}
               className="absolute bottom-3 right-3 z-30 w-8 h-8 flex items-center justify-center rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/60 transition-all duration-200 cursor-pointer"
-              title={t('editor.openTerminal', 'Show Terminal')}
+              title={t('editor.openTerminal')}
             >
               <TerminalIcon size={16} />
             </button>

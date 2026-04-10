@@ -4,6 +4,7 @@ import { X, Trash2, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react
 import { invoke } from '@tauri-apps/api/core';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { cn } from '../lib/utils';
+import { useTranslation } from 'react-i18next';
 import type { ActiveSessionInfo, StreamEventChunk } from '../types';
 
 // StreamEvent type matching Rust StreamEvent (agent://chunk)
@@ -305,6 +306,7 @@ export const RuntimeOutputModal: React.FC<RuntimeOutputModalProps> = ({
   runtimeId,
   runtimeName,
 }) => {
+  const { t } = useTranslation();
   const [chunks, setChunks] = useState<StreamEvent[]>([]);
   const [sessionInfo, setSessionInfo] = useState<ActiveSessionInfo | null>(null);
   const [loading, setLoading] = useState(false);
@@ -605,14 +607,14 @@ export const RuntimeOutputModal: React.FC<RuntimeOutputModalProps> = ({
                 <button
                   onClick={handleClear}
                   className="p-1 text-on-surface-variant hover:text-red-400 transition-colors cursor-pointer"
-                  title="Clear output and close"
+                  title={t('output.clearClose')}
                 >
                   <Trash2 size={12} />
                 </button>
                 <button
                   onClick={handleClose}
                   className="p-1 text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
-                  title="Close"
+                  title={t('output.close')}
                 >
                   <X size={12} />
                 </button>
@@ -626,11 +628,11 @@ export const RuntimeOutputModal: React.FC<RuntimeOutputModalProps> = ({
               className="flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-relaxed"
             >
               {loading && (
-                <div className="text-on-surface-variant animate-pulse">Loading session output...</div>
+                <div className="text-on-surface-variant animate-pulse">{t('output.loadingSession')}</div>
               )}
 
               {!loading && chunks.length === 0 && (
-                <div className="text-on-surface-variant">No output available.</div>
+                <div className="text-on-surface-variant">{t('output.noOutput')}</div>
               )}
 
               {chunks.map((chunk, idx) => (
@@ -668,13 +670,13 @@ export const RuntimeOutputModal: React.FC<RuntimeOutputModalProps> = ({
                   onClick={handleClear}
                   className="text-red-400 hover:text-red-300 transition-colors cursor-pointer"
                 >
-                  Clear
+                  {t('output.clearClose')}
                 </button>
                 <button
                   onClick={handleClose}
                   className="text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
                 >
-                  Close
+                  {t('output.close')}
                 </button>
               </div>
             </div>

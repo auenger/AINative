@@ -8,6 +8,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useTranslation } from 'react-i18next';
 import type { PipelineStageConfig, AgentRuntimeInfo } from '../../types';
 
 // ---------------------------------------------------------------------------
@@ -44,6 +45,7 @@ export const StagePropertyPanel: React.FC<StagePropertyPanelProps> = ({
   onDelete,
   onMove,
 }) => {
+  const { t } = useTranslation();
   const [showMappingHelp, setShowMappingHelp] = useState(false);
 
   const availableRuntimes = runtimes.filter(r => r.status === 'available');
@@ -118,7 +120,7 @@ export const StagePropertyPanel: React.FC<StagePropertyPanelProps> = ({
             type="text"
             value={stage.name}
             onChange={e => onUpdate({ name: e.target.value })}
-            placeholder="Analysis Stage"
+            placeholder={t('pipeline.analysisStage')}
             className="mt-1 w-full bg-surface-container-lowest border border-outline-variant/30 text-xs text-on-surface p-2 rounded-sm focus:ring-1 focus:ring-primary focus:outline-none"
           />
         </label>
