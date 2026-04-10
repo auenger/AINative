@@ -84,8 +84,8 @@ interface CommitGraphTabProps {
 const ROW_HEIGHT = 28;
 const LANE_WIDTH = 20;
 const DOT_RADIUS = 4;
-const PAD_LEFT = 8;
-const PAD_TOP = 8;
+const PAD_LEFT = 48;
+const PAD_TOP = 40;
 const MSG_X_OFFSET = 14;
 
 const LANE_COLORS = [
@@ -130,7 +130,7 @@ const CommitGraphTab: React.FC<CommitGraphTabProps> = ({ graphData, hoveredCommi
   }
 
   return (
-    <div className="relative w-full h-full overflow-auto">
+    <div className="relative w-full h-full overflow-auto pl-2 pt-1">
       <div className="flex items-center justify-between mb-2 px-1">
         <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Commit Graph</span>
         <span className="text-[10px] text-on-surface-variant">{commits.length} commits</span>
@@ -228,13 +228,13 @@ const CommitGraphTab: React.FC<CommitGraphTabProps> = ({ graphData, hoveredCommi
               {/* Hover tooltip */}
               {isHovered && (
                 <g>
-                  <rect x={graphAreaWidth + 4} y={cy + 10} width={320} height={32} rx={4} fill="#1e293b" stroke="#334155" strokeWidth={0.5} opacity={0.95} />
+                  <rect x={graphAreaWidth + 4} y={cy + 10} width={480} height={40} rx={4} fill="#1e293b" stroke="#475569" strokeWidth={0.5} />
                   <text x={graphAreaWidth + 10} y={cy + 24} fill="#94a3b8" fontSize={7}>
                     <tspan fill="#64748b">{commit.hash.slice(0, 12)}</tspan>
                     <tspan dx={6} fill="#94a3b8">by {commit.author}</tspan>
                     <tspan dx={6} fill="#64748b">{new Date(commit.timestamp * 1000).toLocaleDateString()}</tspan>
                   </text>
-                  <text x={graphAreaWidth + 10} y={cy + 36} fill="#cbd5e1" fontSize={8}>{commit.message}</text>
+                  <text x={graphAreaWidth + 10} y={cy + 40} fill="#cbd5e1" fontSize={8}>{commit.message.length > 70 ? commit.message.slice(0, 70) + '…' : commit.message}</text>
                 </g>
               )}
             </g>
