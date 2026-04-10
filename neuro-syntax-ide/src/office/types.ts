@@ -183,6 +183,8 @@ export interface Character {
   matrixEffectTimer: number;
   /** Per-column random seeds (16 values) for staggered rain timing */
   matrixEffectSeeds: number[];
+  /** Whether the agent is currently working at a zone away from their assigned desk */
+  workingAtZone: boolean;
   /** Workspace folder name (only set for multi-root workspaces) */
   folderName?: string;
 }

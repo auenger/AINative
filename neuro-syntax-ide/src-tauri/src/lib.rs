@@ -5723,6 +5723,160 @@ async fn read_claude_session(
     Ok(None)
 }
 
+/// Discovered session tool info read from the latest Claude Code JSONL session.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DiscoveredSessionTool {
+    /// Session ID of the latest session
+    pub session_id: String,
+    /// Name of the most recently used tool (e.g. "Bash", "Read", "Edit")
+    pub current_tool: Option<String>,
+    /// Whether the session is considered active (modified within last 120s)
+    pub is_active: bool,
+}
+
+/// Discover the latest Claude Code session tool for a workspace.
+/// Reads `~/.claude/projects/<encoded-path>/<latest>.jsonl` and extracts
+/// the most recent tool_use event.
+#[tauri::command]
+fn discover_session_tool(
+    workspace_path: String,
+) -> Result<Option<DiscoveredSessionTool>, String> {
+    let home = dirs_home()?;
+    let claude_dir = PathBuf::from(&home).join(".claude");
+    if !claude_dir.exists() { return Ok(None); }
+
+    // Encode workspace path: /Users/ryan/foo → -Users-ryan-foo
+    let encode_path = |p: &str| -> String {
+        let p = p.trim_end_matches('/');
+        let mut s = String::new();
+        for ch in p.chars() {
+            if ch == '/' { s.push('-'); }
+            else { s.push(ch); }
+        }
+        s
+    };
+
+    // Try workspace path, then parent directories (workspace may be a subdirectory)
+    let projects_base = claude_dir.join("projects");
+    let mut project_dir: Option<PathBuf> = None;
+    let mut try_path = workspace_path.trim_end_matches('/').to_string();
+    for _ in 0..4 {
+        let encoded = encode_path(&try_path);
+        let candidate = projects_base.join(&encoded);
+        if candidate.is_dir() {
+            project_dir = Some(candidate);
+            break;
+        }
+        // Try parent
+        match PathBuf::from(&try_path).parent() {
+            Some(p) if !p.as_os_str().is_empty() => try_path = p.to_string_lossy().to_string(),
+            _ => break,
+        }
+    }
+
+    let Some(project_dir) = project_dir else {
+        return Ok(None);
+    };
+
+    // Find latest JSONL file by modification time
+    let mut latest_path: Option<PathBuf> = None;
+    let mut latest_mtime: u64 = 0;
+
+    if let Ok(entries) = fs::read_dir(&project_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().map_or(false, |e| e == "jsonl") {
+                if let Ok(meta) = path.metadata() {
+                    let mtime = meta.modified()
+                        .ok()
+                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0);
+                    if mtime > latest_mtime {
+                        latest_mtime = mtime;
+                        latest_path = Some(path);
+                    }
+                }
+            }
+        }
+    }
+
+    let Some(jsonl_path) = latest_path else {
+        return Ok(None);
+    };
+
+    // Check if session is recent (modified within last 120 seconds)
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let is_active = now.saturating_sub(latest_mtime) < 120;
+
+    // Read last 32KB efficiently
+    let file_size = fs::metadata(&jsonl_path).map(|m| m.len()).unwrap_or(0);
+    if file_size == 0 { return Ok(None); }
+
+    let read_size = (32768u64).min(file_size) as usize;
+    let start = file_size.saturating_sub(read_size as u64);
+
+    let mut file = std::fs::File::open(&jsonl_path).map_err(|e| e.to_string())?;
+    use std::io::{Read, Seek, SeekFrom};
+    file.seek(SeekFrom::Start(start)).map_err(|e| e.to_string())?;
+
+    let mut buf = vec![0u8; read_size];
+    file.read_exact(&mut buf).map_err(|e| e.to_string())?;
+
+    let content = String::from_utf8_lossy(&buf);
+    // Collect complete lines (skip first partial line if we didn't start at 0)
+    let lines: Vec<&str> = if start > 0 {
+        content.lines().skip(1).collect()
+    } else {
+        content.lines().collect()
+    };
+
+    let mut session_id: Option<String> = None;
+    let mut latest_tool: Option<String> = None;
+
+    // Parse lines in reverse to find latest tool_use
+    for line in lines.iter().rev() {
+        let Ok(json) = serde_json::from_str::<serde_json::Value>(line) else { continue };
+
+        // Extract session ID from first parsed line
+        if session_id.is_none() {
+            session_id = json.get("sessionId")
+                .and_then(|s| s.as_str())
+                .map(|s| s.to_string());
+        }
+
+        // Look for assistant messages with tool_use content
+        if json.get("type").and_then(|t| t.as_str()) == Some("assistant") {
+            if let Some(msg) = json.get("message") {
+                if let Some(content_arr) = msg.get("content").and_then(|c| c.as_array()) {
+                    for item in content_arr {
+                        if item.get("type").and_then(|t| t.as_str()) == Some("tool_use") {
+                            if latest_tool.is_none() {
+                                latest_tool = item.get("name")
+                                    .and_then(|n| n.as_str())
+                                    .map(|s| s.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if session_id.is_some() && latest_tool.is_some() {
+            break;
+        }
+    }
+
+    Ok(Some(DiscoveredSessionTool {
+        session_id: session_id.unwrap_or_default(),
+        current_tool: latest_tool,
+        is_active,
+    }))
+}
+
 /// Helper: get the user's home directory.
 fn dirs_home() -> Result<String, String> {
     std::env::var("HOME")
@@ -7668,6 +7822,7 @@ pub fn run() {
             start_runtime_monitor,
             stop_runtime_monitor,
             read_claude_session,
+            discover_session_tool,
             // Kill process by PID (feat-runtime-process-stop)
             kill_process_by_pid,
         ])

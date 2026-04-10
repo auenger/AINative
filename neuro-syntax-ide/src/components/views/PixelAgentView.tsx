@@ -1,31 +1,47 @@
 /**
- * PixelAgentView -- Observatory Tab entry component.
+ * PixelAgentView — Pixel Office Observatory.
  *
- * Full composition root based on the reference App.tsx, adapted for the
- * standalone Neuro Syntax IDE shell. No VS Code or extension messaging --
- * runs entirely in the browser/Tauri webview with demo agents for testing.
+ * Full-screen pixel office showing agents for active Claude Code runtime sessions.
+ * Agents route to different activity zones based on their current tool:
+ *   - Coding tools (Bash, Write, Edit) → sit at desk, typing animation
+ *   - Reading tools (Read, Grep, Glob) → walk to bookshelf / bench area
+ *   - Research tools (WebSearch, Task, Agent) → walk to sofa / lounge area
+ * Idle agents wander around the office.
+ * Demo mode fallback when no runtimes are detected.
+ *
+ * Tool routing:
+ *   - Tauri mode: polls `discover_session_tool` for real Claude Code JSONL data
+ *   - Dev mode: simulated tool cycling
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { OfficeCanvas } from '../../office/components/OfficeCanvas';
-import { BottomToolbar } from '../../office/components/BottomToolbar';
-import { SettingsModal } from '../../office/components/SettingsModal';
-import { ToolOverlay } from '../../office/components/ToolOverlay';
-import { ZoomControls } from '../../office/components/ZoomControls';
-import { EditorToolbar } from '../../office/editor/EditorToolbar';
-import { EditorState } from '../../office/editor/editorState';
 import { OfficeState } from '../../office/engine/officeState';
-import { useEditorActions } from '../../office/hooks/useEditorActions';
-import { useEditorKeyboard } from '../../office/hooks/useEditorKeyboard';
 import { deserializeLayout } from '../../office/layout/layoutSerializer';
-import { isRotatable } from '../../office/layout/furnitureCatalog';
-import type { OfficeLayout, ToolActivity } from '../../office/types';
-import { EditTool } from '../../office/types';
+import {
+  computeActivityZones,
+  getToolZone,
+  type ActivityZone,
+  type ZoneType,
+} from '../../office/layout/activityZones';
+import { loadAllSprites } from '../../office/sprites/pngLoader';
+import type { OfficeLayout } from '../../office/types';
+import { useRuntimeMonitor } from '../../lib/useRuntimeMonitor';
+import { useWorkspace } from '../../lib/useWorkspace';
+
+const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+// ── Types ──────────────────────────────────────────────────────
+
+interface DiscoveredSessionTool {
+  session_id: string;
+  current_tool: string | null;
+  is_active: boolean;
+}
 
 // ── Game state lives outside React ─────────────────────────────
 const officeStateRef = { current: null as OfficeState | null };
-const editorState = new EditorState();
 
 function getOfficeState(): OfficeState {
   if (!officeStateRef.current) {
@@ -34,85 +50,151 @@ function getOfficeState(): OfficeState {
   return officeStateRef.current;
 }
 
-// ── Demo Agent Helpers ─────────────────────────────────────────
+// ── Zone-Aware Agent Routing ───────────────────────────────────
 
-const DEMO_TOOLS = ['Read', 'Write', 'Bash', 'Grep', 'Glob', 'Edit', 'Task'];
-let demoToolIdx = 0;
+/** All tools an agent might cycle through (simulation fallback) */
+const ALL_TOOLS = [
+  'Bash', 'Read', 'Write', 'Edit',
+  'Grep', 'Glob', 'WebSearch', 'Task',
+];
 
-/** Simulate agent activity by cycling tools */
-function startDemoSimulation(office: OfficeState, agentIds: number[]): () => void {
-  const tick = () => {
-    for (const id of agentIds) {
-      const tool = DEMO_TOOLS[demoToolIdx % DEMO_TOOLS.length];
-      office.setAgentTool(id, tool);
-      office.setAgentActive(id, true);
+/** Route an agent to the appropriate activity zone based on their tool. */
+function routeAgentToZone(
+  office: OfficeState,
+  agentId: number,
+  tool: string,
+  zones: Record<ZoneType, ActivityZone>,
+): void {
+  const ch = office.characters.get(agentId);
+  if (!ch) return;
+
+  office.setAgentTool(agentId, tool);
+
+  const zoneType = getToolZone(tool);
+  const zoneTiles = zones[zoneType]?.tiles ?? [];
+
+  if (zoneType === 'coding' || zoneTiles.length === 0) {
+    // Coding or fallback → return to desk
+    ch.workingAtZone = false;
+    office.sendToSeat(agentId);
+  } else {
+    // Walk to the activity zone (bookshelf area / sofa area)
+    ch.workingAtZone = true;
+    const target = zoneTiles[Math.floor(Math.random() * zoneTiles.length)];
+    office.walkToTile(agentId, target.col, target.row);
+  }
+}
+
+/**
+ * Start simulated tool cycling for a single agent (dev / demo mode).
+ * Returns the interval handle (for cleanup via clearInterval).
+ */
+function startToolCycling(
+  office: OfficeState,
+  agentId: number,
+  zones: Record<ZoneType, ActivityZone>,
+): ReturnType<typeof setInterval> {
+  let currentTool = ALL_TOOLS[Math.floor(Math.random() * ALL_TOOLS.length)];
+
+  // Initial route to zone
+  routeAgentToZone(office, agentId, currentTool, zones);
+
+  const interval = setInterval(() => {
+    const ch = office.characters.get(agentId);
+    if (!ch) return;
+
+    // Don't interrupt mid-walk
+    if (ch.state === 'walk') return;
+
+    // Occasionally go idle → agent wanders around
+    if (ch.isActive && Math.random() < 0.08) {
+      ch.workingAtZone = false;
+      office.setAgentActive(agentId, false);
+      return;
     }
-    demoToolIdx++;
-  };
 
-  tick();
-  const timer = setInterval(tick, 6000);
+    // Ensure active
+    if (!ch.isActive) {
+      office.setAgentActive(agentId, true);
+    }
 
-  // Return cleanup via a stored ref (component will call on unmount)
-  return () => clearInterval(timer);
+    // Pick a different tool
+    let next: string;
+    do {
+      next = ALL_TOOLS[Math.floor(Math.random() * ALL_TOOLS.length)];
+    } while (next === currentTool && ALL_TOOLS.length > 1);
+
+    currentTool = next;
+    routeAgentToZone(office, agentId, next, zones);
+  }, 8000 + Math.random() * 7000);
+
+  return interval;
+}
+
+// ── Layout constants ────────────────────────────────────────────
+const MAP_COLS = 21;
+const MAP_ROWS = 22;
+const TILE_SIZE = 16;
+const ZOOM_FACTOR = 1.99;
+
+const PAN_X_FRAC = 0.023;
+const PAN_Y_FRAC = -0.18;
+
+function calcZoom(factor: number): number {
+  const zoomW = window.innerWidth / (MAP_COLS * TILE_SIZE);
+  const zoomH = window.innerHeight / (MAP_ROWS * TILE_SIZE);
+  return Math.max(8, Math.floor(Math.max(zoomW, zoomH) * factor));
+}
+
+/** Convert a PID to a stable agent ID (offset to avoid collision with demo agents 1,2). */
+function pidToAgentId(pid: number): number {
+  return pid + 1000;
 }
 
 // ── Component ──────────────────────────────────────────────────
 
 export const PixelAgentView: React.FC = () => {
   const [layoutReady, setLayoutReady] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isDebugMode, setIsDebugMode] = useState(false);
-  const [alwaysShowOverlay, setAlwaysShowOverlay] = useState(false);
+  const [zoom, setZoom] = useState(() => calcZoom(ZOOM_FACTOR));
+  const panRef = useRef({ x: 0, y: 0 });
 
-  // Simplified agent tracking for demo mode
-  const [agents, setAgents] = useState<number[]>([]);
-  const [agentTools, setAgentTools] = useState<Record<number, ToolActivity[]>>({});
-  const demoTimerRef = useRef<(() => void) | null>(null);
-  const demoAgentIdsRef = useRef<number[]>([]);
+  useEffect(() => {
+    panRef.current = {
+      x: Math.round(PAN_X_FRAC * MAP_COLS * TILE_SIZE * zoom),
+      y: Math.round(PAN_Y_FRAC * MAP_ROWS * TILE_SIZE * zoom),
+    };
+  }, [zoom]);
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onResize = () => setZoom(calcZoom(ZOOM_FACTOR));
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
-  // ── Editor state + actions ────────────────────────────────────
-  const editor = useEditorActions(getOfficeState, editorState);
+  const simTimersRef = useRef<Map<number, ReturnType<typeof setInterval>>>(new Map());
+  const syncedPidsRef = useRef<Set<number>>(new Set());
+  const isDemoRef = useRef(false);
+  const zonesRef = useRef<Record<ZoneType, ActivityZone> | null>(null);
 
-  const isEditDirty = useCallback(
-    () => editor.isEditMode && editor.isDirty,
-    [editor.isEditMode, editor.isDirty],
-  );
+  const { workspacePath } = useWorkspace();
+  const { runtimes, start, stop, hasActiveRuntime } = useRuntimeMonitor();
 
-  // Keyboard shortcuts for editor
-  const [editorTickForKeyboard, setEditorTickForKeyboard] = useState(0);
-  useEditorKeyboard(
-    editor.isEditMode,
-    editorState,
-    editor.handleDeleteSelected,
-    editor.handleRotateSelected,
-    editor.handleToggleState,
-    editor.handleUndo,
-    editor.handleRedo,
-    useCallback(() => setEditorTickForKeyboard((n) => n + 1), []),
-    editor.handleToggleEditMode,
-  );
-
-  // Consume the keyboard tick to trigger re-renders
-  void editorTickForKeyboard;
-
-  // ── Layout & asset loading ────────────────────────────────────
+  // ── Initialize ────────────────────────────────────────────────
   useEffect(() => {
     let mounted = true;
 
     const init = async () => {
-      // Load layout from bundled asset
+      await loadAllSprites();
+      if (!mounted) return;
+
       let layout: OfficeLayout | null = null;
       try {
         const resp = await fetch('/assets/pixel/default-layout.json');
         if (resp.ok) {
-          const json = await resp.text();
-          layout = deserializeLayout(json);
+          layout = deserializeLayout(await resp.text());
         }
       } catch {
-        // Layout fetch failed, will use default
+        // Will use default
       }
 
       if (!mounted) return;
@@ -120,76 +202,208 @@ export const PixelAgentView: React.FC = () => {
       const office = getOfficeState();
       if (layout) {
         office.rebuildFromLayout(layout);
-        editor.setLastSavedLayout(layout);
       }
 
-      // ── Create demo agents ────────────────────────────────────
-      const agent1Id = 1;
-      const agent2Id = 2;
-      office.addAgent(agent1Id, 0, 0, undefined, true); // skip spawn for instant display
-      office.addAgent(agent2Id, 1, 45, undefined, true);
-      demoAgentIdsRef.current = [agent1Id, agent2Id];
-
-      setAgents([agent1Id, agent2Id]);
-
-      // Start demo simulation
-      const cleanup = startDemoSimulation(office, [agent1Id, agent2Id]);
-      demoTimerRef.current = cleanup;
+      zonesRef.current = computeActivityZones(
+        office.layout, office.tileMap, office.blockedTiles,
+      );
+      console.log('[zones]', Object.fromEntries(
+        Object.entries(zonesRef.current).map(([k, v]) => [k, v.tiles.length + ' tiles']),
+      ));
 
       setLayoutReady(true);
     };
 
     init();
+    return () => { mounted = false; };
+  }, []);
 
-    return () => {
-      mounted = false;
-      if (demoTimerRef.current) {
-        demoTimerRef.current();
+  // ── Runtime monitoring ────────────────────────────────────────
+  useEffect(() => {
+    start(workspacePath || '/dev/workspace');
+    return () => { stop(); };
+  }, [workspacePath, start, stop]);
+
+  // ── Real session tool polling (Tauri only) ────────────────────
+  // Reads the latest Claude Code JSONL session to extract the current tool.
+  // This drives pixel agent behavior from real data instead of simulation.
+  useEffect(() => {
+    if (!layoutReady || !zonesRef.current || !isTauri) return;
+
+    const office = getOfficeState();
+    const zones = zonesRef.current;
+    let lastTool: string | null = null;
+    let stopped = false;
+
+    const poll = async () => {
+      if (stopped) return;
+      // No real agents → nothing to do
+      if (syncedPidsRef.current.size === 0) return;
+
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const result = await invoke<DiscoveredSessionTool | null>(
+          'discover_session_tool',
+          { workspacePath: workspacePath || '' },
+        );
+
+        if (!result) return;
+        const tool = result.current_tool;
+
+        // Tool changed → route all real agents to the new zone
+        if (tool && tool !== lastTool) {
+          lastTool = tool;
+          console.log('[session] real tool:', tool, 'active:', result.is_active);
+
+          for (const pid of syncedPidsRef.current) {
+            const id = pidToAgentId(pid);
+            const ch = office.characters.get(id);
+            if (!ch) continue;
+            // Don't interrupt mid-walk
+            if (ch.state === 'walk') continue;
+
+            office.setAgentActive(id, true);
+            routeAgentToZone(office, id, tool, zones);
+          }
+        }
+
+        // Session went idle → let agents wander
+        if (!result.is_active && lastTool) {
+          for (const pid of syncedPidsRef.current) {
+            const id = pidToAgentId(pid);
+            const ch = office.characters.get(id);
+            if (ch && ch.isActive && ch.state !== 'walk') {
+              ch.workingAtZone = false;
+              office.setAgentActive(id, false);
+            }
+          }
+          lastTool = null;
+        }
+
+        // Session active again → reactivate
+        if (result.is_active && !lastTool && tool) {
+          lastTool = tool;
+          for (const pid of syncedPidsRef.current) {
+            const id = pidToAgentId(pid);
+            const ch = office.characters.get(id);
+            if (ch && !ch.isActive) {
+              office.setAgentActive(id, true);
+              routeAgentToZone(office, id, tool, zones);
+            }
+          }
+        }
+      } catch {
+        // Ignore — dev mode simulation handles fallback
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
-  // ── Handlers ──────────────────────────────────────────────────
-  const handleToggleDebugMode = useCallback(() => setIsDebugMode((prev) => !prev), []);
+    poll();
+    const interval = setInterval(poll, 6000);
+    return () => {
+      stopped = true;
+      clearInterval(interval);
+    };
+  }, [layoutReady, workspacePath]);
 
-  const handleToggleAlwaysShowOverlay = useCallback(() => {
-    setAlwaysShowOverlay((prev) => !prev);
-  }, []);
+  // ── Sync agents with runtimes ─────────────────────────────────
+  useEffect(() => {
+    if (!layoutReady || !zonesRef.current) return;
+    const office = getOfficeState();
+    const zones = zonesRef.current;
+    const activeRuntimes = runtimes.filter(r => r.status && r.status !== 'stopped');
 
-  const handleClick = useCallback((agentId: number) => {
-    // Select the agent in the office
-    const os = getOfficeState();
-    os.selectedAgentId = os.selectedAgentId === agentId ? null : agentId;
-  }, []);
+    // No active runtimes → clean up real agents, then start demo mode
+    if (activeRuntimes.length === 0) {
+      if (!isDemoRef.current) {
+        // Clean up all real agents and their simulation timers
+        for (const [, timer] of simTimersRef.current) clearInterval(timer);
+        simTimersRef.current.clear();
+        for (const pid of syncedPidsRef.current) {
+          const id = pidToAgentId(pid);
+          office.removeAgent(id);
+        }
+        syncedPidsRef.current.clear();
 
-  const handleCloseAgent = useCallback((_id: number) => {
-    // Demo mode: no-op (agents are not closable in demo)
-    console.log('[PixelAgent] closeAgent not available in demo mode');
+        // Transition to demo mode
+        isDemoRef.current = true;
+        const a1 = 1, a2 = 2;
+        office.addAgent(a1, 0, undefined, undefined, true);
+        office.addAgent(a2, 1, 45, undefined, true);
+        office.setAgentActive(a1, true);
+        office.setAgentActive(a2, true);
+        simTimersRef.current.set(a1, startToolCycling(office, a1, zones));
+        simTimersRef.current.set(a2, startToolCycling(office, a2, zones));
+      }
+      return;
+    }
+
+    // Stop demo mode
+    if (isDemoRef.current) {
+      console.log('[sync] Stopping demo mode');
+      for (const [, timer] of simTimersRef.current) clearInterval(timer);
+      simTimersRef.current.clear();
+      office.removeAgent(1);
+      office.removeAgent(2);
+      isDemoRef.current = false;
+      syncedPidsRef.current.clear();
+    }
+
+    const currentPids = new Set(syncedPidsRef.current);
+    const runtimePids = new Set(activeRuntimes.map(r => r.pid));
+
+    // Add new agents
+    for (const rt of activeRuntimes) {
+      const id = pidToAgentId(rt.pid);
+
+      if (!currentPids.has(rt.pid)) {
+        if (!office.characters.has(id)) {
+          office.addAgent(id, undefined, undefined, undefined, true);
+          office.setAgentActive(id, true);
+
+          // Only start simulation in dev mode.
+          // In Tauri mode, the real session polling drives tool routing.
+          if (!isTauri) {
+            simTimersRef.current.set(id, startToolCycling(office, id, zones));
+          } else {
+            // Initial placement at desk
+            routeAgentToZone(office, id, 'Bash', zones);
+          }
+
+          console.log('[sync] Added agent:', id, 'pid:', rt.pid);
+        }
+        syncedPidsRef.current.add(rt.pid);
+      } else if (!isTauri) {
+        // Dev mode: sync active state from runtime status
+        const ch = office.characters.get(id);
+        if (ch && ch.isActive !== (rt.status === 'running')) {
+          office.setAgentActive(id, rt.status === 'running');
+        }
+      }
+      // Tauri: active state is managed by session polling, not CPU status
+    }
+
+    // Remove stale agents
+    for (const pid of currentPids) {
+      if (!runtimePids.has(pid)) {
+        const id = pidToAgentId(pid);
+        const timer = simTimersRef.current.get(id);
+        if (timer) clearInterval(timer);
+        simTimersRef.current.delete(id);
+        office.removeAgent(id);
+        syncedPidsRef.current.delete(pid);
+      }
+    }
+  }, [runtimes, hasActiveRuntime, layoutReady]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      for (const [, timer] of simTimersRef.current) clearInterval(timer);
+      simTimersRef.current.clear();
+    };
   }, []);
 
   // ── Render ────────────────────────────────────────────────────
-  const officeState = getOfficeState();
-
-  // Show "Rotate (R)" hint when a rotatable item is selected or being placed
-  const showRotateHint =
-    editor.isEditMode &&
-    (() => {
-      if (editorState.selectedFurnitureUid) {
-        const item = officeState
-          .getLayout()
-          .furniture.find((f) => f.uid === editorState.selectedFurnitureUid);
-        if (item && isRotatable(item.type)) return true;
-      }
-      if (
-        editorState.activeTool === EditTool.FURNITURE_PLACE &&
-        isRotatable(editorState.selectedFurnitureType)
-      ) {
-        return true;
-      }
-      return false;
-    })();
-
   if (!layoutReady) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-[#1a1a2e]">
@@ -199,99 +413,19 @@ export const PixelAgentView: React.FC = () => {
   }
 
   return (
-    <div ref={containerRef} className="w-full h-full relative overflow-hidden">
+    <div className="w-full h-full relative overflow-hidden">
       <OfficeCanvas
-        officeState={officeState}
-        onClick={handleClick}
-        isEditMode={editor.isEditMode}
-        editorState={editorState}
-        onEditorTileAction={editor.handleEditorTileAction}
-        onEditorEraseAction={editor.handleEditorEraseAction}
-        onEditorSelectionChange={editor.handleEditorSelectionChange}
-        onDeleteSelected={editor.handleDeleteSelected}
-        onRotateSelected={editor.handleRotateSelected}
-        onDragMove={editor.handleDragMove}
-        editorTick={editor.editorTick}
-        zoom={editor.zoom}
-        onZoomChange={editor.handleZoomChange}
-        panRef={editor.panRef}
+        officeState={getOfficeState()}
+        onClick={() => {}}
+        zoom={zoom}
+        onZoomChange={() => {}}
+        panRef={panRef}
       />
 
-      {!isDebugMode && (
-        <>
-          <ZoomControls zoom={editor.zoom} onZoomChange={editor.handleZoomChange} />
-
-          {/* Vignette overlay */}
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{ background: 'var(--vignette)' }}
-          />
-
-          {showRotateHint && (
-            <div
-              className="absolute left-1/2 -translate-x-1/2 z-11 bg-accent-bright text-white text-sm py-3 px-8 rounded-none border-2 border-accent shadow-pixel pointer-events-none whitespace-nowrap"
-              style={{ top: editor.isDirty ? 64 : 8 }}
-            >
-              Rotate (R)
-            </div>
-          )}
-
-          {editor.isEditMode &&
-            (() => {
-              const selUid = editorState.selectedFurnitureUid;
-              const selColor = selUid
-                ? (officeState.getLayout().furniture.find((f) => f.uid === selUid)?.color ?? null)
-                : null;
-              return (
-                <EditorToolbar
-                  activeTool={editorState.activeTool}
-                  selectedTileType={editorState.selectedTileType}
-                  selectedFurnitureType={editorState.selectedFurnitureType}
-                  selectedFurnitureUid={selUid}
-                  selectedFurnitureColor={selColor}
-                  floorColor={editorState.floorColor}
-                  wallColor={editorState.wallColor}
-                  selectedWallSet={editorState.selectedWallSet}
-                  onToolChange={editor.handleToolChange}
-                  onTileTypeChange={editor.handleTileTypeChange}
-                  onFloorColorChange={editor.handleFloorColorChange}
-                  onWallColorChange={editor.handleWallColorChange}
-                  onWallSetChange={editor.handleWallSetChange}
-                  onSelectedFurnitureColorChange={editor.handleSelectedFurnitureColorChange}
-                  onFurnitureTypeChange={editor.handleFurnitureTypeChange}
-                />
-              );
-            })()}
-
-          <ToolOverlay
-            officeState={officeState}
-            agents={agents}
-            agentTools={agentTools}
-            subagentCharacters={[]}
-            containerRef={containerRef}
-            zoom={editor.zoom}
-            panRef={editor.panRef}
-            onCloseAgent={handleCloseAgent}
-            alwaysShowOverlay={alwaysShowOverlay}
-          />
-        </>
-      )}
-
-      <BottomToolbar
-        isEditMode={editor.isEditMode}
-        onOpenClaude={editor.handleOpenClaude}
-        onToggleEditMode={editor.handleToggleEditMode}
-        isSettingsOpen={isSettingsOpen}
-        onToggleSettings={() => setIsSettingsOpen((v) => !v)}
-      />
-
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        isDebugMode={isDebugMode}
-        onToggleDebugMode={handleToggleDebugMode}
-        alwaysShowOverlay={alwaysShowOverlay}
-        onToggleAlwaysShowOverlay={handleToggleAlwaysShowOverlay}
+      {/* Vignette overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: 'var(--vignette)' }}
       />
     </div>
   );

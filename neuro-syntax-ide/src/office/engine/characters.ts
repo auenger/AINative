@@ -84,6 +84,7 @@ export function createCharacter(
     matrixEffect: null,
     matrixEffectTimer: 0,
     matrixEffectSeeds: [],
+    workingAtZone: false,
   };
 }
 
@@ -126,8 +127,8 @@ export function updateCharacter(
       if (ch.seatTimer < 0) ch.seatTimer = 0; // clear turn-end sentinel
       // If became active, pathfind to seat
       if (ch.isActive) {
-        if (!ch.seatId) {
-          // No seat assigned — type in place
+        if (!ch.seatId || ch.workingAtZone) {
+          // No seat or working at zone — type/read in place
           ch.state = CharacterState.TYPE;
           ch.frame = 0;
           ch.frameTimer = 0;
@@ -222,8 +223,8 @@ export function updateCharacter(
         ch.y = center.y;
 
         if (ch.isActive) {
-          if (!ch.seatId) {
-            // No seat — type in place
+          if (!ch.seatId || ch.workingAtZone) {
+            // No seat or at zone — type/read in place
             ch.state = CharacterState.TYPE;
           } else {
             const seat = seats.get(ch.seatId);
@@ -288,8 +289,8 @@ export function updateCharacter(
         ch.moveProgress = 0;
       }
 
-      // If became active while wandering, repath to seat
-      if (ch.isActive && ch.seatId) {
+      // If became active while wandering, repath to seat (skip if working at zone)
+      if (ch.isActive && ch.seatId && !ch.workingAtZone) {
         const seat = seats.get(ch.seatId);
         if (seat) {
           const lastStep = ch.path[ch.path.length - 1];

@@ -105,12 +105,31 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
     return () => document.removeEventListener('mousedown', handler);
   }, [showRuntimes]);
 
-  // Poll active sessions per runtime every 3s (feat-runtime-output-polish)
+  // Poll active sessions per runtime every 6s (feat-runtime-output-polish)
+  // Uses refs for frequently-changing data so the effect doesn't restart on every render.
+  const runtimesRef = useRef(runtimes);
+  runtimesRef.current = runtimes;
+  const activeRuntimesRef = useRef(activeRuntimes);
+  activeRuntimesRef.current = activeRuntimes;
+
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
+    let stopped = false;
     const poll = async () => {
+      if (stopped) return;
+      // Only poll for runtimes that have running processes
+      const currentActive = activeRuntimesRef.current;
+      const currentRuntimes = runtimesRef.current;
+      const activeRuntimeIds = new Set(currentActive.map(ar => ar.runtime_id));
+      const pollable = currentRuntimes.filter(rt => activeRuntimeIds.has(rt.id));
+
+      if (pollable.length === 0) {
+        setActiveSessions({});
+        return;
+      }
+
       const results: Record<string, ActiveSessionInfo | null> = {};
-      for (const rt of runtimes) {
+      for (const rt of pollable) {
         try {
           const info = await invoke<ActiveSessionInfo | null>('get_active_session', { runtimeId: rt.id });
           results[rt.id] = info;
@@ -118,14 +137,15 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
           results[rt.id] = null;
         }
       }
-      setActiveSessions(results);
+      if (!stopped) setActiveSessions(results);
     };
     poll();
-    interval = setInterval(poll, 3000);
+    interval = setInterval(poll, 6000);
     return () => {
+      stopped = true;
       if (interval) clearInterval(interval);
     };
-  }, [runtimes]);
+  }, []); // Empty deps — interval runs at fixed 6s regardless of runtime updates
 
   // Group active processes by runtime_id (multiple processes may share same id)
   const activeByRuntimeId = new Map<string, RuntimeProcessInfo[]>();
