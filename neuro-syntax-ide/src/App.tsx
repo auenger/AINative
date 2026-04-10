@@ -60,7 +60,7 @@ const App: React.FC = () => {
               <EditorView workspace={workspace} />
             </div>
             <div className={cn("absolute inset-0 overflow-hidden", activeView === 'tasks' ? 'flex' : 'hidden')}>
-              <TaskBoard />
+              <TaskBoard activeView={activeView} workspacePath={workspace.workspacePath} />
             </div>
             <div className={cn("absolute inset-0 overflow-hidden", activeView === 'workflow' ? 'flex' : 'hidden')}>
               <WorkflowEditor />

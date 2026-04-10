@@ -310,6 +310,14 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
     return !!provider?.api_key;
   }, [settings.providers]);
 
+  /** Check if ANY provider has an API key configured */
+  const anyProviderHasApiKey = useMemo(() => {
+    return Object.values(settings.providers || {}).some(p => !!p.api_key);
+  }, [settings.providers]);
+
+  /** Check if current PM agent provider has API key in settings */
+  const pmProviderReady = hasProviderApiKey(pmAgent.runtimeId);
+
   /** Handle PM provider switch */
   const handlePmProviderSwitch = useCallback((providerId: string) => {
     setPmProviderOverride(providerId === defaultProvider ? null : providerId);
@@ -829,8 +837,8 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
         )}
       </AnimatePresence>
 
-      {/* API Key prompt banner */}
-      {workspacePath && pmAgent.apiKeyConfigured === false && !pmAgent.isStreaming && (
+      {/* API Key prompt banner — only when NO provider has an api_key */}
+      {workspacePath && !anyProviderHasApiKey && !pmAgent.isStreaming && (
         <div className="px-6 py-2 bg-warning/10 border-b border-warning/20 text-xs text-warning flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Key size={12} />
@@ -980,34 +988,37 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                         )}
                       </div>
                       {/* API Key warning for current provider */}
-                      {!hasProviderApiKey(pmAgent.runtimeId) && settings.providers?.[pmAgent.runtimeId] && (
+                      {!pmProviderReady && settings.providers?.[pmAgent.runtimeId] && (
                         <span className="text-[8px] text-warning bg-warning/10 px-1.5 py-0.5 rounded whitespace-nowrap">No Key</span>
                       )}
-                      {/* Connection status */}
+                      {/* Connection status — use settings-based key check */}
                       <div className={cn(
                         "flex items-center gap-1.5 px-2 py-0.5 rounded-full",
-                        pmAgent.apiKeyConfigured
+                        pmProviderReady
                           ? "bg-tertiary/10"
                           : "bg-outline-variant/10"
                       )}>
                         <div className={cn(
                           "w-1.5 h-1.5 rounded-full",
-                          pmAgent.apiKeyConfigured ? "bg-tertiary animate-pulse" : "bg-outline-variant"
+                          pmProviderReady ? "bg-tertiary animate-pulse" : "bg-outline-variant"
                         )}></div>
                         <span className={cn(
                           "text-[9px] font-bold uppercase tracking-tighter",
-                          pmAgent.apiKeyConfigured ? "text-tertiary" : "text-outline"
+                          pmProviderReady ? "text-tertiary" : "text-outline"
                         )}>
-                          {pmAgent.isStreaming ? 'Thinking...' : pmAgent.apiKeyConfigured ? 'Active' : 'No Key'}
+                          {pmAgent.isStreaming ? 'Thinking...' : pmProviderReady ? 'Active' : 'No Key'}
                         </span>
                       </div>
-                      <button
-                        onClick={() => setShowApiKeyModal(true)}
-                        className="p-1 text-on-surface-variant hover:text-primary transition-colors"
-                        title="API Key Settings"
-                      >
-                        <Key size={12} />
-                      </button>
+                      {/* Key settings button — only show when provider not ready */}
+                      {!pmProviderReady && (
+                        <button
+                          onClick={() => setShowApiKeyModal(true)}
+                          className="p-1 text-on-surface-variant hover:text-primary transition-colors"
+                          title="API Key Settings"
+                        >
+                          <Key size={12} />
+                        </button>
+                      )}
                     </div>
                   </div>
 

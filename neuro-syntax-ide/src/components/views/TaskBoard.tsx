@@ -283,9 +283,21 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ feature, allFeatures, onClick
 // TaskBoard Component
 // ---------------------------------------------------------------------------
 
-export const TaskBoard: React.FC = () => {
+interface TaskBoardProps {
+  activeView: string;
+  workspacePath: string;
+}
+
+export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath }) => {
   const { t } = useTranslation();
   const { queueState, loading, error, refresh, moveTask, readDetail } = useQueueData();
+
+  // Auto-refresh when workspace becomes available or when switching to tasks tab
+  useEffect(() => {
+    if (workspacePath && activeView === 'tasks') {
+      refresh();
+    }
+  }, [workspacePath, activeView, refresh]);
 
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [selectedFeature, setSelectedFeature] = useState<FeatureNode | null>(null);

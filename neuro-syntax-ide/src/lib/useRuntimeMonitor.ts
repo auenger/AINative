@@ -74,10 +74,13 @@ export function useRuntimeMonitor(): RuntimeMonitorState {
   }, []);
 
   const start = useCallback(async (workspacePath: string) => {
+    // Prevent double-starting
+    if (isMonitoringRef.current) return;
+    isMonitoringRef.current = true;
+
     if (!isTauri) {
       // Dev fallback: simulate monitoring with periodic updates
       setIsMonitoring(true);
-      isMonitoringRef.current = true;
 
       // Simulate initial state
       setRuntimes([

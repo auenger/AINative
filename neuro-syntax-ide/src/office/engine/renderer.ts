@@ -96,7 +96,21 @@ export function renderTileGrid(
       const color = tileColors?.[colorIdx] ?? { h: 0, s: 0, b: 0, c: 0 };
       const sprite = getColorizedFloorSprite(tile, color);
       const cached = getCachedSprite(sprite, zoom);
-      ctx.drawImage(cached, offsetX + c * s, offsetY + r * s);
+      if (cached.width > 0 && cached.height > 0) {
+        try {
+          ctx.drawImage(cached, offsetX + c * s, offsetY + r * s);
+        } catch (err: any) {
+          if (err?.name !== 'InvalidStateError') {
+            console.error('[renderer] drawImage floor error:', err, {
+              tile,
+              spriteRows: sprite.length,
+              spriteCols: sprite[0]?.length,
+              cachedSize: { w: cached.width, h: cached.height },
+              zoom,
+            });
+          }
+        }
+      }
     }
   }
 }
@@ -208,7 +222,13 @@ export function renderScene(
   drawables.sort((a, b) => a.zY - b.zY);
 
   for (const d of drawables) {
-    d.draw(ctx);
+    try {
+      d.draw(ctx);
+    } catch (err: any) {
+      if (err?.name !== 'InvalidStateError') {
+        console.error('[renderer] drawable error:', err, { zY: d.zY });
+      }
+    }
   }
 }
 
@@ -585,6 +605,9 @@ export function renderFrame(
 ): { offsetX: number; offsetY: number } {
   // Clear
   ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+  // Guard: don't render if canvas has zero dimensions
+  if (canvasWidth <= 0 || canvasHeight <= 0) return { offsetX: 0, offsetY: 0 };
 
   // Use layout dimensions (fallback to tileMap size)
   const cols = layoutCols ?? (tileMap.length > 0 ? tileMap[0].length : 0);
