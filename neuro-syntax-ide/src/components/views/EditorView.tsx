@@ -375,6 +375,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
   ]);
   const [activeTabId, setActiveTabId] = useState('term-0');
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const termTabScrollRef = useRef<HTMLDivElement>(null);
 
   // Close add-terminal dropdown when clicking outside
   useEffect(() => {
@@ -388,6 +389,22 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [showAddMenu]);
+
+  // Auto-scroll terminal tabs when activeTabId changes (scroll to active tab)
+  useEffect(() => {
+    if (!termTabScrollRef.current || !activeTabId) return;
+    const idx = tabs.findIndex((t) => t.id === activeTabId);
+    if (idx < 0) return;
+    requestAnimationFrame(() => {
+      const container = termTabScrollRef.current;
+      if (!container) return;
+      const tabEls = container.querySelectorAll('[data-term-tab]');
+      const target = tabEls[idx] as HTMLElement | undefined;
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+      }
+    });
+  }, [activeTabId, tabs]);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0];
 
@@ -653,8 +670,8 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
 
   const closeTab = useCallback((tabId: string) => {
     setTabs((prev) => {
-      const idx = prev.findIndex((t) => t.id === tabId);
-      const next = prev.filter((t) => t.id !== tabId);
+      const idx = prev.findIndex((tb) => tb.id === tabId);
+      const next = prev.filter((tb) => tb.id !== tabId);
       if (next.length === 0) {
         _tabCounter += 1;
         const fallback: TerminalTab = {
@@ -1341,11 +1358,12 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                 <div className="w-8 h-0.5 rounded-full bg-outline-variant/30" />
               </div>
               {/* Tab bar */}
-              <div className="h-9 bg-surface-container-low flex items-center px-2 justify-between border-b border-outline-variant/10">
-                <div className="flex items-center h-full overflow-x-auto scroll-hide">
+              <div className="h-9 bg-surface-container-low flex items-center px-2 justify-between border-b border-outline-variant/10 relative">
+                <div ref={termTabScrollRef} className="flex items-center h-full overflow-x-auto scroll-hide flex-1 min-w-0">
                   {tabs.map((tab) => (
                     <button
                       key={tab.id}
+                      data-term-tab
                       onClick={() => setActiveTabId(tab.id)}
                       className={cn(
                         "relative flex items-center gap-1.5 h-full px-3 text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap",
@@ -1371,41 +1389,44 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                       )}
                     </button>
                   ))}
+                </div>
 
-                  {/* "+" button to add new terminals — click-toggled dropdown */}
-                  <div className="relative" data-add-menu>
-                    <button
-                      onClick={() => setShowAddMenu((prev) => !prev)}
-                      className="flex items-center justify-center h-full px-2 text-outline opacity-50 hover:opacity-100 transition-opacity"
-                    >
-                      <Plus size={14} />
-                    </button>
-                    {showAddMenu && (
-                      <div className="absolute left-0 top-full bg-surface-container-high border border-outline-variant/20 rounded shadow-lg py-1 z-50 min-w-[140px]">
-                        <button
-                          onClick={() => { addTab('bash'); setShowAddMenu(false); }}
-                          className="flex items-center gap-2 w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface transition-colors"
-                        >
-                          <TerminalIcon size={12} className="text-primary" />
-                          Bash
-                        </button>
-                        <button
-                          onClick={() => { addTab('claude'); setShowAddMenu(false); }}
-                          className="flex items-center gap-2 w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface transition-colors"
-                        >
-                          <Bot size={12} className="text-secondary" />
-                          Claude CLI
-                        </button>
-                        <button
-                          onClick={() => { addTab('gemini'); setShowAddMenu(false); }}
-                          className="flex items-center gap-2 w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface transition-colors"
-                        >
-                          <Sparkles size={12} className="text-[color:var(--t-blue-400)]" />
-                          Gemini CLI
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                {/* "+" button to add new terminals — placed outside scroll container so dropdown is not clipped */}
+                <div className="relative shrink-0" data-add-menu>
+                  <button
+                    onClick={() => setShowAddMenu((prev) => !prev)}
+                    className="flex items-center justify-center h-full px-2 text-outline opacity-50 hover:opacity-100 transition-opacity"
+                  >
+                    <Plus size={14} />
+                  </button>
+                  {showAddMenu && (
+                    <div className="absolute right-0 top-full bg-surface-container-high border border-outline-variant/20 rounded shadow-lg py-1 z-50 min-w-[140px]">
+                      <button
+                        onClick={() => { addTab('bash'); setShowAddMenu(false); }}
+                        className="flex items-center gap-2 w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface transition-colors"
+                      >
+                        <TerminalIcon size={12} className="text-primary" />
+                        Bash
+                      </button>
+                      <button
+                        onClick={() => { addTab('claude'); setShowAddMenu(false); }}
+                        className="flex items-center gap-2 w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface transition-colors"
+                      >
+                        <Bot size={12} className="text-secondary" />
+                        Claude CLI
+                      </button>
+                      <button
+                        onClick={() => { addTab('gemini'); setShowAddMenu(false); }}
+                        className="flex items-center gap-2 w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface transition-colors"
+                      >
+                        <Sparkles size={12} className="text-[color:var(--t-blue-400)]" />
+                        Gemini CLI
+                      </button>
+                    </div>
+                  )}
+                  {showAddMenu && (
+                    <div className="fixed inset-0 z-40" onClick={() => setShowAddMenu(false)} />
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0 pl-4">
