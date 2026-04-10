@@ -84,7 +84,9 @@ const resources = {
         unsavedTitle: 'Unsaved changes',
         unsavedMessage: 'has unsaved changes. Close anyway?',
         closeAnyway: 'Close',
-        cancel: 'Cancel'
+        cancel: 'Cancel',
+        refreshTree: 'Refresh file tree',
+        openTerminal: 'Show Terminal'
       },
       tasks: {
         title: 'Task Board',
@@ -133,6 +135,44 @@ const resources = {
         temperature: 'Temperature',
         maxTokens: 'Max Tokens',
         contextWindow: 'Context Window',
+      },
+      time: {
+        justNow: 'Just now',
+        minutesAgo: '{{min}} minutes ago',
+        today: 'Today {{time}}',
+        yesterday: 'Yesterday {{time}}',
+        queueUpdatedAt: 'Queue updated at {{time}}'
+      },
+      agent: {
+        greetReqAgent: "Hello! I'm the Requirements Analysis Agent. I can help you analyze and document software requirements. Tell me what feature you'd like to build?",
+        copyCommand: 'Copy install command',
+        myAgent: 'My Agent',
+        newAgentHint: 'Click "New Agent" to create your first agent',
+        newPipelineHint: 'Click "New Pipeline" to create your first pipeline'
+      },
+      upload: {
+        analyzeAll: 'Analyze All',
+        analyzing: 'Analyzing...',
+        analyzeFiles: 'Analyze all files',
+        analyzeFile: 'Analyze this file',
+        deleteFile: 'Delete file',
+        confirmDelete: 'Click again to confirm delete',
+        attachFiles: 'Attach files',
+        dropFiles: 'Drop files to upload'
+      },
+      output: {
+        clearClose: 'Clear output and close',
+        close: 'Close',
+        loadingSession: 'Loading session output...',
+        noOutput: 'No output available.'
+      },
+      pipeline: {
+        name: 'Pipeline Name',
+        autoLayout: 'Auto Layout',
+        deleteStage: 'Delete Stage',
+        addStageHint: 'Click "Add Stage" in the left panel to get started',
+        visual: 'Visual',
+        analysisStage: 'Analysis Stage'
       }
     }
   },
@@ -217,7 +257,9 @@ const resources = {
         unsavedTitle: '未保存的更改',
         unsavedMessage: '有未保存的更改。确定关闭？',
         closeAnyway: '关闭',
-        cancel: '取消'
+        cancel: '取消',
+        refreshTree: '刷新文件树',
+        openTerminal: '显示终端'
       },
       tasks: {
         title: '任务板',
@@ -266,6 +308,44 @@ const resources = {
         temperature: '温度',
         maxTokens: '最大 Token 数',
         contextWindow: '上下文窗口',
+      },
+      time: {
+        justNow: '刚刚',
+        minutesAgo: '{{min}} 分钟前',
+        today: '今天 {{time}}',
+        yesterday: '昨天 {{time}}',
+        queueUpdatedAt: '队列更新于 {{time}}'
+      },
+      agent: {
+        greetReqAgent: '你好！我是需求分析 Agent。我可以帮你分析和文档化软件需求。告诉我你想构建什么功能？',
+        copyCommand: '复制安装命令',
+        myAgent: '我的 Agent',
+        newAgentHint: '点击"新建 Agent"创建第一个代理',
+        newPipelineHint: '点击"新建 Pipeline"创建第一个流水线'
+      },
+      upload: {
+        analyzeAll: '分析全部',
+        analyzing: '分析中...',
+        analyzeFiles: '分析所有文件',
+        analyzeFile: '分析此文件',
+        deleteFile: '删除文件',
+        confirmDelete: '再次点击确认删除',
+        attachFiles: '添加文件',
+        dropFiles: '拖放文件以上传'
+      },
+      output: {
+        clearClose: '清除输出并关闭',
+        close: '关闭',
+        loadingSession: '正在加载会话输出...',
+        noOutput: '暂无输出。'
+      },
+      pipeline: {
+        name: '流水线名称',
+        autoLayout: '自动布局',
+        deleteStage: '删除阶段',
+        addStageHint: '点击左侧面板的"添加阶段"开始',
+        visual: '可视化',
+        analysisStage: '分析阶段'
       }
     }
   }

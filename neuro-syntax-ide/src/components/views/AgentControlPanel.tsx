@@ -33,6 +33,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useTranslation } from 'react-i18next';
 import { useAgentRuntimes } from '../../lib/useAgentRuntimes';
 import { usePipelineEngine } from '../../lib/usePipelineEngine';
 import { useSmartRouter } from '../../lib/useSmartRouter';
@@ -749,6 +750,8 @@ const RoutingRuleEditor: React.FC<RoutingRuleEditorProps> = ({ rules, defaultRun
 // ---------------------------------------------------------------------------
 
 export const AgentControlPanel: React.FC = () => {
+  // --- i18n ---
+  const { t } = useTranslation();
   // --- State ---
   const [activeTab, setActiveTab] = useState<PanelTab>('runtimes');
   const [showCreator, setShowCreator] = useState(false);
@@ -955,8 +958,8 @@ export const AgentControlPanel: React.FC = () => {
               {agentConfigsState.agents.length === 0 && !showCreator && (
                 <div className="text-center py-12 text-on-surface-variant opacity-50">
                   <Bot size={32} className="mx-auto mb-2 opacity-30" />
-                  <p className="text-xs">No agents configured</p>
-                  <p className="text-[10px] mt-1">Click "New Agent" to create your first agent</p>
+                  <p className="text-xs">{t('agent.myAgent')}</p>
+                  <p className="text-[10px] mt-1">{t('agent.newAgentHint')}</p>
                 </div>
               )}
             </div>

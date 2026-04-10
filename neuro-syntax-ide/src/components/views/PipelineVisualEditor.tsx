@@ -15,6 +15,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useTranslation } from 'react-i18next';
 import type {
   PipelineConfig,
   PipelineStageConfig,
@@ -234,6 +235,7 @@ export const PipelineVisualEditor: React.FC<PipelineVisualEditorProps> = ({
   onDelete,
   onCancel,
 }) => {
+  const { t } = useTranslation();
   // --- Pipeline metadata state ---
   const [pipelineId, setPipelineId] = useState(initialConfig?.id ?? '');
   const [pipelineName, setPipelineName] = useState(initialConfig?.name ?? '');
@@ -481,7 +483,7 @@ export const PipelineVisualEditor: React.FC<PipelineVisualEditorProps> = ({
           />
           <input
             type="text"
-            placeholder="Pipeline Name"
+            placeholder={t('pipeline.name')}
             value={pipelineName}
             onChange={e => setPipelineName(e.target.value)}
             className="flex-1 max-w-xs bg-surface-container-lowest border border-outline-variant/30 text-xs text-on-surface p-1.5 rounded-sm focus:ring-1 focus:ring-primary focus:outline-none"
@@ -499,7 +501,7 @@ export const PipelineVisualEditor: React.FC<PipelineVisualEditorProps> = ({
           <button
             onClick={handleAutoLayout}
             className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant hover:bg-surface-container-high rounded-sm transition-colors"
-            title="Auto Layout"
+            title={t('pipeline.autoLayout')}
           >
             <Maximize size={12} />
             Layout
@@ -628,7 +630,7 @@ export const PipelineVisualEditor: React.FC<PipelineVisualEditorProps> = ({
                       left: node.position.x + NODE_WIDTH - 8,
                       top: node.position.y - 8,
                     }}
-                    title="Delete Stage"
+                    title={t('pipeline.deleteStage')}
                   >
                     <Trash2 size={10} />
                   </button>
