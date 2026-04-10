@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-09T21:00:00Z'
+  last_updated: '2026-04-10T19:15:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -23,6 +23,10 @@ active: []
 pending: []
 blocked: []
 completed:
+- id: fix-terminal-add-tab
+  name: 终端 Tab 新增与切换修复
+  completed_at: '2026-04-10T19:15:00Z'
+  tag: fix-terminal-add-tab-20260410
 - id: feat-pixel-observatory-rework
   name: Pixel Agent Observatory 100% 复刻（MIT Reference 直接移植）
   completed_at: '2026-04-09T21:00:00Z'

@@ -1,10 +1,34 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-09T21:00:00Z"
+  last_updated: "2026-04-10T19:15:00Z"
   version: 1
-  total_completed: 84
+  total_completed: 85
 
 records:
+  - id: fix-terminal-add-tab
+    name: "终端 Tab 新增与切换修复"
+    completed_at: "2026-04-10T19:15:00Z"
+    tag: fix-terminal-add-tab-20260410
+    merge_commit: eacbfb7
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/fix-terminal-add-tab
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-fix-terminal-add-tab
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 6
+      scenarios_passed: 6
+    stats:
+      started: "2026-04-10T12:00:00Z"
+      duration: "~7h"
+      commits: 1
+      files_changed: 1
+    archive_path: features/archive/done-fix-terminal-add-tab-20260410
+
   - id: feat-pixel-observatory-rework
     name: "Pixel Agent Observatory 100% 复刻（MIT Reference 直接移植）"
     completed_at: "2026-04-09T21:00:00Z"
