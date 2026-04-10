@@ -1000,8 +1000,8 @@ export const AgentControlPanel: React.FC = () => {
                 {pipelineState.pipelineIds.length === 0 && (
                   <div className="text-center py-8 text-on-surface-variant opacity-50">
                     <Layers size={24} className="mx-auto mb-2 opacity-30" />
-                    <p className="text-xs">No pipelines configured</p>
-                    <p className="text-[10px] mt-1">Click "New Pipeline" to create your first pipeline</p>
+                    <p className="text-xs">{t('pipeline.noPipelines', 'No pipelines configured')}</p>
+                    <p className="text-[10px] mt-1">{t('agent.newPipelineHint')}</p>
                   </div>
                 )}
               </div>
