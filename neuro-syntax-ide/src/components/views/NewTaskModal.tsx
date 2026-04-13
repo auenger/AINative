@@ -12,6 +12,8 @@ import {
   Sparkles,
   AlertCircle,
   RefreshCw,
+  Send,
+  MessageSquare,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
@@ -79,11 +81,14 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
 
   // Agent chat for built-in PM Agent
   const {
+    messages,
+    sendMessage,
     generateFeaturePlan,
     createFeature,
     apiKeyConfigured,
     isStreaming,
     error: chatError,
+    clearChat,
   } = useAgentChat();
 
   // Step state
@@ -101,6 +106,19 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
 
   // Streaming text ref for external runtime path
   const streamingRef = useRef<string>('');
+
+  // Chat panel state (PM Agent path)
+  const [chatInput, setChatInput] = useState('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll chat to bottom on new messages
+  // (selectedAgentId is used instead of selectedAgent to avoid hoisting issues)
+  const isBuiltInAgent = selectedAgentId === 'pm-agent';
+  useEffect(() => {
+    if (step === 'input-requirement' && isBuiltInAgent) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, step, isBuiltInAgent]);
 
   // Modal drag state
   const [modalPos, setModalPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -245,9 +263,19 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
   }, [step]);
 
   const handleExecute = useCallback(async () => {
-    if (!requirementText.trim()) {
-      setValidationError('Please describe your feature requirement');
-      return;
+    // Validate based on path
+    if (selectedAgent?.isBuiltIn) {
+      // PM Agent path: need at least 1 round of conversation
+      const userMessages = messages.filter(m => m.role === 'user');
+      if (userMessages.length === 0) {
+        setValidationError('Please chat with the PM Agent before creating a feature');
+        return;
+      }
+    } else {
+      if (!requirementText.trim()) {
+        setValidationError('Please describe your feature requirement');
+        return;
+      }
     }
     setValidationError(null);
     setStep('executing');
@@ -259,10 +287,10 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
 
     try {
       if (selectedAgent?.isBuiltIn) {
-        // Built-in PM Agent path: generate plan -> create feature in FS
-        setStreamingOutput('Analyzing requirements...\n');
+        // Built-in PM Agent path: generate plan from chat context -> create feature in FS
+        setStreamingOutput('Analyzing conversation context...\n');
 
-        const plan = await generateFeaturePlan(requirementText.trim());
+        const plan = await generateFeaturePlan(messages);
 
         if (!plan) {
           setExecError('Failed to generate feature plan. Please check your API key configuration.');
@@ -363,7 +391,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
     } catch (e: any) {
       setExecError(e?.toString() ?? 'An unexpected error occurred during execution');
     }
-  }, [selectedAgent, selectedAgentId, requirementText, generateFeaturePlan, createFeature]);
+  }, [selectedAgent, selectedAgentId, requirementText, messages, generateFeaturePlan, createFeature]);
 
   const handleClose = useCallback(() => {
     // Reset state
@@ -377,12 +405,14 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
     setFeatureCreated(false);
     setCreatedFeatureId(null);
     setModalPos({ x: 0, y: 0 });
+    setChatInput('');
+    clearChat();
 
     if (featureCreated && onFeatureCreated) {
       onFeatureCreated();
     }
     onClose();
-  }, [featureCreated, onFeatureCreated, onClose]);
+  }, [featureCreated, onFeatureCreated, onClose, clearChat]);
 
   // -----------------------------------------------------------------------
   // Render helpers
@@ -599,45 +629,168 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
                     {selectedAgent && <selectedAgent.icon size={14} className="text-primary" />}
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-on-surface">Describe Your Requirement</h4>
+                    <h4 className="text-sm font-bold text-on-surface">
+                      {selectedAgent?.isBuiltIn ? 'Chat About Your Requirement' : 'Describe Your Requirement'}
+                    </h4>
                     <p className="text-[10px] text-on-surface-variant">
-                      Using {selectedAgent?.name} to analyze your feature request
+                      {selectedAgent?.isBuiltIn
+                        ? 'Describe your feature and the PM Agent will ask clarifying questions'
+                        : `Using ${selectedAgent?.name} to analyze your feature request`}
                     </p>
                   </div>
                 </div>
 
-                <div>
-                  <textarea
-                    value={requirementText}
-                    onChange={e => {
-                      setRequirementText(e.target.value);
-                      if (validationError) setValidationError(null);
-                    }}
-                    placeholder="Describe the feature you want to build...&#10;&#10;Example: Add a user authentication system with login, registration, and password recovery features"
-                    className={cn(
-                      'w-full h-40 px-4 py-3 rounded-lg text-sm bg-surface-container-high text-on-surface',
-                      'border border-outline-variant/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/30',
-                      'placeholder:text-on-surface-variant/40 resize-none outline-none transition-all',
-                      'font-body',
+                {/* PM Agent path: Chat panel */}
+                {selectedAgent?.isBuiltIn ? (
+                  <div className="flex flex-col gap-3">
+                    {/* API key warning */}
+                    {!apiKeyConfigured && (
+                      <div className="rounded-lg bg-warning/10 border border-warning/20 px-3 py-2">
+                        <span className="text-[10px] text-warning font-medium">
+                          API Key not configured — configure in Settings to use PM Agent chat
+                        </span>
+                      </div>
                     )}
-                    autoFocus
-                  />
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-[9px] text-on-surface-variant">
-                      {requirementText.length} characters
-                    </span>
-                    {selectedAgent?.isBuiltIn && !apiKeyConfigured && (
-                      <span className="text-[9px] text-warning font-medium">
-                        API Key not configured — configure in Settings
-                      </span>
-                    )}
-                  </div>
-                </div>
 
+                    {/* Messages list */}
+                    <div className="flex-1 min-h-[200px] max-h-[320px] overflow-y-auto rounded-lg bg-surface-container-high border border-outline-variant/10 p-3 space-y-3">
+                      {messages.map((msg, idx) => (
+                        <div
+                          key={idx}
+                          className={cn(
+                            'flex gap-2',
+                            msg.role === 'user' ? 'justify-end' : 'justify-start',
+                          )}
+                        >
+                          {msg.role === 'assistant' && (
+                            <div className="shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center mt-0.5">
+                              <Bot size={12} className="text-primary" />
+                            </div>
+                          )}
+                          <div
+                            className={cn(
+                              'max-w-[80%] rounded-lg px-3 py-2 text-[11px] leading-relaxed',
+                              msg.role === 'user'
+                                ? 'bg-primary text-on-primary'
+                                : 'bg-surface-container-highest text-on-surface-variant border border-outline-variant/10',
+                            )}
+                          >
+                            {msg.role === 'assistant' ? (
+                              <MarkdownRenderer content={msg.content} />
+                            ) : (
+                              <span className="whitespace-pre-wrap">{msg.content}</span>
+                            )}
+                          </div>
+                          {msg.role === 'user' && (
+                            <div className="shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
+                              <MessageSquare size={12} className="text-primary" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {/* Streaming indicator */}
+                      {isStreaming && (
+                        <div className="flex gap-2 justify-start">
+                          <div className="shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center mt-0.5">
+                            <Bot size={12} className="text-primary" />
+                          </div>
+                          <div className="max-w-[80%] rounded-lg px-3 py-2 text-[11px] bg-surface-container-highest text-on-surface-variant border border-outline-variant/10">
+                            <span className="inline-block w-1.5 h-3 bg-primary/60 animate-pulse rounded-sm" />
+                          </div>
+                        </div>
+                      )}
+                      <div ref={chatEndRef} />
+                    </div>
+
+                    {/* Chat input */}
+                    <div className="flex gap-2">
+                      <textarea
+                        value={chatInput}
+                        onChange={e => {
+                          setChatInput(e.target.value);
+                          if (validationError) setValidationError(null);
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            if (chatInput.trim() && !isStreaming) {
+                              sendMessage(chatInput.trim());
+                              setChatInput('');
+                            }
+                          }
+                        }}
+                        placeholder="Describe your feature... (Enter to send, Shift+Enter for new line)"
+                        disabled={isStreaming}
+                        className={cn(
+                          'flex-1 px-3 py-2 rounded-lg text-[11px] bg-surface-container-high text-on-surface',
+                          'border border-outline-variant/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/30',
+                          'placeholder:text-on-surface-variant/40 resize-none outline-none transition-all',
+                          'font-body min-h-[36px] max-h-[80px]',
+                          isStreaming && 'opacity-50',
+                        )}
+                        rows={1}
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => {
+                          if (chatInput.trim() && !isStreaming) {
+                            sendMessage(chatInput.trim());
+                            setChatInput('');
+                          }
+                        }}
+                        disabled={!chatInput.trim() || isStreaming}
+                        className={cn(
+                          'shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all',
+                          chatInput.trim() && !isStreaming
+                            ? 'bg-primary text-on-primary hover:bg-primary/90'
+                            : 'bg-surface-container-highest text-outline',
+                        )}
+                      >
+                        <Send size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* External runtime path: textarea */
+                  <div>
+                    <textarea
+                      value={requirementText}
+                      onChange={e => {
+                        setRequirementText(e.target.value);
+                        if (validationError) setValidationError(null);
+                      }}
+                      placeholder="Describe the feature you want to build...&#10;&#10;Example: Add a user authentication system with login, registration, and password recovery features"
+                      className={cn(
+                        'w-full h-40 px-4 py-3 rounded-lg text-sm bg-surface-container-high text-on-surface',
+                        'border border-outline-variant/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/30',
+                        'placeholder:text-on-surface-variant/40 resize-none outline-none transition-all',
+                        'font-body',
+                      )}
+                      autoFocus
+                    />
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[9px] text-on-surface-variant">
+                        {requirementText.length} characters
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Validation error */}
                 {validationError && (
                   <div className="flex items-center gap-2 text-[10px] text-error font-medium">
                     <AlertCircle size={12} />
                     {validationError}
+                  </div>
+                )}
+
+                {/* Chat error */}
+                {chatError && step === 'input-requirement' && (
+                  <div className="rounded-lg bg-error/10 border border-error/20 p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle size={14} className="text-error shrink-0 mt-0.5" />
+                      <p className="text-[11px] text-error font-medium">{chatError}</p>
+                    </div>
                   </div>
                 )}
               </motion.div>
@@ -809,11 +962,17 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
             {step === 'input-requirement' && (
               <button
                 onClick={handleExecute}
-                disabled={!requirementText.trim() || isStreaming}
+                disabled={
+                  selectedAgent?.isBuiltIn
+                    ? messages.filter(m => m.role === 'user').length === 0 || isStreaming
+                    : !requirementText.trim() || isStreaming
+                }
                 className={cn(
                   'flex items-center gap-1.5 px-5 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider',
                   'transition-all',
-                  requirementText.trim() && !isStreaming
+                  (selectedAgent?.isBuiltIn
+                    ? messages.filter(m => m.role === 'user').length > 0 && !isStreaming
+                    : requirementText.trim() && !isStreaming)
                     ? 'bg-primary text-on-primary hover:bg-primary/90'
                     : 'bg-surface-container-highest text-outline cursor-not-allowed',
                 )}

@@ -47,18 +47,38 @@ interface StreamEvent {
 // Constants
 // ---------------------------------------------------------------------------
 
-const PM_SYSTEM_PROMPT = `You are the PM Agent for Neuro Syntax IDE, an AI-native desktop IDE. Your role is to help users define and manage their project context, plan features, and answer questions about software architecture.
+const PM_SYSTEM_PROMPT = `You are the PM Agent for Neuro Syntax IDE, an AI-native desktop IDE. Your role is to help users define features through multi-turn conversation before creating a formal feature plan.
 
-When users ask you to create a feature, respond with a clear plan that includes:
-1. Feature ID (feat- prefix, kebab-case)
-2. Feature name
-3. Priority and size estimate
-4. Dependencies
-5. Description
-6. Key user value points
-7. Task breakdown
+## Conversation Strategy
 
-Be concise, technical, and actionable. Use Markdown formatting for clarity.`;
+### Phase 1: Requirement Clarification
+When the user describes a feature, assess clarity. If the description is vague or ambiguous, proactively ask clarifying questions about:
+- Scope and boundaries (what's in/out?)
+- User interactions and workflows
+- Edge cases and error handling
+- Integration points with existing features
+- Performance or scalability requirements
+
+Ask 1-3 focused questions per turn. Do NOT dump all questions at once. Adapt your follow-ups based on the user's answers.
+
+### Phase 2: Refinement & Negotiation
+- Summarize your understanding back to the user periodically
+- If the feature seems large, suggest splitting into smaller features with clear value points
+- Discuss trade-offs and alternatives when relevant
+- Confirm priority and scope with the user
+
+### Phase 3: Ready to Create
+When you have enough information (clear scope, confirmed value points, understood requirements), indicate readiness:
+"Based on our discussion, I have a clear understanding of the requirement. You can now click **Create Feature** to generate the formal feature plan."
+
+Do NOT generate the plan yourself in chat — just indicate readiness. The system will generate a structured plan from the full conversation context.
+
+## Response Style
+- Be concise, technical, and actionable
+- Use Markdown formatting for clarity
+- Keep responses focused — avoid walls of text
+- Use numbered lists for multi-part questions
+- Acknowledge user answers before asking follow-ups`;
 
 const GEMINI_RUNTIME_ID = 'gemini-http';
 
@@ -248,18 +268,19 @@ export function useAgentChat() {
     [messages, registerChunkListener],
   );
 
-  /** Ask the AI to generate a Feature plan (structured JSON) */
+  /** Ask the AI to generate a Feature plan (structured JSON) from full chat context */
   const generateFeaturePlan = useCallback(
-    async (description: string): Promise<FeaturePlanOutput | null> => {
+    async (chatMessages: ChatMessage[]): Promise<FeaturePlanOutput | null> => {
       if (!isTauri) {
-        // Dev fallback: return a mock plan
+        // Dev fallback: return a mock plan based on last user message
+        const lastUserMsg = [...chatMessages].reverse().find(m => m.role === 'user');
         return {
           id: 'feat-mock-feature',
           name: 'Mock Feature',
           priority: 50,
           size: 'M',
           dependencies: [],
-          description,
+          description: lastUserMsg?.content ?? 'Mock feature description',
           value_points: ['VP1: User benefit', 'VP2: Efficiency', 'VP3: Quality'],
           tasks: [
             { group_name: 'Core', items: ['Implement core logic', 'Add error handling'] },
@@ -270,9 +291,13 @@ export function useAgentChat() {
 
       try {
         const { invoke } = await import('@tauri-apps/api/core');
+        // Filter out the initial greeting and only send meaningful conversation messages
+        const filteredMessages = chatMessages.filter(
+          (m) => !(m.role === 'assistant' && m.content.includes("Hello! I'm your PM Agent"))
+        );
         const plan: FeaturePlanOutput = await invoke('agent_generate_feature_plan', {
           request: {
-            messages: [{ role: 'user', content: description }],
+            messages: filteredMessages.map(m => ({ role: m.role, content: m.content })),
             model: 'gemini-2.0-flash',
           },
         });
