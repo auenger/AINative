@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-13T16:00:00Z'
+  last_updated: '2026-04-13T17:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -19,18 +19,14 @@ parents:
   - feat-file-preview-pdf
   - feat-file-preview-media
   - feat-file-preview-image-enhance
-active:
-- id: feat-chat-style-newtask
-  name: Chat-style NewTask Modal（需求多轮对话 + 精准触达 new-feature）
-  priority: 60
-  created_at: '2026-04-13T15:00:00Z'
-  started_at: '2026-04-13T16:00:00Z'
-  branch: feature/feat-chat-style-newtask
-  worktree: ../NeuroSyntaxIDE-feat-chat-style-newtask
-  size: M
+active: []
 pending: []
 blocked: []
 completed:
+- id: feat-chat-style-newtask
+  name: Chat-style NewTask Modal（需求多轮对话 + 精准触达 new-feature）
+  completed_at: '2026-04-13T17:00:00Z'
+  tag: feat-chat-style-newtask-20260413
 - id: feat-i18n-complete
   name: 中英文国际化完善
   completed_at: '2026-04-10T23:30:00Z'

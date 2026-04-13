@@ -162,7 +162,19 @@ And 之前的 feature 创建状态也应重置
 - [ ] Modal 拖拽和调整大小功能不受影响
 
 ### General Checklist
-- [ ] 不引入新的依赖（复用 useAgentChat 现有能力）
-- [ ] 不修改设计系统（颜色/字体/动画）
-- [ ] 不引入 React Router
-- [ ] 使用 Tauri V2 API 语法
+- [x] 不引入新的依赖（复用 useAgentChat 现有能力）
+- [x] 不修改设计系统（颜色/字体/动画）
+- [x] 不引入 React Router
+- [x] 使用 Tauri V2 API 语法
+
+## Merge Record
+- **Completed**: 2026-04-13T17:00:00Z
+- **Merged Branch**: feature/feat-chat-style-newtask
+- **Merge Commit**: 01af9cc
+- **Archive Tag**: feat-chat-style-newtask-20260413
+- **Conflicts**: 2 files (checklist.md, task.md) -- auto-resolved (feature branch version kept)
+- **Verification**: PASS (6/6 Gherkin scenarios, 21/21 tasks, TS check clean)
+- **Development Stats**:
+  - Duration: ~1 hour
+  - Commits: 2 (implementation + evidence)
+  - Files changed: 2 source files (useAgentChat.ts, NewTaskModal.tsx)
