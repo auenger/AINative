@@ -1,11 +1,13 @@
 import React from 'react';
-import { History, Bell, Share2, Languages, Sun, Moon } from 'lucide-react';
+import { History, Bell, Share2, Languages, Sun, Moon, User } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
+import { useSettings } from '../lib/useSettings';
 
 export const TopNav: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
+  const { settings } = useSettings();
 
   const toggleLanguage = () => {
     const newLang = i18n.language === 'en' ? 'zh' : 'en';
@@ -49,12 +51,17 @@ export const TopNav: React.FC = () => {
             {t('nav.deploy')}
           </button>
         </div>
-        <img
-          className="w-6 h-6 rounded-full border border-outline-variant"
-          src="https://picsum.photos/seed/avatar/64/64"
-          alt="User"
-          referrerPolicy="no-referrer"
-        />
+        {settings.user.avatar_base64 ? (
+          <img
+            className="w-6 h-6 rounded-full border border-outline-variant object-cover"
+            src={settings.user.avatar_base64}
+            alt="User"
+          />
+        ) : (
+          <div className="w-6 h-6 rounded-full border border-outline-variant bg-surface-container-high flex items-center justify-center">
+            <User size={12} className="text-on-surface-variant opacity-50" />
+          </div>
+        )}
       </div>
     </header>
   );

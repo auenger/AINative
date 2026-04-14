@@ -12,17 +12,19 @@ import {
   Save,
   Zap,
   RefreshCw,
+  User,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useSettings } from '../../lib/useSettings';
+import { ProfilePanel } from '../common/ProfilePanel';
 import type { AppSettings, ProviderConfig } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-type SettingsTab = 'general' | 'llm';
+type SettingsTab = 'general' | 'llm' | 'profile';
 
 const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
@@ -456,6 +458,7 @@ export const SettingsView: React.FC = () => {
   const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
     { id: 'general', label: t('settings.general'), icon: <SettingsIcon size={14} /> },
     { id: 'llm', label: t('settings.llmProviders'), icon: <Zap size={14} /> },
+    { id: 'profile', label: t('settings.profile.title'), icon: <User size={14} /> },
   ];
 
   return (
@@ -530,6 +533,9 @@ export const SettingsView: React.FC = () => {
         )}
         {activeTab === 'llm' && (
           <LlmPanel settings={settings} onUpdate={update} />
+        )}
+        {activeTab === 'profile' && (
+          <ProfilePanel settings={settings} onUpdate={update} />
         )}
       </div>
     </div>

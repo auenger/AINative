@@ -34,6 +34,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   app: {
     auto_refresh_interval: 30,
   },
+  user: {
+    name: '',
+    email: '',
+    avatar_base64: '',
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -58,6 +63,7 @@ export function useSettings() {
         providers: { ...DEFAULT_SETTINGS.providers, ...loaded.providers },
         llm: { ...DEFAULT_SETTINGS.llm, ...loaded.llm },
         app: { ...DEFAULT_SETTINGS.app, ...loaded.app },
+        user: { ...DEFAULT_SETTINGS.user, ...loaded.user },
       });
       setDirty(false);
     } catch (e: unknown) {
@@ -96,6 +102,7 @@ export function useSettings() {
       if (patch.providers !== undefined) next.providers = patch.providers;
       if (patch.llm !== undefined) next.llm = { ...prev.llm, ...patch.llm };
       if (patch.app !== undefined) next.app = { ...prev.app, ...patch.app };
+      if (patch.user !== undefined) next.user = { ...prev.user, ...patch.user };
       return next;
     });
     setDirty(true);
