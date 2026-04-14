@@ -1,10 +1,33 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-14T15:00:00Z"
+  last_updated: "2026-04-14T16:45:00Z"
   version: 1
-  total_completed: 91
+  total_completed: 92
 
 records:
+  - id: feat-user-profile
+    name: "用户资料管理（名称/邮箱/头像/Git 信息）"
+    completed_at: "2026-04-14T16:45:00Z"
+    tag: feat-user-profile-20260414
+    merge_commit: 3fb44e7
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-user-profile
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-user-profile
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-14T16:00:00Z"
+      duration: "~45min"
+      commits: 1
+      files_changed: 8
+
   - id: feat-newtask-runtime-multiturn
     name: "New Task 外部 Runtime 多轮对话支持"
     completed_at: "2026-04-14T15:00:00Z"
