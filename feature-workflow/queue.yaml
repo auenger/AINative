@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-14T12:00:00Z'
+  last_updated: '2026-04-14T12:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -26,8 +26,7 @@ parents:
   - feat-pm-role-separation
   - feat-newtask-built-in-pm
   - feat-newtask-runtime-multiturn
-active: []
-pending:
+active:
 - id: feat-newtask-built-in-pm
   name: New Task 内置 PM 独立 Prompt 体系
   priority: 55
@@ -35,6 +34,10 @@ pending:
   parent: feat-pm-newtask-role-separation
   depends_on:
   - feat-pm-role-separation
+  branch: feature/feat-newtask-built-in-pm
+  worktree: ../NeuroSyntaxIDE-feat-newtask-built-in-pm
+  started_at: '2026-04-14T12:30:00Z'
+pending:
 - id: feat-newtask-runtime-multiturn
   name: New Task 外部 Runtime 多轮对话支持
   priority: 50
