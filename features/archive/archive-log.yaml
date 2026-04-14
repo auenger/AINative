@@ -1,10 +1,36 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-14T10:30:00Z"
+  last_updated: "2026-04-14T12:00:00Z"
   version: 1
-  total_completed: 88
+  total_completed: 89
 
 records:
+  - id: feat-pm-role-separation
+    name: "PM Agent 职责分离与 Prompt 拆分"
+    completed_at: "2026-04-14T12:00:00Z"
+    tag: feat-pm-role-separation-20260414
+    merge_commit: 9995894
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-pm-role-separation
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-pm-role-separation
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-04-14T11:00:00Z"
+      duration: "~1h"
+      commits: 2
+      files_changed: 1
+      insertions: 30
+      deletions: 202
+    archive_path: features/archive/done-feat-pm-role-separation-20260414
+
   - id: fix-queue-resilient-parsing
     name: "Task Board YAML 解析容错与字段兼容"
     completed_at: "2026-04-14T10:30:00Z"

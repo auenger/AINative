@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-14T10:30:00Z'
+  last_updated: '2026-04-14T12:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -28,11 +28,6 @@ parents:
   - feat-newtask-runtime-multiturn
 active: []
 pending:
-- id: feat-pm-role-separation
-  name: PM Agent 职责分离与 Prompt 拆分
-  priority: 60
-  size: M
-  parent: feat-pm-newtask-role-separation
 - id: feat-newtask-built-in-pm
   name: New Task 内置 PM 独立 Prompt 体系
   priority: 55
@@ -53,6 +48,10 @@ pending:
     size: M
 blocked: []
 completed:
+- id: feat-pm-role-separation
+  name: PM Agent 职责分离与 Prompt 拆分
+  completed_at: '2026-04-14T12:00:00Z'
+  tag: feat-pm-role-separation-20260414
 - id: fix-queue-resilient-parsing
   name: Task Board YAML 解析容错与字段兼容
   completed_at: '2026-04-14T10:30:00Z'
