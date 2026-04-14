@@ -9,13 +9,11 @@ import {
   RefreshCw,
   X,
   Sparkles,
-  Layers,
   CheckCircle2,
   Folder,
   Key,
   AlertTriangle,
   Loader2,
-  Plus,
   MessageSquarePlus,
   Square,
   Radio,
@@ -46,7 +44,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { useAgentStream } from '../../lib/useAgentStream';
-import type { FeaturePlanOutput } from '../../lib/useAgentStream';
 import { useGitStatus } from '../../lib/useGitStatus';
 import { useGitDetail } from '../../lib/useGitDetail';
 import { useSettings } from '../../lib/useSettings';
@@ -268,19 +265,33 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ workspace }) => {
 
   const pmAgent = useAgentStream({
     runtimeId: pmRuntimeId,
-    systemPrompt: `You are the PM Agent for Neuro Syntax IDE, an AI-native desktop IDE. Your role is to help users define and manage their project context, plan features, and answer questions about software architecture.
+    systemPrompt: `You are the Requirement Analyst for Neuro Syntax IDE, an AI-native desktop IDE. Your sole responsibility is to help users explore, clarify, and refine their project requirements through deep, focused conversation.
 
-When users ask you to create a feature, respond with a clear plan that includes:
-1. Feature ID (feat- prefix, kebab-case)
-2. Feature name
-3. Priority and size estimate
-4. Dependencies
-5. Description
-6. Key user value points
-7. Task breakdown
+## Your Role — Requirement Analyst
 
-Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
-    greetingMessage: "Hello! I'm your PM Agent. I'll help you define and maintain the project context. What are we building today?",
+You are NOT a feature creator. You do NOT generate feature plans or create features. Your job is pure requirement analysis:
+- Understand what the user wants to build and why
+- Ask probing questions to uncover hidden requirements and edge cases
+- Help users think through architecture decisions and trade-offs
+- Maintain context across the conversation to build a coherent understanding
+- Summarize and organize requirements into clear, structured notes
+
+## Guidelines
+
+1. **Listen first** — Before proposing solutions, make sure you fully understand the user's intent and constraints.
+2. **Ask clarifying questions** — When requirements are vague, ask specific questions to narrow scope. Prefer giving options (A vs B) over open-ended questions.
+3. **Think in terms of user value** — Always relate technical decisions back to the user's actual goals.
+4. **Keep context** — Reference earlier parts of the conversation to show continuity and build on previous decisions.
+5. **When requirements are mature** — If the discussion has reached a clear, actionable conclusion, let the user know the requirement is well-defined and suggest: "You can now click the New Task button to create a formal Feature from this discussion."
+
+## What You Do NOT Do
+
+- You do NOT create features, generate task plans, or invoke feature creation workflows.
+- You do NOT write or execute code.
+- If a user asks you to create a feature, politely redirect them: "For creating features, please use the New Task button in the toolbar. I'm here to help you think through requirements first."
+
+Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
+    greetingMessage: "Hello! I'm your Requirement Analyst. I'll help you explore and refine your project ideas through focused discussion. Tell me — what are you thinking about building?",
   });
 
   const reqAgent = useAgentStream({
@@ -349,12 +360,11 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
   const gitModalRef = useRef<HTMLDivElement>(null);
   const gitDragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
   const gitResizeRef = useRef<{ startX: number; startY: number; originW: number; originH: number } | null>(null);
-  const [showTaskModal, setShowTaskModal] = useState(false);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [isPushing, setIsPushing] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);  const [isGenerating, setIsGenerating] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [commitMessage, setCommitMessage] = useState('');
   const [isCommitting, setIsCommitting] = useState(false);
   const [stagingPath, setStagingPath] = useState<string | null>(null);
@@ -364,7 +374,6 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
     untracked: true,
   });
   const [hoveredGraphNode, setHoveredGraphNode] = useState<string | null>(null);
-  const [generatedPlan, setGeneratedPlan] = useState<FeaturePlanOutput | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // --- Project Context: dynamic file loading ---
@@ -702,36 +711,6 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
     }
   };
 
-  const handleGenerateTasks = async () => {
-    if (!pmAgent.apiKeyConfigured) {
-      setShowApiKeyModal(true);
-      return;
-    }
-    setIsGenerating(true);
-    setGeneratedPlan(null);
-
-    const plan = await pmAgent.generateFeaturePlan(
-      'Analyze the current project and create a new feature plan based on the project context and recent discussion.'
-    );
-
-    if (plan) {
-      setGeneratedPlan(plan);
-    }
-    setIsGenerating(false);
-  };
-
-  const handleCreateFeature = async () => {
-    if (!generatedPlan) return;
-    const featureId = await pmAgent.createFeature(
-      'epic-neuro-syntax-ide-roadmap',
-      generatedPlan
-    );
-    if (featureId) {
-      setGeneratedPlan(null);
-      setShowTaskModal(false);
-    }
-  };
-
   const handleStoreApiKey = () => {
     if (!apiKeyInput.trim()) return;
     pmAgent.configureApiKey(apiKeyInput);
@@ -802,13 +781,6 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
               <FolderOpen size={14} />
             )}
             {workspacePath ? t('project.selectWorkspace') : t('project.openProject')}
-          </button>
-          <button
-            onClick={() => setShowTaskModal(true)}
-            className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1.5 rounded text-xs font-bold hover:bg-primary/20 transition-all border border-primary/20"
-          >
-            <Sparkles size={14} />
-            {t('project.generateTask')}
           </button>
           <button
             onClick={() => setShowGitModal(true)}
@@ -938,7 +910,7 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                       </div>
                       <div className="flex flex-col">
                         <span className="text-[10px] font-bold uppercase tracking-widest">{t('project.pmAgent')}</span>
-                        <span className="text-[9px] text-outline uppercase font-medium tracking-tighter">Context Architect</span>
+                        <span className="text-[9px] text-outline uppercase font-medium tracking-tighter">Requirement Analyst</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1330,12 +1302,11 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                       </span>
                       <button
                         onClick={() => {
-                          setShowTaskModal(true);
                           reqAgent.clearFeatureNotification();
                         }}
                         className="flex items-center gap-1 text-primary underline text-[9px]"
                       >
-                        <Eye size={9} />
+                        <CheckCircle2 size={9} />
                         {t('project.reqAgentViewFeature')}
                       </button>
                       <button
@@ -2461,149 +2432,6 @@ Be concise, technical, and actionable. Use Markdown formatting for clarity.`,
                   <circle cx="4" cy="7" r="0.8" />
                   <circle cx="1" cy="7" r="0.8" />
                 </svg>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Task Generation Modal */}
-      <AnimatePresence>
-        {showTaskModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => { setShowTaskModal(false); setGeneratedPlan(null); }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-2xl bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl overflow-hidden flex flex-col"
-            >
-              <div className="p-4 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-high/30">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Sparkles size={20} className="text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold uppercase tracking-widest">{t('project.generateTask')}</h3>
-                    <p className="text-[10px] text-outline uppercase tracking-tighter">AI-Driven Context Decomposition</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => { setShowTaskModal(false); setGeneratedPlan(null); }}
-                  className="p-2 hover:bg-surface-container-high rounded-full transition-colors"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div className="p-8 flex flex-col items-center justify-center min-h-[300px] max-h-[60vh] overflow-y-auto">
-                {!isGenerating && !generatedPlan ? (
-                  <div className="text-center space-y-6 max-w-md">
-                    <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                      <Layers size={32} className="text-primary" />
-                    </div>
-                    <div className="space-y-2">
-                      <h4 className="text-lg font-bold">{t('project.splittingModules')}</h4>
-                      <p className="text-xs text-on-surface-variant opacity-70 leading-relaxed">
-                        I will analyze your project context and decompose it into logical functional modules and business tasks.
-                      </p>
-                    </div>
-                    <button
-                      onClick={handleGenerateTasks}
-                      className="w-full bg-primary text-on-primary py-3 rounded-lg text-sm font-bold hover:brightness-110 transition-all shadow-lg shadow-primary/20"
-                    >
-                      {t('project.generateTask')}
-                    </button>
-                  </div>
-                ) : isGenerating ? (
-                  <div className="w-full space-y-8">
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="relative">
-                        <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                        <Bot size={20} className="absolute inset-0 m-auto text-primary" />
-                      </div>
-                      <span className="text-xs font-bold uppercase tracking-widest text-primary animate-pulse">
-                        {t('project.splittingModules')}
-                      </span>
-                    </div>
-                  </div>
-                ) : generatedPlan ? (
-                  <div className="w-full space-y-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h4 className="text-sm font-bold">{generatedPlan.name}</h4>
-                        <p className="text-[10px] text-on-surface-variant font-mono">{generatedPlan.id}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold">
-                          P{generatedPlan.priority}
-                        </span>
-                        <span className="text-[10px] bg-secondary/10 text-secondary px-2 py-0.5 rounded font-bold">
-                          {generatedPlan.size}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-xs text-on-surface-variant leading-relaxed">
-                      {generatedPlan.description}
-                    </p>
-                    {generatedPlan.tasks.map((group, idx) => (
-                      <motion.div
-                        key={idx}
-                        initial={{ x: -20, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        transition={{ delay: idx * 0.2 }}
-                        className="bg-surface-container-lowest p-4 rounded-lg border border-outline-variant/10"
-                      >
-                        <div className="flex items-center gap-2 mb-3">
-                          <CheckCircle2 size={14} className="text-tertiary" />
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                            {group.group_name}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {group.items.map((item, tIdx) => (
-                            <span key={tIdx} className="text-[10px] bg-surface-container-high px-2 py-1 rounded border border-outline-variant/10">
-                              {item}
-                            </span>
-                          ))}
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="p-4 bg-surface-container-high/30 border-t border-outline-variant/10 flex gap-3">
-                {generatedPlan ? (
-                  <>
-                    <button
-                      onClick={() => setGeneratedPlan(null)}
-                      className="flex-1 px-6 py-2 bg-surface-container-highest text-on-surface rounded-lg text-xs font-bold hover:bg-surface-variant transition-all border border-outline-variant/10"
-                    >
-                      Discard
-                    </button>
-                    <button
-                      onClick={handleCreateFeature}
-                      className="flex-1 flex items-center justify-center gap-2 bg-primary text-on-primary py-2 rounded-lg text-xs font-bold hover:brightness-110 transition-all"
-                    >
-                      <Plus size={14} />
-                      Create Feature
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => { setShowTaskModal(false); setGeneratedPlan(null); }}
-                    className="px-6 py-2 bg-surface-container-highest text-on-surface rounded-lg text-xs font-bold hover:bg-surface-variant transition-all border border-outline-variant/10 ml-auto"
-                  >
-                    {isGenerating ? 'Cancel' : 'Close'}
-                  </button>
-                )}
               </div>
             </motion.div>
           </div>
