@@ -45,7 +45,27 @@
 - feat-chat-style-newtask — 已完成的内置 PM chat 界面（直接复用其消息气泡样式）
 
 ## Technical Solution
-<!-- To be filled during implementation -->
+
+### Approach
+Extended `NewTaskModal.tsx` to support multi-turn chat for external runtimes, mirroring the built-in PM Agent's chat panel pattern.
+
+### State Management
+- Added `extMessages: ExtChatMessage[]` — local state for external runtime chat messages
+- Added `extChatInput` — input state for the external runtime chat textarea
+- Added `extStreaming` — streaming state for external runtime responses
+- Added `extStreamingRef` — ref for accumulating streaming text
+- Added `extChunkUnlistenRef` — ref for the chunk listener cleanup function
+- Added `extChatEndRef` — ref for auto-scroll anchor
+
+### Key Changes
+1. **Chat Panel (replaces textarea)**: External runtime path now renders a chat panel with message bubbles, streaming indicator, and input textarea — identical UX to the built-in PM Agent path
+2. **sendExtMessage handler**: Sends each user message via `runtime_execute`, listens on `agent://chunk` for streaming responses, appends to `extMessages` array in real-time
+3. **handleExecute modification**: Builds `/new-feature` command from the full chat context (all user/assistant messages) instead of a single textarea value
+4. **Unified Create Feature button**: Enabled when at least 1 user message exists in either the built-in PM or external runtime chat
+5. **Cleanup**: `handleClose` resets all external runtime chat state and removes the chunk listener
+
+### File Changed
+- `neuro-syntax-ide/src/components/views/NewTaskModal.tsx` (modified)
 
 ## Acceptance Criteria (Gherkin)
 
@@ -86,7 +106,7 @@ And 只有内置 PM 和外部 Runtime 的后端调用方式不同，前端体验
 - 消息气泡样式复用内置 PM 的设计
 
 ### General Checklist
-- [ ] 外部 Runtime 路径 chat panel 替换 textarea
-- [ ] 多轮 runtime_execute 循环工作正常
-- [ ] /new-feature 触发逻辑正确
-- [ ] fs://workspace-changed 事件监听正确
+- [x] 外部 Runtime 路径 chat panel 替换 textarea
+- [x] 多轮 runtime_execute 循环工作正常
+- [x] /new-feature 触发逻辑正确
+- [x] fs://workspace-changed 事件监听正确
