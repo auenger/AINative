@@ -1302,12 +1302,11 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
                       </span>
                       <button
                         onClick={() => {
-                          setShowTaskModal(true);
                           reqAgent.clearFeatureNotification();
                         }}
                         className="flex items-center gap-1 text-primary underline text-[9px]"
                       >
-                        <Eye size={9} />
+                        <CheckCircle2 size={9} />
                         {t('project.reqAgentViewFeature')}
                       </button>
                       <button
