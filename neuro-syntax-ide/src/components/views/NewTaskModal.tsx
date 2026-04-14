@@ -28,6 +28,12 @@ import type { AgentRuntimeInfo, AgentRuntimeStatusType } from '../../types';
 
 type ModalStep = 'select-agent' | 'input-requirement' | 'executing' | 'result';
 
+/** Chat message type for external runtime multi-turn conversation. */
+interface ExtChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 interface AgentOption {
   id: string;
   name: string;
@@ -94,7 +100,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
   // Step state
   const [step, setStep] = useState<ModalStep>('select-agent');
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
-  const [requirementText, setRequirementText] = useState('');
+  const [, setRequirementText] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
 
   // Execution state
@@ -106,6 +112,14 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
 
   // Streaming text ref for external runtime path
   const streamingRef = useRef<string>('');
+
+  // External runtime multi-turn chat state
+  const [extMessages, setExtMessages] = useState<ExtChatMessage[]>([]);
+  const [extChatInput, setExtChatInput] = useState('');
+  const [extStreaming, setExtStreaming] = useState(false);
+  const extStreamingRef = useRef<string>('');
+  const extChunkUnlistenRef = useRef<(() => void) | null>(null);
+  const extChatEndRef = useRef<HTMLDivElement>(null);
 
   // Chat panel state (PM Agent path)
   const [chatInput, setChatInput] = useState('');
@@ -119,6 +133,23 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, step, isBuiltInAgent]);
+
+  // Auto-scroll external runtime chat
+  useEffect(() => {
+    if (step === 'input-requirement' && !isBuiltInAgent && selectedAgentId) {
+      extChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [extMessages, step, isBuiltInAgent, selectedAgentId]);
+
+  // Cleanup external runtime chunk listener on unmount
+  useEffect(() => {
+    return () => {
+      if (extChunkUnlistenRef.current) {
+        extChunkUnlistenRef.current();
+        extChunkUnlistenRef.current = null;
+      }
+    };
+  }, []);
 
   // Modal drag state
   const [modalPos, setModalPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -262,6 +293,90 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
     }
   }, [step]);
 
+  /** Send a message to the external runtime (multi-turn) */
+  const sendExtMessage = useCallback(async (input: string) => {
+    if (!input.trim() || extStreaming || !selectedAgentId) return;
+
+    const userMsg: ExtChatMessage = { role: 'user', content: input };
+    setExtMessages(prev => [...prev, userMsg]);
+    setExtChatInput('');
+    setExtStreaming(true);
+    extStreamingRef.current = '';
+
+    if (!isTauri) {
+      // Dev fallback: simulate external agent response
+      setTimeout(() => {
+        setExtMessages(prev => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `I've analyzed your request: "${input}". Let me help clarify the requirements.\n\n1. Could you describe the main user interactions?\n2. What existing features should this integrate with?\n3. Any specific acceptance criteria?`,
+          },
+        ]);
+        setExtStreaming(false);
+      }, 1200);
+      return;
+    }
+
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const { listen } = await import('@tauri-apps/api/event');
+
+      // Remove any previous chunk listener
+      if (extChunkUnlistenRef.current) {
+        extChunkUnlistenRef.current();
+        extChunkUnlistenRef.current = null;
+      }
+
+      // Register streaming chunk listener
+      const unlisten = await listen<{ text: string; is_done: boolean; error?: string; type?: string }>(
+        'agent://chunk',
+        (event) => {
+          const chunk = event.payload;
+          if (chunk.error && chunk.type !== 'stderr') {
+            setExtStreaming(false);
+            unlisten();
+            extChunkUnlistenRef.current = null;
+            return;
+          }
+          if (chunk.text && (chunk.type === 'assistant' || chunk.type === 'system' || chunk.type === 'raw' || !chunk.type)) {
+            extStreamingRef.current += chunk.text;
+            setExtMessages(prev => {
+              const last = prev[prev.length - 1];
+              if (last && last.role === 'assistant') {
+                return [...prev.slice(0, -1), { ...last, content: extStreamingRef.current }];
+              }
+              return [...prev, { role: 'assistant', content: extStreamingRef.current }];
+            });
+          }
+          if (chunk.is_done) {
+            setExtStreaming(false);
+            unlisten();
+            extChunkUnlistenRef.current = null;
+            if (!extStreamingRef.current) {
+              setExtMessages(prev => [...prev, { role: 'assistant', content: '(No response received)' }]);
+            }
+          }
+        },
+      );
+      extChunkUnlistenRef.current = unlisten;
+
+      // Send message to external runtime via runtime_execute
+      await invoke('runtime_execute', {
+        runtimeId: selectedAgentId,
+        message: input,
+        sessionId: null,
+        systemPrompt: null,
+      });
+    } catch (e: any) {
+      setExtStreaming(false);
+      setExtMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: `Error: ${e?.toString() ?? 'Failed to send message'}` },
+      ]);
+    }
+  }, [selectedAgentId, extStreaming]);
+
   const handleExecute = useCallback(async () => {
     // Validate based on path
     if (selectedAgent?.isBuiltIn) {
@@ -272,8 +387,10 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
         return;
       }
     } else {
-      if (!requirementText.trim()) {
-        setValidationError('Please describe your feature requirement');
+      // External runtime path: need at least 1 user message in chat
+      const userMessages = extMessages.filter(m => m.role === 'user');
+      if (userMessages.length === 0) {
+        setValidationError('Please chat with the agent before creating a feature');
         return;
       }
     }
@@ -328,9 +445,15 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
           setExecError('Feature plan was generated but filesystem creation failed.');
         }
       } else {
-        // External runtime path: runtime_session_start + runtime_execute + agent://chunk
+        // External runtime path: assemble chat context → /new-feature command
         const runtimeId = selectedAgentId;
         streamingRef.current = '';
+
+        // Build context from the multi-turn conversation
+        const chatContext = extMessages
+          .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+          .join('\n\n');
+        const newFeatureCommand = `/new-feature Based on the following discussion, create a feature:\n\n${chatContext}`;
 
         if (!isTauri) {
           // Dev fallback: simulate external agent execution
@@ -380,10 +503,10 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
         // 2. Start runtime session
         await invoke('runtime_session_start', { runtimeId });
 
-        // 3. Send /new-feature message via runtime_execute
+        // 3. Send /new-feature with chat context via runtime_execute
         await invoke('runtime_execute', {
           runtimeId,
-          message: `/new-feature ${requirementText.trim()}`,
+          message: newFeatureCommand,
           sessionId: null,
           systemPrompt: null,
         });
@@ -391,7 +514,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
     } catch (e: any) {
       setExecError(e?.toString() ?? 'An unexpected error occurred during execution');
     }
-  }, [selectedAgent, selectedAgentId, requirementText, messages, generateFeaturePlan, createFeature]);
+  }, [selectedAgent, selectedAgentId, extMessages, messages, generateFeaturePlan, createFeature]);
 
   const handleClose = useCallback(() => {
     // Reset state
@@ -407,6 +530,16 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
     setModalPos({ x: 0, y: 0 });
     setChatInput('');
     clearChat();
+
+    // Reset external runtime chat state
+    setExtMessages([]);
+    setExtChatInput('');
+    setExtStreaming(false);
+    extStreamingRef.current = '';
+    if (extChunkUnlistenRef.current) {
+      extChunkUnlistenRef.current();
+      extChunkUnlistenRef.current = null;
+    }
 
     if (featureCreated && onFeatureCreated) {
       onFeatureCreated();
@@ -630,12 +763,12 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-on-surface">
-                      {selectedAgent?.isBuiltIn ? 'Chat About Your Requirement' : 'Describe Your Requirement'}
+                      Chat About Your Requirement
                     </h4>
                     <p className="text-[10px] text-on-surface-variant">
                       {selectedAgent?.isBuiltIn
                         ? 'Describe your feature and the PM Agent will ask clarifying questions'
-                        : `Using ${selectedAgent?.name} to analyze your feature request`}
+                        : `Chat with ${selectedAgent?.name} to describe and refine your feature requirement`}
                     </p>
                   </div>
                 </div>
@@ -751,27 +884,121 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
                     </div>
                   </div>
                 ) : (
-                  /* External runtime path: textarea */
-                  <div>
-                    <textarea
-                      value={requirementText}
-                      onChange={e => {
-                        setRequirementText(e.target.value);
-                        if (validationError) setValidationError(null);
-                      }}
-                      placeholder="Describe the feature you want to build...&#10;&#10;Example: Add a user authentication system with login, registration, and password recovery features"
-                      className={cn(
-                        'w-full h-40 px-4 py-3 rounded-lg text-sm bg-surface-container-high text-on-surface',
-                        'border border-outline-variant/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/30',
-                        'placeholder:text-on-surface-variant/40 resize-none outline-none transition-all',
-                        'font-body',
+                  /* External runtime path: chat panel (mirrors PM Agent style) */
+                  <div className="flex flex-col gap-3">
+                    {/* Runtime status hint */}
+                    {selectedAgent?.status !== 'available' && (
+                      <div className="rounded-lg bg-warning/10 border border-warning/20 px-3 py-2">
+                        <span className="text-[10px] text-warning font-medium">
+                          {selectedAgent?.name} is {statusLabel(selectedAgent?.status ?? 'not-installed')} — chat may not work
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Messages list */}
+                    <div className="flex-1 min-h-[200px] max-h-[320px] overflow-y-auto rounded-lg bg-surface-container-high border border-outline-variant/10 p-3 space-y-3">
+                      {extMessages.length === 0 && (
+                        <div className="text-center py-8">
+                          <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-surface-container-highest mb-2">
+                            {selectedAgent && <selectedAgent.icon size={18} className="text-on-surface-variant" />}
+                          </div>
+                          <p className="text-[10px] text-on-surface-variant">
+                            Chat with {selectedAgent?.name} to describe and refine your feature requirement
+                          </p>
+                        </div>
                       )}
-                      autoFocus
-                    />
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-[9px] text-on-surface-variant">
-                        {requirementText.length} characters
-                      </span>
+                      {extMessages.map((msg, idx) => (
+                        <div
+                          key={idx}
+                          className={cn(
+                            'flex gap-2',
+                            msg.role === 'user' ? 'justify-end' : 'justify-start',
+                          )}
+                        >
+                          {msg.role === 'assistant' && (
+                            <div className="shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center mt-0.5">
+                              <Terminal size={12} className="text-primary" />
+                            </div>
+                          )}
+                          <div
+                            className={cn(
+                              'max-w-[80%] rounded-lg px-3 py-2 text-[11px] leading-relaxed',
+                              msg.role === 'user'
+                                ? 'bg-primary text-on-primary'
+                                : 'bg-surface-container-highest text-on-surface-variant border border-outline-variant/10',
+                            )}
+                          >
+                            {msg.role === 'assistant' ? (
+                              <MarkdownRenderer content={msg.content} />
+                            ) : (
+                              <span className="whitespace-pre-wrap">{msg.content}</span>
+                            )}
+                          </div>
+                          {msg.role === 'user' && (
+                            <div className="shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
+                              <MessageSquare size={12} className="text-primary" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {/* Streaming indicator */}
+                      {extStreaming && (
+                        <div className="flex gap-2 justify-start">
+                          <div className="shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center mt-0.5">
+                            <Terminal size={12} className="text-primary" />
+                          </div>
+                          <div className="max-w-[80%] rounded-lg px-3 py-2 text-[11px] bg-surface-container-highest text-on-surface-variant border border-outline-variant/10">
+                            <span className="inline-block w-1.5 h-3 bg-primary/60 animate-pulse rounded-sm" />
+                          </div>
+                        </div>
+                      )}
+                      <div ref={extChatEndRef} />
+                    </div>
+
+                    {/* Chat input */}
+                    <div className="flex gap-2">
+                      <textarea
+                        value={extChatInput}
+                        onChange={e => {
+                          setExtChatInput(e.target.value);
+                          if (validationError) setValidationError(null);
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            if (extChatInput.trim() && !extStreaming) {
+                              sendExtMessage(extChatInput.trim());
+                            }
+                          }
+                        }}
+                        placeholder={`Describe your feature to ${selectedAgent?.name ?? 'the agent'}... (Enter to send, Shift+Enter for new line)`}
+                        disabled={extStreaming}
+                        className={cn(
+                          'flex-1 px-3 py-2 rounded-lg text-[11px] bg-surface-container-high text-on-surface',
+                          'border border-outline-variant/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/30',
+                          'placeholder:text-on-surface-variant/40 resize-none outline-none transition-all',
+                          'font-body min-h-[36px] max-h-[80px]',
+                          extStreaming && 'opacity-50',
+                        )}
+                        rows={1}
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => {
+                          if (extChatInput.trim() && !extStreaming) {
+                            sendExtMessage(extChatInput.trim());
+                          }
+                        }}
+                        disabled={!extChatInput.trim() || extStreaming}
+                        className={cn(
+                          'shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all',
+                          extChatInput.trim() && !extStreaming
+                            ? 'bg-primary text-on-primary hover:bg-primary/90'
+                            : 'bg-surface-container-highest text-outline',
+                        )}
+                      >
+                        <Send size={14} />
+                      </button>
                     </div>
                   </div>
                 )}
@@ -965,20 +1192,20 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
                 disabled={
                   selectedAgent?.isBuiltIn
                     ? messages.filter(m => m.role === 'user').length === 0 || isStreaming
-                    : !requirementText.trim() || isStreaming
+                    : extMessages.filter(m => m.role === 'user').length === 0 || extStreaming
                 }
                 className={cn(
                   'flex items-center gap-1.5 px-5 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider',
                   'transition-all',
                   (selectedAgent?.isBuiltIn
                     ? messages.filter(m => m.role === 'user').length > 0 && !isStreaming
-                    : requirementText.trim() && !isStreaming)
+                    : extMessages.filter(m => m.role === 'user').length > 0 && !extStreaming)
                     ? 'bg-primary text-on-primary hover:bg-primary/90'
                     : 'bg-surface-container-highest text-outline cursor-not-allowed',
                 )}
               >
                 <Sparkles size={12} />
-                {isStreaming ? 'Creating...' : 'Create Feature'}
+                {(isStreaming || extStreaming) ? 'Creating...' : 'Create Feature'}
               </button>
             )}
 
