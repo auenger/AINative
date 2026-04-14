@@ -91,6 +91,16 @@ And plan 的 acceptance criteria 符合 Gherkin 格式
 - PM Agent 回复风格更聚焦于 feature 创建
 
 ### General Checklist
-- [ ] 独立的 feature creation prompt 设计完成
-- [ ] Prompt 不依赖/引用项目级 PM Agent prompt
-- [ ] 生成的 feature plan 质量验证通过
+- [x] 独立的 feature creation prompt 设计完成
+- [x] Prompt 不依赖/引用项目级 PM Agent prompt
+- [x] 生成的 feature plan 质量验证通过
+
+## Merge Record
+
+- **Completed**: 2026-04-14T13:00:00Z
+- **Merged Branch**: feature/feat-newtask-built-in-pm
+- **Merge Commit**: 926581d
+- **Archive Tag**: feat-newtask-built-in-pm-20260414
+- **Conflicts**: None (clean fast-forward merge)
+- **Verification**: PASS (2/2 Gherkin scenarios, 10/10 assertions)
+- **Stats**: 3 commits, 5 files changed, started 2026-04-14T12:30:00Z

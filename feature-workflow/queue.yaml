@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-14T12:30:00Z'
+  last_updated: '2026-04-14T13:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -26,17 +26,7 @@ parents:
   - feat-pm-role-separation
   - feat-newtask-built-in-pm
   - feat-newtask-runtime-multiturn
-active:
-- id: feat-newtask-built-in-pm
-  name: New Task 内置 PM 独立 Prompt 体系
-  priority: 55
-  size: S
-  parent: feat-pm-newtask-role-separation
-  depends_on:
-  - feat-pm-role-separation
-  branch: feature/feat-newtask-built-in-pm
-  worktree: ../NeuroSyntaxIDE-feat-newtask-built-in-pm
-  started_at: '2026-04-14T12:30:00Z'
+active: []
 pending:
 - id: feat-newtask-runtime-multiturn
   name: New Task 外部 Runtime 多轮对话支持
@@ -51,6 +41,10 @@ pending:
     size: M
 blocked: []
 completed:
+- id: feat-newtask-built-in-pm
+  name: New Task 内置 PM 独立 Prompt 体系
+  completed_at: '2026-04-14T13:00:00Z'
+  tag: feat-newtask-built-in-pm-20260414
 - id: feat-pm-role-separation
   name: PM Agent 职责分离与 Prompt 拆分
   completed_at: '2026-04-14T12:00:00Z'
