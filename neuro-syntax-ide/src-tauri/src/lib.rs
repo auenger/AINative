@@ -71,8 +71,10 @@ pub struct FeatureNode {
     pub priority: i32,
     #[serde(default)]
     pub size: String,
-    #[serde(default)]
+    #[serde(default, alias = "depends_on")]
     pub dependencies: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub completed_at: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -95,7 +97,7 @@ pub struct ParentEntry {
     pub id: String,
     #[serde(default)]
     pub name: String,
-    #[serde(default)]
+    #[serde(default, alias = "children")]
     pub features: Vec<String>,
 }
 
@@ -2323,8 +2325,58 @@ async fn fetch_queue_state(
     let content = fs::read_to_string(&queue_yaml_path)
         .map_err(|e| format!("Failed to read queue.yaml: {}", e))?;
 
-    let mut queue: QueueYaml = serde_yaml::from_str(&content)
+    // --- Two-phase resilient parsing ---
+    // Phase 1: Parse top-level YAML as generic Value to tolerate unknown fields
+    let top_level: serde_yaml::Value = serde_yaml::from_str(&content)
         .map_err(|e| format!("Failed to parse queue.yaml: {}", e))?;
+
+    // Phase 2: Extract each section individually with per-entry fault tolerance
+    let meta: QueueMeta = top_level.get("meta")
+        .and_then(|v| serde_yaml::from_value(v.clone()).ok())
+        .unwrap_or_default();
+
+    let parse_entries = |key: &str| -> Vec<FeatureNode> {
+        top_level.get(key)
+            .and_then(|v| v.as_sequence())
+            .map(|seq| {
+                seq.iter().enumerate().filter_map(|(i, entry)| {
+                    match serde_yaml::from_value::<FeatureNode>(entry.clone()) {
+                        Ok(node) => Some(node),
+                        Err(e) => {
+                            eprintln!("[queue-parser] WARNING: Skipping {}[{}] parse error: {}", key, i, e);
+                            None
+                        }
+                    }
+                }).collect()
+            })
+            .unwrap_or_default()
+    };
+
+    let parse_parents = || -> Vec<ParentEntry> {
+        top_level.get("parents")
+            .and_then(|v| v.as_sequence())
+            .map(|seq| {
+                seq.iter().enumerate().filter_map(|(i, entry)| {
+                    match serde_yaml::from_value::<ParentEntry>(entry.clone()) {
+                        Ok(node) => Some(node),
+                        Err(e) => {
+                            eprintln!("[queue-parser] WARNING: Skipping parents[{}] parse error: {}", i, e);
+                            None
+                        }
+                    }
+                }).collect()
+            })
+            .unwrap_or_default()
+    };
+
+    let mut queue = QueueYaml {
+        meta,
+        parents: parse_parents(),
+        active: parse_entries("active"),
+        pending: parse_entries("pending"),
+        blocked: parse_entries("blocked"),
+        completed: parse_entries("completed"),
+    };
 
     // Enrich each feature node with details from its directory
     let features_dir = PathBuf::from(&workspace).join("features");
@@ -4457,6 +4509,7 @@ r#"# Checklist: {}
         priority: plan.priority,
         size: plan.size.clone(),
         dependencies: plan.dependencies.clone(),
+        parent: None,
         completed_at: None,
         tag: None,
         details: None,
