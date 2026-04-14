@@ -1,10 +1,39 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-14T13:00:00Z"
+  last_updated: "2026-04-14T15:00:00Z"
   version: 1
-  total_completed: 90
+  total_completed: 91
 
 records:
+  - id: feat-newtask-runtime-multiturn
+    name: "New Task 外部 Runtime 多轮对话支持"
+    completed_at: "2026-04-14T15:00:00Z"
+    tag: feat-newtask-runtime-multiturn-20260414
+    merge_commit: 8c95282
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-newtask-runtime-multiturn
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-newtask-runtime-multiturn
+    parent: feat-pm-newtask-role-separation
+    depends_on:
+      - feat-newtask-built-in-pm
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-04-14T14:00:00Z"
+      duration: "~1h"
+      commits: 3
+      files_changed: 6
+      insertions: 486
+      deletions: 35
+    archive_path: features/archive/done-feat-newtask-runtime-multiturn-20260414
+
   - id: feat-newtask-built-in-pm
     name: "New Task 内置 PM 独立 Prompt 体系"
     completed_at: "2026-04-14T13:00:00Z"
