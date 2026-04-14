@@ -47,7 +47,19 @@
 - feat-chat-style-newtask — 已完成的多轮对话 UI
 
 ## Technical Solution
-<!-- To be filled during implementation -->
+
+### Implementation Approach
+Designed a new `FEATURE_CREATION_PM_PROMPT` constant in `useAgentChat.ts` that replaces the generic `PM_SYSTEM_PROMPT`. The new prompt is a self-contained system prompt specifically tailored for the New Task Modal's feature creation workflow.
+
+### Key Design Decisions
+1. **Completely independent constant** — New `FEATURE_CREATION_PM_PROMPT` replaces `PM_SYSTEM_PROMPT` entirely; no shared content with project-level PM Agent
+2. **Feature-workflow template knowledge embedded** — The prompt explicitly describes spec.md, task.md, and checklist.md structures so the AI generates output aligned with the project's documentation system
+3. **3-phase conversation strategy** — Requirement Clarification → Value Point Analysis & Complexity Assessment → Feature Plan Preparation
+4. **Updated greeting message** — Changed from "I'm your PM Agent" to "I'm the Feature Creation PM" to clearly differentiate the role
+5. **All references updated** — Greeting filter strings in `sendMessage()` and `generateFeaturePlan()` updated to match the new greeting text
+
+### Files Modified
+- `neuro-syntax-ide/src/lib/useAgentChat.ts` — Replaced PM_SYSTEM_PROMPT with FEATURE_CREATION_PM_PROMPT, updated greeting, updated all greeting filter references
 
 ## Acceptance Criteria (Gherkin)
 

@@ -47,38 +47,65 @@ interface StreamEvent {
 // Constants
 // ---------------------------------------------------------------------------
 
-const PM_SYSTEM_PROMPT = `You are the PM Agent for Neuro Syntax IDE, an AI-native desktop IDE. Your role is to help users define features through multi-turn conversation before creating a formal feature plan.
+const FEATURE_CREATION_PM_PROMPT = `You are the Feature Creation PM — a specialized AI agent embedded in the New Task Modal of Neuro Syntax IDE. Your sole purpose is to help users define features through focused multi-turn conversation, then guide them toward creating a well-structured feature plan.
+
+You are NOT a general-purpose project manager. You are a feature definition specialist who understands the feature-workflow documentation system and produces output aligned with its templates.
+
+## Feature-Workflow Document Knowledge
+
+You understand the following document templates used by this project:
+
+### spec.md (Feature Specification)
+Contains: Basic Information (ID, name, priority, size, dependencies, parent/children), Description, User Value Points (AI-analyzed independent capabilities), Context Analysis (reference code, related docs, related features), Technical Solution, and Acceptance Criteria in Gherkin format.
+
+### task.md (Task Breakdown)
+Organized into numbered sections by module/component, each with checkbox items. Includes a Progress Log table. Tasks are concrete, actionable development items.
+
+### checklist.md (Completion Checklist)
+Sections: Development (all tasks done, code self-tested), Code Quality (style conventions), Testing (unit tests, passing), Documentation (spec.md technical solution filled).
 
 ## Conversation Strategy
 
 ### Phase 1: Requirement Clarification
-When the user describes a feature, assess clarity. If the description is vague or ambiguous, proactively ask clarifying questions about:
-- Scope and boundaries (what's in/out?)
-- User interactions and workflows
-- Edge cases and error handling
-- Integration points with existing features
-- Performance or scalability requirements
+When the user describes a feature idea, quickly assess clarity. If vague or ambiguous, ask focused clarifying questions (1-3 per turn, never dump all at once):
 
-Ask 1-3 focused questions per turn. Do NOT dump all questions at once. Adapt your follow-ups based on the user's answers.
+- **Scope & Boundaries**: What is explicitly IN vs OUT?
+- **User Interactions**: What workflows or UI changes are involved?
+- **Edge Cases**: Error handling, fallback behavior?
+- **Integration Points**: How does this connect to existing features?
+- **Acceptance Criteria**: How will the user know it works?
 
-### Phase 2: Refinement & Negotiation
-- Summarize your understanding back to the user periodically
-- If the feature seems large, suggest splitting into smaller features with clear value points
-- Discuss trade-offs and alternatives when relevant
-- Confirm priority and scope with the user
+Adapt follow-ups based on previous answers. Do not repeat questions already answered.
 
-### Phase 3: Ready to Create
-When you have enough information (clear scope, confirmed value points, understood requirements), indicate readiness:
-"Based on our discussion, I have a clear understanding of the requirement. You can now click **Create Feature** to generate the formal feature plan."
+### Phase 2: Value Point Analysis & Complexity Assessment
+Based on the clarified requirements, perform:
 
-Do NOT generate the plan yourself in chat — just indicate readiness. The system will generate a structured plan from the full conversation context.
+1. **Value Point Identification** — Break the feature into independent user value points. Each value point should represent a distinct capability that delivers meaningful user benefit on its own.
+
+2. **Complexity Assessment** — Estimate size:
+   - 1 value point → Small (S)
+   - 2 value points → Medium (M)
+   - 3+ value points → Large (L), recommend splitting
+
+3. **Split Recommendation** — If the feature has 3+ value points, suggest splitting into sub-features with a dependency chain. Each sub-feature should be independently valuable and deployable.
+
+### Phase 3: Feature Plan Preparation
+When you have sufficient clarity (confirmed scope, identified value points, understood requirements):
+
+1. Present a brief summary of your understanding
+2. List the identified value points
+3. Indicate readiness:
+   "Based on our discussion, I have a clear understanding of the requirement. You can now click **Create Feature** to generate the formal feature plan."
+
+Do NOT generate the full plan in chat. The system will produce a structured plan (spec.md, task.md, checklist.md) from the conversation context.
 
 ## Response Style
 - Be concise, technical, and actionable
-- Use Markdown formatting for clarity
+- Use Markdown formatting (headers, bullet lists, bold for emphasis)
 - Keep responses focused — avoid walls of text
-- Use numbered lists for multi-part questions
-- Acknowledge user answers before asking follow-ups`;
+- Use numbered lists for multi-part questions or sequential steps
+- Acknowledge user answers before asking follow-ups
+- When summarizing, use the "value point" framing to reinforce the feature-workflow vocabulary`;
 
 const GEMINI_RUNTIME_ID = 'gemini-http';
 
@@ -93,7 +120,7 @@ export function useAgentChat() {
     {
       role: 'assistant',
       content:
-        "Hello! I'm your PM Agent. I'll help you define and maintain the project context. What are we building today?",
+        "Hello! I'm the Feature Creation PM. Tell me about the feature you'd like to build, and I'll help you define it clearly before creating a plan.",
     },
   ]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -147,7 +174,7 @@ export function useAgentChat() {
     }
   }, []);
 
-  /** Register the persistent agent://chunk listener for the PM Agent.
+  /** Register the persistent agent://chunk listener for the Feature Creation PM Agent.
    *  Listens on the unified `agent://chunk` event from runtime_execute. */
   const registerChunkListener = useCallback(async () => {
     // Remove any previous listener
@@ -213,7 +240,7 @@ export function useAgentChat() {
     };
   }, [removeChunkListener]);
 
-  /** Send a message to the PM Agent and receive streaming response via runtime_execute */
+  /** Send a message to the Feature Creation PM Agent and receive streaming response via runtime_execute */
   const sendMessage = useCallback(
     async (input: string) => {
       if (!input.trim()) return;
@@ -223,7 +250,7 @@ export function useAgentChat() {
       setError(null);
 
       if (!isTauri) {
-        // Dev fallback: simulate PM Agent response
+        // Dev fallback: simulate Feature Creation PM response
         setTimeout(() => {
           setMessages((prev) => [
             ...prev,
@@ -247,7 +274,7 @@ export function useAgentChat() {
 
         // Build messages array for the API (exclude the initial greeting)
         const chatMessages = [...messages, userMessage]
-          .filter((m) => !(m.role === 'assistant' && m.content.includes("Hello! I'm your PM Agent")))
+          .filter((m) => !(m.role === 'assistant' && m.content.includes("Hello! I'm the Feature Creation PM")))
           .map((m) => ({ role: m.role, content: m.content }));
 
         // Serialize messages as JSON string for the runtime's execute() to parse
@@ -258,7 +285,7 @@ export function useAgentChat() {
           runtimeId: GEMINI_RUNTIME_ID,
           message: messagePayload,
           sessionId: null,
-          systemPrompt: PM_SYSTEM_PROMPT,
+          systemPrompt: FEATURE_CREATION_PM_PROMPT,
         });
       } catch (e: any) {
         setError(e?.toString() ?? 'Failed to send message');
@@ -293,7 +320,7 @@ export function useAgentChat() {
         const { invoke } = await import('@tauri-apps/api/core');
         // Filter out the initial greeting and only send meaningful conversation messages
         const filteredMessages = chatMessages.filter(
-          (m) => !(m.role === 'assistant' && m.content.includes("Hello! I'm your PM Agent"))
+          (m) => !(m.role === 'assistant' && m.content.includes("Hello! I'm the Feature Creation PM"))
         );
         const plan: FeaturePlanOutput = await invoke('agent_generate_feature_plan', {
           request: {
@@ -335,7 +362,7 @@ export function useAgentChat() {
       {
         role: 'assistant',
         content:
-          "Hello! I'm your PM Agent. I'll help you define and maintain the project context. What are we building today?",
+          "Hello! I'm the Feature Creation PM. Tell me about the feature you'd like to build, and I'll help you define it clearly before creating a plan.",
       },
     ]);
     streamingTextRef.current = '';
