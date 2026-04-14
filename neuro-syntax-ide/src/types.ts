@@ -201,11 +201,25 @@ export interface AppConfig {
   auto_refresh_interval: number;
 }
 
+/** User profile data stored in settings.yaml. */
+export interface UserProfile {
+  name: string;
+  email: string;
+  avatar_base64: string; // data:image/xxx;base64,xxx
+}
+
+/** Git user info returned by read_git_user_info command. */
+export interface GitUserInfo {
+  name: string | null;
+  email: string | null;
+}
+
 /** Root settings object stored in settings.yaml. */
 export interface AppSettings {
   providers: Record<string, ProviderConfig>;
   llm: LlmConfig;
   app: AppConfig;
+  user: UserProfile;
 }
 
 // ---------------------------------------------------------------------------

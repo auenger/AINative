@@ -381,6 +381,16 @@ pub struct AppConfigYaml {
 
 fn default_auto_refresh() -> u32 { 30 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct UserProfile {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub email: String,
+    #[serde(default)]
+    pub avatar_base64: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AppSettings {
     #[serde(default)]
@@ -389,6 +399,8 @@ pub struct AppSettings {
     pub llm: LlmConfig,
     #[serde(default)]
     pub app: AppConfigYaml,
+    #[serde(default)]
+    pub user: UserProfile,
 }
 
 impl Default for AppSettings {
@@ -405,6 +417,7 @@ impl Default for AppSettings {
             app: AppConfigYaml {
                 auto_refresh_interval: default_auto_refresh(),
             },
+            user: UserProfile::default(),
         }
     }
 }
@@ -6767,6 +6780,43 @@ async fn write_settings(
     Ok(())
 }
 
+/// Read git user.name and user.email from the current workspace.
+/// Returns null values if git config is unavailable.
+#[tauri::command]
+async fn read_git_user_info(
+    state: tauri::State<'_, AppState>,
+) -> Result<HashMap<String, Option<String>>, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    let mut result = HashMap::new();
+    result.insert("name".to_string(), None);
+    result.insert("email".to_string(), None);
+
+    if workspace.is_empty() {
+        return Ok(result);
+    }
+
+    let read_config = |key: &str| -> Option<String> {
+        Command::new("git")
+            .args(["config", key])
+            .current_dir(&workspace)
+            .output()
+            .ok()
+            .and_then(|o| {
+                if o.status.success() {
+                    String::from_utf8(o.stdout).ok().map(|s| s.trim().to_string())
+                } else {
+                    None
+                }
+            })
+            .filter(|s| !s.is_empty())
+    };
+
+    result.insert("name".to_string(), read_config("user.name"));
+    result.insert("email".to_string(), read_config("user.email"));
+
+    Ok(result)
+}
+
 /// Test an LLM provider connection by calling {api_base}/models.
 /// Returns a list of available model IDs on success.
 #[tauri::command]
@@ -7858,6 +7908,8 @@ pub fn run() {
             read_settings,
             write_settings,
             test_llm_connection,
+            // User Profile (feat-user-profile)
+            read_git_user_info,
             // PMFile management (feat-agent-multimodal-upload)
             pmfile_upload,
             pmfile_upload_bytes,
