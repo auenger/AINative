@@ -7882,3 +7882,136 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+#[cfg(test)]
+mod tests_queue_resilient_parsing {
+    use super::*;
+
+    // Scenario 1: Normal queue.yaml entry
+    #[test]
+    fn test_normal_entry() {
+        let yaml = r#"
+id: feat-test
+name: Test Feature
+priority: 50
+size: M
+dependencies:
+  - feat-dep1
+"#;
+        let node: FeatureNode = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(node.id, "feat-test");
+        assert_eq!(node.name, "Test Feature");
+        assert_eq!(node.priority, 50);
+        assert_eq!(node.dependencies, vec!["feat-dep1"]);
+    }
+
+    // Scenario 2: Extra fields (parent, description, status, etc.) silently ignored
+    #[test]
+    fn test_extra_fields_ignored() {
+        let yaml = r#"
+id: feat-extra
+name: Extra Fields Feature
+priority: 30
+size: S
+parent: parent-epic
+description: "Some description"
+status: active
+defer_reason: "waiting"
+value_points: 5
+dependencies: []
+"#;
+        let node: FeatureNode = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(node.id, "feat-extra");
+        assert_eq!(node.parent, Some("parent-epic".to_string()));
+        assert_eq!(node.name, "Extra Fields Feature");
+    }
+
+    // Scenario 3: depends_on field alias
+    #[test]
+    fn test_depends_on_alias() {
+        let yaml = r#"
+id: feat-alias
+name: Alias Test
+priority: 40
+size: M
+depends_on:
+  - feat-dep-a
+  - feat-dep-b
+"#;
+        let node: FeatureNode = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(node.id, "feat-alias");
+        assert_eq!(node.dependencies, vec!["feat-dep-a", "feat-dep-b"]);
+    }
+
+    // Scenario 4: ParentEntry children alias
+    #[test]
+    fn test_parent_entry_children_alias() {
+        let yaml = r#"
+id: parent-epic
+name: Epic
+children:
+  - feat-child-1
+  - feat-child-2
+"#;
+        let entry: ParentEntry = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(entry.id, "parent-epic");
+        assert_eq!(entry.features, vec!["feat-child-1", "feat-child-2"]);
+    }
+
+    // Scenario 5: Malformed entry skipped, rest render
+    #[test]
+    fn test_malformed_entry_skipped() {
+        let top_yaml = r#"
+meta:
+  last_updated: "2026-04-14"
+  version: 1
+parents: []
+active: []
+pending:
+  - id: feat-good
+    name: Good Feature
+    priority: 50
+    size: M
+  - id: feat-bad
+    name: Bad Feature
+    priority: "not-a-number"
+    size: S
+blocked: []
+completed: []
+"#;
+        let top_level: serde_yaml::Value = serde_yaml::from_str(top_yaml).unwrap();
+        let entries: Vec<FeatureNode> = top_level
+            .get("pending")
+            .and_then(|v| v.as_sequence())
+            .map(|seq| {
+                seq.iter().enumerate().filter_map(|(i, entry)| {
+                    let _ = i;
+                    serde_yaml::from_value::<FeatureNode>(entry.clone()).ok()
+                }).collect()
+            })
+            .unwrap_or_default();
+
+        assert_eq!(entries.len(), 1, "Expected 1 good entry, bad one skipped");
+        assert_eq!(entries[0].id, "feat-good");
+    }
+
+    // Scenario 6: Only-id entry renders with defaults
+    #[test]
+    fn test_minimal_entry_defaults() {
+        let yaml = r#"id: feat-minimal"#;
+        let node: FeatureNode = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(node.id, "feat-minimal");
+        assert_eq!(node.name, "");
+        assert_eq!(node.priority, 0);
+        assert_eq!(node.size, "");
+        assert!(node.dependencies.is_empty());
+    }
+
+    // Scenario 7: Invalid YAML returns error
+    #[test]
+    fn test_invalid_yaml_error() {
+        let yaml = "this is not: valid\n  broken: [yaml: content";
+        let result: Result<serde_yaml::Value, _> = serde_yaml::from_str(yaml);
+        assert!(result.is_err(), "Expected parse error for invalid YAML");
+    }
+}
