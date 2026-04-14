@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-13T17:00:00Z'
+  last_updated: '2026-04-14T10:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -19,10 +19,44 @@ parents:
   - feat-file-preview-pdf
   - feat-file-preview-media
   - feat-file-preview-image-enhance
+- id: feat-pm-newtask-role-separation
+  name: PM Agent 与 New Task 职责分离
+  split: true
+  features:
+  - feat-pm-role-separation
+  - feat-newtask-built-in-pm
+  - feat-newtask-runtime-multiturn
 active: []
-pending: []
+pending:
+- id: feat-pm-role-separation
+  name: PM Agent 职责分离与 Prompt 拆分
+  priority: 60
+  size: M
+  parent: feat-pm-newtask-role-separation
+- id: feat-newtask-built-in-pm
+  name: New Task 内置 PM 独立 Prompt 体系
+  priority: 55
+  size: S
+  parent: feat-pm-newtask-role-separation
+  depends_on:
+  - feat-pm-role-separation
+- id: feat-newtask-runtime-multiturn
+  name: New Task 外部 Runtime 多轮对话支持
+  priority: 50
+  size: S
+  parent: feat-pm-newtask-role-separation
+  depends_on:
+  - feat-newtask-built-in-pm
+  - id: feat-user-profile
+    name: 用户资料管理（名称/邮箱/头像/Git 信息）
+    priority: 45
+    size: M
 blocked: []
 completed:
+- id: fix-queue-resilient-parsing
+  name: Task Board YAML 解析容错与字段兼容
+  completed_at: '2026-04-14T10:30:00Z'
+  tag: fix-queue-resilient-parsing-20260414
 - id: feat-chat-style-newtask
   name: Chat-style NewTask Modal（需求多轮对话 + 精准触达 new-feature）
   completed_at: '2026-04-13T17:00:00Z'

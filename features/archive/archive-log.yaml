@@ -1,10 +1,36 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-13T17:00:00Z"
+  last_updated: "2026-04-14T10:30:00Z"
   version: 1
-  total_completed: 87
+  total_completed: 88
 
 records:
+  - id: fix-queue-resilient-parsing
+    name: "Task Board YAML 解析容错与字段兼容"
+    completed_at: "2026-04-14T10:30:00Z"
+    tag: fix-queue-resilient-parsing-20260414
+    merge_commit: 01fbe5e
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/fix-queue-resilient-parsing
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-fix-queue-resilient-parsing
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 7
+      scenarios_passed: 7
+    stats:
+      started: "2026-04-14T10:00:00Z"
+      duration: "~30min"
+      commits: 2
+      files_changed: 1
+      insertions: 189
+      deletions: 3
+    archive_path: features/archive/done-fix-queue-resilient-parsing-20260414
+
   - id: feat-chat-style-newtask
     name: "Chat-style NewTask Modal（需求多轮对话 + 精准触达 new-feature）"
     completed_at: "2026-04-13T17:00:00Z"
