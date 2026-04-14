@@ -4,7 +4,6 @@ import {
   GitBranch,
   Rocket,
   Settings,
-  User,
   FileCode,
   Layout,
   Bot,
@@ -63,15 +62,6 @@ export const SideNav: React.FC<SideNavProps> = ({ activeView, onViewChange }) =>
           )}
         >
           <Settings size={20} />
-        </button>
-        <button 
-          onClick={() => onViewChange('person')}
-          className={cn(
-            "w-full flex justify-center py-3 transition-colors",
-            activeView === 'person' ? "text-blue-400" : "text-slate-500 opacity-70 hover:text-blue-300"
-          )}
-        >
-          <User size={20} />
         </button>
       </div>
     </aside>
