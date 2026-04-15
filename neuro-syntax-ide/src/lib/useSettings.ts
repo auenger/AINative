@@ -52,12 +52,19 @@ export function useSettings() {
   const [dirty, setDirty] = useState(false);
 
   /** Load settings from backend (or dev fallback). */
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal?: AbortSignal) => {
+    // If user has unsaved edits, skip reload to avoid overwriting their work
+    if (dirty) return;
+
     setLoading(true);
     setError(null);
 
     try {
       const loaded = await invoke<AppSettings>('read_settings');
+
+      // Discard result if the caller has moved on (e.g. StrictMode re-fire)
+      if (signal?.aborted) return;
+
       // Merge with defaults so new fields are always present
       setSettings({
         providers: { ...DEFAULT_SETTINGS.providers, ...loaded.providers },
@@ -67,6 +74,7 @@ export function useSettings() {
       });
       setDirty(false);
     } catch (e: unknown) {
+      if (signal?.aborted) return;
       // In dev mode (no Tauri), just use defaults silently
       if (isTauri) {
         setError(e instanceof Error ? e.message : String(e));
@@ -74,9 +82,11 @@ export function useSettings() {
       setSettings(DEFAULT_SETTINGS);
       setDirty(false);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
-  }, []);
+  }, [dirty]);
 
   /** Persist current settings to backend. */
   const save = useCallback(async () => {
@@ -108,9 +118,11 @@ export function useSettings() {
     setDirty(true);
   }, []);
 
-  // Load on mount
+  // Load on mount — AbortController ensures StrictMode double-fire is handled
   useEffect(() => {
-    load();
+    const controller = new AbortController();
+    load(controller.signal);
+    return () => controller.abort();
   }, [load]);
 
   return {
