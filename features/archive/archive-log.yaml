@@ -1,10 +1,34 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-14T16:45:00Z"
+  last_updated: "2026-04-15T11:00:00Z"
   version: 1
-  total_completed: 92
+  total_completed: 93
 
 records:
+  - id: fix-settings-api-base-url
+    name: "修复 LLM 供应商 API Base URL 无法修改"
+    completed_at: "2026-04-15T11:00:00Z"
+    tag: fix-settings-api-base-url-20260415
+    merge_commit: 12437c8
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/fix-settings-api-base-url
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-fix-settings-api-base-url
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-15T10:00:00Z"
+      duration: "~1h"
+      commits: 1
+      files_changed: 1
+    archive_path: features/archive/done-fix-settings-api-base-url-20260415
+
   - id: feat-user-profile
     name: "用户资料管理（名称/邮箱/头像/Git 信息）"
     completed_at: "2026-04-14T16:45:00Z"

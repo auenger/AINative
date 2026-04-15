@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-15T10:00:00Z'
+  last_updated: '2026-04-15T11:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -26,18 +26,14 @@ parents:
   - feat-pm-role-separation
   - feat-newtask-built-in-pm
   - feat-newtask-runtime-multiturn
-active:
-  - id: fix-settings-api-base-url
-    name: 修复 LLM 供应商 API Base URL 无法修改
-    priority: 80
-    size: S
-    branch: feature/fix-settings-api-base-url
-    worktree: ../NeuroSyntaxIDE-fix-settings-api-base-url
-    started: '2026-04-15T10:00:00Z'
-    created: '2026-04-14T17:30:00Z'
+active: []
 pending: []
 blocked: []
 completed:
+- id: fix-settings-api-base-url
+  name: 修复 LLM 供应商 API Base URL 无法修改
+  completed_at: '2026-04-15T11:00:00Z'
+  tag: fix-settings-api-base-url-20260415
 - id: feat-user-profile
   name: 用户资料管理（名称/邮箱/头像/Git 信息）
   completed_at: '2026-04-14T16:45:00Z'

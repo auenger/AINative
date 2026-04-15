@@ -1,0 +1,46 @@
+{
+  "feature_id": "fix-settings-api-base-url",
+  "verification_date": "2026-04-15",
+  "method": "code_analysis",
+  "typescript_check": {
+    "new_errors": 0,
+    "pre_existing_errors": 2,
+    "pre_existing_error_files": [
+      "src/components/views/PixelAgentView.tsx:313",
+      "src/office/sprites/pngLoader.ts:10"
+    ]
+  },
+  "unit_tests": {
+    "available": false,
+    "note": "No project-level test suite configured"
+  },
+  "gherkin_scenarios": [
+    {
+      "name": "Modify ZAI default provider API Base URL",
+      "status": "pass",
+      "method": "code_analysis"
+    },
+    {
+      "name": "Modify new provider API Base URL",
+      "status": "pass",
+      "method": "code_analysis"
+    },
+    {
+      "name": "Save and persist",
+      "status": "pass",
+      "method": "code_analysis"
+    },
+    {
+      "name": "Switch tabs during editing",
+      "status": "pass",
+      "method": "code_analysis"
+    }
+  ],
+  "general_checks": [
+    { "check": "API Key editing not affected", "status": "pass" },
+    { "check": "Add/remove provider not affected", "status": "pass" },
+    { "check": "Test Connection not affected", "status": "pass" },
+    { "check": "No memory leaks", "status": "pass" }
+  ],
+  "overall_status": "pass"
+}
