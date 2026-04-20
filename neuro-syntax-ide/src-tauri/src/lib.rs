@@ -1,3 +1,6 @@
+mod jsonl_parser;
+mod jsonl_watcher;
+
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -2171,6 +2174,8 @@ struct AppState {
     hw_monitor_stop: Mutex<Option<std::sync::mpsc::Sender<()>>>,
     /// Runtime process monitor stop channel (feat-claude-code-runtime-monitor)
     runtime_monitor_stop: Mutex<Option<std::sync::mpsc::Sender<()>>>,
+    /// JSONL session watcher stop channel (office-tab-real-monitoring)
+    session_watcher_stop: Mutex<Option<std::sync::mpsc::Sender<()>>>,
     req_agent: Mutex<ReqAgentState>,
     /// Agent runtime registry (feat-agent-runtime-core)
     agent_runtime_registry: Mutex<RuntimeRegistry>,
@@ -5951,6 +5956,48 @@ fn dirs_home() -> Result<String, String> {
 }
 
 // ===========================================================================
+// JSONL Session Watcher (office-tab-real-monitoring)
+// ===========================================================================
+
+/// Start watching Claude Code JSONL session files for the given workspace.
+#[tauri::command]
+async fn start_session_watcher(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+    workspace_path: String,
+) -> Result<(), String> {
+    // Stop any existing watcher
+    {
+        let mut stop = state.session_watcher_stop.lock().map_err(|e| e.to_string())?;
+        if let Some(tx) = stop.take() {
+            let _ = tx.send(());
+        }
+    }
+
+    let (tx, rx) = std::sync::mpsc::channel();
+    {
+        let mut stop = state.session_watcher_stop.lock().map_err(|e| e.to_string())?;
+        *stop = Some(tx);
+    }
+
+    jsonl_watcher::start_watcher(workspace_path, rx, app);
+
+    Ok(())
+}
+
+/// Stop the JSONL session watcher.
+#[tauri::command]
+async fn stop_session_watcher(
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut stop = state.session_watcher_stop.lock().map_err(|e| e.to_string())?;
+    if let Some(tx) = stop.take() {
+        let _ = tx.send(());
+    }
+    Ok(())
+}
+
+// ===========================================================================
 // Misc commands
 // ===========================================================================
 
@@ -7825,6 +7872,7 @@ pub fn run() {
             fs_watcher: Mutex::new(None),
             hw_monitor_stop: Mutex::new(None),
             runtime_monitor_stop: Mutex::new(None),
+            session_watcher_stop: Mutex::new(None),
             req_agent: Mutex::new(ReqAgentState::new()),
             agent_runtime_registry: Mutex::new(create_default_registry()),
             router_engine: Mutex::new(RouterEngine::with_defaults()),
@@ -7928,6 +7976,9 @@ pub fn run() {
             stop_runtime_monitor,
             read_claude_session,
             discover_session_tool,
+            // JSONL Session Watcher (office-tab-real-monitoring)
+            start_session_watcher,
+            stop_session_watcher,
             // Kill process by PID (feat-runtime-process-stop)
             kill_process_by_pid,
         ])
