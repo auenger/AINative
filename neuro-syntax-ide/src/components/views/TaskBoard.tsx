@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   Plus,
   MoreHorizontal,
@@ -25,6 +25,7 @@ import {
   Bot,
   Send,
   AlertCircle,
+  Network,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
@@ -76,6 +77,7 @@ function useFormatUpdatedTime() {
 }
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { NewTaskModal } from './NewTaskModal';
+import { TaskGraphView } from './TaskGraphView';
 
 const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
@@ -300,7 +302,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [selectedFeature, setSelectedFeature] = useState<FeatureNode | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<Record<string, string> | null>(null);
-  const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
+  const [viewMode, setViewMode] = useState<'board' | 'list' | 'graph'>('board');
   const [detailTab, setDetailTab] = useState<'spec' | 'tasks' | 'checklist' | 'agent'>('spec');
 
   // Agent tab state
@@ -411,6 +413,18 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
   const allFeatures: FeatureNode[] = queueState
     ? [...queueState.active, ...queueState.pending, ...queueState.blocked, ...queueState.completed]
     : [];
+
+  // Graph data: features with their queue status
+  const graphFeatures = useMemo(() => {
+    if (!queueState) return [];
+    const result: { feature: FeatureNode; queue: QueueName }[] = [];
+    for (const q of ['active', 'pending', 'blocked', 'completed'] as QueueName[]) {
+      for (const f of queueState[q]) {
+        result.push({ feature: f, queue: q });
+      }
+    }
+    return result;
+  }, [queueState]);
 
   // Agent tab: send handler
   const handleAgentSend = useCallback(async () => {
@@ -683,6 +697,18 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
             >
               List
             </button>
+            <button
+              onClick={() => setViewMode('graph')}
+              className={cn(
+                "flex items-center gap-1 px-4 py-1 text-[10px] font-bold uppercase tracking-widest rounded transition-all",
+                viewMode === 'graph'
+                  ? "bg-primary/20 text-primary shadow-sm"
+                  : "text-outline hover:text-on-surface"
+              )}
+            >
+              <Network size={12} />
+              Graph
+            </button>
           </div>
           {queueState && queueState.meta.last_updated && (() => {
             const { relative, absolute } = formatUpdatedTime(new Date(queueState.meta.last_updated));
@@ -736,8 +762,12 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
 
       {/* Content */}
       {!loading || queueState ? (
-        <div className="flex-1 flex overflow-hidden p-6 gap-4">
-          {viewMode === 'board' ? renderBoardView() : renderListView()}
+        <div className={cn("flex-1 flex overflow-hidden", viewMode === 'graph' ? '' : 'p-6 gap-4')}>
+          {viewMode === 'board' && renderBoardView()}
+          {viewMode === 'list' && renderListView()}
+          {viewMode === 'graph' && (
+            <TaskGraphView features={graphFeatures} onNodeClick={handleFeatureClick} />
+          )}
         </div>
       ) : null}
 
