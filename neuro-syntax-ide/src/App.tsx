@@ -62,6 +62,7 @@ const App: React.FC = () => {
             <div className={cn("absolute inset-0 overflow-hidden", activeView === 'tasks' ? 'flex' : 'hidden')}>
               <TaskBoard activeView={activeView} workspacePath={workspace.workspacePath} />
             </div>
+            {/* ⚠️ Workflow view reserved for future design & capability enhancement — component remains mounted to preserve state */}
             <div className={cn("absolute inset-0 overflow-hidden", activeView === 'workflow' ? 'flex' : 'hidden')}>
               <WorkflowEditor />
             </div>

@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-15T11:00:00Z'
+  last_updated: '2026-04-27T18:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -26,10 +26,86 @@ parents:
   - feat-pm-role-separation
   - feat-newtask-built-in-pm
   - feat-newtask-runtime-multiturn
+- id: feat-git-tab-redesign
+  name: Git 独立 Tab 页面重设计
+  split: true
+  features:
+  - feat-git-tab-page
+  - feat-git-file-interaction
+  - feat-git-display-enhance
 active: []
-pending: []
+pending:
+- id: feat-modal-session-store
+  name: Modal 会话持久化层（SessionStore）
+  priority: 85
+  size: M
+- id: feat-git-tab-page
+  name: Git 独立 Tab 页
+  priority: 85
+  size: S
+- id: feat-file-tree-ops
+  name: 文件树编辑器操作增强
+  split: true
+  features:
+  - feat-file-tree-context-menu
+  - feat-file-tree-clipboard
+  - feat-file-tree-navigation
+- id: feat-file-tree-context-menu
+  name: 文件树右键上下文菜单与基础操作
+  priority: 80
+  size: S
+- id: feat-git-file-interaction
+  name: 文件变更交互增强
+  priority: 80
+  size: S
+  depends_on:
+  - feat-git-tab-page
+- id: feat-claude-session-history
+  name: Claude Code 会话历史回看
+  priority: 75
+  size: M
+- id: feat-git-display-enhance
+  name: Git 信息展示强化
+  priority: 75
+  size: S
+  depends_on:
+  - feat-git-tab-page
+- id: feat-settings-workflow-config
+  name: Settings 工作流参数配置（并行/自动化/清理）
+  priority: 70
+  size: M
+- id: feat-task-board-layout-optim
+  name: Task Board 列排序与显示优化
+  priority: 70
+  size: M
+- id: feat-task-execution-overlay
+  name: 任务执行乐观状态（Execution Overlay + Ghost Card）
+  priority: 70
+  size: L
+- id: feat-modal-safe-close
+  name: Modal 安全关闭保护
+  priority: 60
+  size: S
+  depends_on:
+  - feat-modal-session-store
+- id: feat-file-tree-clipboard
+  name: 文件树剪贴板操作（复制/剪切/粘贴/移动）
+  priority: 80
+  size: S
+  depends_on:
+  - feat-file-tree-context-menu
+- id: feat-file-tree-navigation
+  name: 文件树快速导航（定位/跳转/路径复制）
+  priority: 80
+  size: S
+  depends_on:
+  - feat-file-tree-clipboard
 blocked: []
 completed:
+- id: feat-task-graph-timeline
+  name: Task Graph Timeline View（时间轴依赖图谱视图）
+  completed_at: '2026-04-23T13:00:00Z'
+  tag: feat-task-graph-timeline-20260423
 - id: fix-settings-api-base-url
   name: 修复 LLM 供应商 API Base URL 无法修改
   completed_at: '2026-04-15T11:00:00Z'

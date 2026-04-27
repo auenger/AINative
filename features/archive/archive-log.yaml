@@ -1,10 +1,34 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-15T11:00:00Z"
+  last_updated: "2026-04-23T13:00:00Z"
   version: 1
-  total_completed: 93
+  total_completed: 94
 
 records:
+  - id: feat-task-graph-timeline
+    name: "Task Graph Timeline View（时间轴依赖图谱视图）"
+    completed_at: "2026-04-23T13:00:00Z"
+    tag: feat-task-graph-timeline-20260423
+    merge_commit: 68e33c3
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-task-graph-timeline
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-task-graph-timeline
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 5
+      scenarios_passed: 5
+    stats:
+      started: "2026-04-23T12:30:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 2
+    archive_path: features/archive/done-feat-task-graph-timeline-20260423
+
   - id: fix-settings-api-base-url
     name: "修复 LLM 供应商 API Base URL 无法修改"
     completed_at: "2026-04-15T11:00:00Z"

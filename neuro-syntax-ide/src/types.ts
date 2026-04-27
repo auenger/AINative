@@ -1,3 +1,4 @@
+// ⚠️ Workflow view type reserved for future design & capability enhancement
 export type ViewType = 'project' | 'editor' | 'tasks' | 'workflow' | 'mission-control' | 'settings' | 'person' | 'agents' | 'agent-pixel';
 
 export interface FileNode {

@@ -28,7 +28,8 @@ export const SideNav: React.FC<SideNavProps> = ({ activeView, onViewChange }) =>
     { id: 'mission-control', icon: Rocket, label: t('nav.missionControl') },
     { id: 'agents', icon: Bot, label: t('nav.agents') },
     { id: 'agent-pixel', icon: Building2, label: t('nav.observatory') },
-    { id: 'workflow', icon: GitBranch, label: t('nav.workflow') },
+    // ⚠️ Workflow tab hidden — reserved for future design & capability enhancement
+    // { id: 'workflow', icon: GitBranch, label: t('nav.workflow') },
   ];
 
   return (
