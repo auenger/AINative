@@ -1,10 +1,33 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-29T19:30:00Z"
+  last_updated: "2026-04-29T20:20:00Z"
   version: 1
-  total_completed: 105
+  total_completed: 106
 
 records:
+  - id: feat-modal-safe-close
+    name: "Modal 安全关闭保护"
+    completed_at: "2026-04-29T20:20:00Z"
+    tag: feat-modal-safe-close-20260429
+    merge_commit: 4b16f65
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/modal-safe-close
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-modal-safe-close
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-04-29T20:00:00Z"
+      duration: "20m"
+      commits: 2
+      files_changed: 2
+
   - id: feat-task-execution-overlay
     name: "任务执行乐观状态（Execution Overlay + Ghost Card）"
     completed_at: "2026-04-29T19:30:00Z"

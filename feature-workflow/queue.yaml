@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-29T20:00:00Z'
+  last_updated: '2026-04-29T20:20:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -33,16 +33,7 @@ parents:
   - feat-git-tab-page
   - feat-git-file-interaction
   - feat-git-display-enhance
-active:
-- id: feat-modal-safe-close
-  name: Modal 安全关闭保护
-  priority: 60
-  size: S
-  depends_on:
-  - feat-modal-session-store
-  branch: feature/modal-safe-close
-  worktree: ../NeuroSyntaxIDE-modal-safe-close
-  started_at: '2026-04-29T20:00:00Z'
+active: []
 pending:
 - id: feat-file-tree-ops
   name: 文件树编辑器操作增强
@@ -53,6 +44,10 @@ pending:
   - feat-file-tree-navigation
 blocked: []
 completed:
+- id: feat-modal-safe-close
+  name: Modal 安全关闭保护
+  completed_at: '2026-04-29T20:20:00Z'
+  tag: feat-modal-safe-close-20260429
 - id: feat-task-execution-overlay
   name: 任务执行乐观状态（Execution Overlay + Ghost Card）
   completed_at: '2026-04-29T19:30:00Z'
