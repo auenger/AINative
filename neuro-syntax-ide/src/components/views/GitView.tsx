@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Github,
   RefreshCw,
@@ -20,13 +20,15 @@ import {
   Network,
   PlusCircle,
   MinusCircle,
+  Layers,
+  Trash2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { useGitStatus } from '../../lib/useGitStatus';
 import { useGitDetail } from '../../lib/useGitDetail';
-import type { GitModalTab, CommitGraphResult } from '../../types';
+import type { GitModalTab, CommitGraphResult, FileDiffInfo } from '../../types';
 
 // ---------------------------------------------------------------------------
 // CommitGraphTab — git-log style vertical timeline visualization
@@ -203,6 +205,190 @@ const CommitGraphTab: React.FC<CommitGraphTabProps> = ({ graphData, hoveredCommi
 };
 
 // ---------------------------------------------------------------------------
+// FileRow — Single file row with selection & drag support
+// ---------------------------------------------------------------------------
+
+interface FileRowProps {
+  file: FileDiffInfo;
+  isSelected: boolean;
+  isDragging: boolean;
+  stagingPath: string | null;
+  group: 'staged' | 'unstaged' | 'untracked';
+  onSelect: (file: FileDiffInfo, e: React.MouseEvent) => void;
+  onDragStart: (e: React.DragEvent, file: FileDiffInfo) => void;
+  onDragEnd: () => void;
+  onStage: (path: string) => void;
+  onUnstage: (path: string) => void;
+}
+
+const FileRow: React.FC<FileRowProps> = ({
+  file,
+  isSelected,
+  isDragging,
+  stagingPath,
+  group,
+  onSelect,
+  onDragStart,
+  onDragEnd,
+  onStage,
+  onUnstage,
+}) => {
+  const fileName = file.path.split('/').pop() || file.path;
+  const iconColor = group === 'staged' ? 'text-tertiary' : group === 'unstaged' ? 'text-primary' : 'text-warning';
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-3 p-2.5 cursor-pointer select-none transition-all",
+        isSelected && "bg-secondary/15 ring-1 ring-inset ring-secondary/30",
+        isDragging && "opacity-40",
+        !isSelected && "hover:bg-surface-container-high/20",
+      )}
+      onClick={(e) => onSelect(file, e)}
+      draggable
+      onDragStart={(e) => onDragStart(e, file)}
+      onDragEnd={onDragEnd}
+    >
+      <FileText size={14} className={cn("shrink-0", iconColor)} />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-bold truncate">{fileName}</p>
+        <p className="text-[10px] text-outline truncate">{file.path}</p>
+      </div>
+      {(file.additions > 0 || file.deletions > 0) && (
+        <div className="flex items-center gap-1 text-[10px] font-mono shrink-0">
+          {file.additions > 0 && <span className="text-emerald-400">+{file.additions}</span>}
+          {file.deletions > 0 && <span className="text-error">-{file.deletions}</span>}
+        </div>
+      )}
+      {group === 'staged' ? (
+        <button
+          onClick={(e) => { e.stopPropagation(); onUnstage(file.path); }}
+          disabled={stagingPath === file.path}
+          className="p-1 rounded-md text-warning hover:bg-warning/10 transition-colors disabled:opacity-50"
+          title="Unstage"
+        >
+          {stagingPath === file.path ? <Loader2 size={12} className="animate-spin" /> : <MinusCircle size={12} />}
+        </button>
+      ) : (
+        <button
+          onClick={(e) => { e.stopPropagation(); onStage(file.path); }}
+          disabled={stagingPath === file.path}
+          className="p-1 rounded-md text-tertiary hover:bg-tertiary/10 transition-colors disabled:opacity-50"
+          title="Stage"
+        >
+          {stagingPath === file.path ? <Loader2 size={12} className="animate-spin" /> : <PlusCircle size={12} />}
+        </button>
+      )}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// BatchActionBar — Fixed bottom bar for batch operations
+// ---------------------------------------------------------------------------
+
+interface BatchActionBarProps {
+  selectedCount: number;
+  selectedStagedCount: number;
+  selectedUnstagedCount: number;
+  onStageSelected: () => void;
+  onUnstageSelected: () => void;
+  onStageAll: () => void;
+  onUnstageAll: () => void;
+  onClearSelection: () => void;
+  isBatchLoading: boolean;
+  hasStagedFiles: boolean;
+  hasUnstagedFiles: boolean;
+}
+
+const BatchActionBar: React.FC<BatchActionBarProps> = ({
+  selectedCount,
+  selectedStagedCount,
+  selectedUnstagedCount,
+  onStageSelected,
+  onUnstageSelected,
+  onStageAll,
+  onUnstageAll,
+  onClearSelection,
+  isBatchLoading,
+  hasStagedFiles,
+  hasUnstagedFiles,
+}) => {
+  if (selectedCount === 0 && !hasStagedFiles && !hasUnstagedFiles) return null;
+
+  return (
+    <div className="shrink-0 bg-surface-container-low border-t border-outline-variant/10 px-4 py-2">
+      <div className="flex items-center gap-2">
+        {/* Selection badge */}
+        {selectedCount > 0 && (
+          <>
+            <span className="text-[10px] font-bold bg-secondary/15 text-secondary px-2 py-0.5 rounded-full">
+              {selectedCount} selected
+            </span>
+            <button
+              onClick={onClearSelection}
+              className="p-1 rounded text-on-surface-variant hover:bg-surface-container-high/30 transition-colors"
+              title="Clear selection (Esc)"
+            >
+              <X size={12} />
+            </button>
+            <div className="w-px h-4 bg-outline-variant/20 mx-1" />
+          </>
+        )}
+
+        {/* Batch actions */}
+        {isBatchLoading ? (
+          <div className="flex items-center gap-2 text-[10px] text-on-surface-variant">
+            <Loader2 size={12} className="animate-spin" />
+            Processing...
+          </div>
+        ) : (
+          <>
+            {selectedCount > 0 && selectedUnstagedCount > 0 && (
+              <button
+                onClick={onStageSelected}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold bg-tertiary/15 text-tertiary hover:bg-tertiary/25 transition-colors"
+              >
+                <PlusCircle size={11} />
+                Stage Selected ({selectedUnstagedCount})
+              </button>
+            )}
+            {selectedCount > 0 && selectedStagedCount > 0 && (
+              <button
+                onClick={onUnstageSelected}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold bg-warning/15 text-warning hover:bg-warning/25 transition-colors"
+              >
+                <MinusCircle size={11} />
+                Unstage Selected ({selectedStagedCount})
+              </button>
+            )}
+            {/* Always show Stage All / Unstage All */}
+            {hasUnstagedFiles && selectedCount === 0 && (
+              <button
+                onClick={onStageAll}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold bg-tertiary/15 text-tertiary hover:bg-tertiary/25 transition-colors"
+              >
+                <Layers size={11} />
+                Stage All
+              </button>
+            )}
+            {hasStagedFiles && selectedCount === 0 && (
+              <button
+                onClick={onUnstageAll}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold bg-warning/15 text-warning hover:bg-warning/25 transition-colors"
+              >
+                <Layers size={11} />
+                Unstage All
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // GitView — Full-screen Git Tab Page
 // ---------------------------------------------------------------------------
 
@@ -234,6 +420,18 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
   });
   const [hoveredGraphNode, setHoveredGraphNode] = useState<string | null>(null);
 
+  // ── Multi-selection state ──
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [lastClickedIndex, setLastClickedIndex] = useState<number>(-1);
+  const [draggingPaths, setDraggingPaths] = useState<Set<string>>(new Set());
+  const [batchLoading, setBatchLoading] = useState(false);
+
+  // Drag-over state per group
+  const [dragOverGroup, setDragOverGroup] = useState<'staged' | 'unstaged' | null>(null);
+
+  // Ref for the changes panel for keyboard shortcuts
+  const changesPanelRef = useRef<HTMLDivElement>(null);
+
   // Refresh data on mount
   useEffect(() => {
     if (workspacePath) {
@@ -242,7 +440,223 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
     }
   }, [workspacePath]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // --- Git operations ---
+  // ── Helper: get grouped files ──
+  const getGroupedFiles = useCallback(() => {
+    if (!gitStatus.data) return { staged: [], unstaged: [], untracked: [] };
+    return {
+      staged: gitStatus.data.files.filter(f => f.status === 'staged'),
+      unstaged: gitStatus.data.files.filter(f => f.status === 'unstaged'),
+      untracked: gitStatus.data.files.filter(f => f.status === 'untracked'),
+    };
+  }, [gitStatus.data]);
+
+  // ── Multi-selection handler ──
+  const handleFileSelect = useCallback((file: FileDiffInfo, e: React.MouseEvent) => {
+    const { staged, unstaged, untracked } = getGroupedFiles();
+
+    // Build a flat list matching render order
+    const allFiles = [...staged, ...unstaged, ...untracked];
+    const clickedIndex = allFiles.findIndex(f => f.path === file.path);
+
+    setSelectedFiles(prev => {
+      const next = new Set(prev);
+      const isMeta = e.metaKey || e.ctrlKey;
+      const isShift = e.shiftKey;
+
+      if (isShift && lastClickedIndex >= 0) {
+        // Range select
+        const from = Math.min(lastClickedIndex, clickedIndex);
+        const to = Math.max(lastClickedIndex, clickedIndex);
+        for (let i = from; i <= to; i++) {
+          next.add(allFiles[i].path);
+        }
+      } else if (isMeta) {
+        // Toggle individual
+        if (next.has(file.path)) {
+          next.delete(file.path);
+        } else {
+          next.add(file.path);
+        }
+      } else {
+        // Single click: select only this file
+        next.clear();
+        next.add(file.path);
+      }
+
+      return next;
+    });
+
+    setLastClickedIndex(clickedIndex);
+  }, [getGroupedFiles, lastClickedIndex]);
+
+  // ── Clear selection ──
+  const clearSelection = useCallback(() => {
+    setSelectedFiles(new Set());
+    setLastClickedIndex(-1);
+  }, []);
+
+  // ── Keyboard shortcuts ──
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle shortcuts when Changes tab is active
+      if (activeTab !== 'changes') return;
+
+      // Ctrl/Cmd+A — select all files in current groups
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+        e.preventDefault();
+        const { staged, unstaged, untracked } = getGroupedFiles();
+        const allPaths = [...staged, ...unstaged, ...untracked].map(f => f.path);
+        setSelectedFiles(new Set(allPaths));
+        return;
+      }
+
+      // Escape — clear selection
+      if (e.key === 'Escape') {
+        clearSelection();
+        return;
+      }
+
+      // Enter — stage selected unstaged/untracked files
+      if (e.key === 'Enter' && selectedFiles.size > 0) {
+        const { unstaged, untracked } = getGroupedFiles();
+        const unstagedPaths = [...unstaged, ...untracked]
+          .filter(f => selectedFiles.has(f.path))
+          .map(f => f.path);
+        if (unstagedPaths.length > 0) {
+          handleBatchStage(unstagedPaths);
+        }
+        return;
+      }
+
+      // Delete/Backspace — discard selected unstaged changes (with confirmation)
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedFiles.size > 0) {
+        // For now, we just unstage the selected staged files
+        const { staged } = getGroupedFiles();
+        const stagedPaths = staged
+          .filter(f => selectedFiles.has(f.path))
+          .map(f => f.path);
+        if (stagedPaths.length > 0) {
+          handleBatchUnstage(stagedPaths);
+        }
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, selectedFiles, getGroupedFiles]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Drag & Drop handlers ──
+  const handleDragStart = useCallback((e: React.DragEvent, file: FileDiffInfo) => {
+    const pathsToDrag = selectedFiles.has(file.path) ? Array.from(selectedFiles) : [file.path];
+    e.dataTransfer.setData('text/plain', JSON.stringify(pathsToDrag));
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggingPaths(new Set(pathsToDrag));
+  }, [selectedFiles]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggingPaths(new Set());
+    setDragOverGroup(null);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, group: 'staged' | 'unstaged') => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverGroup(group);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverGroup(null);
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent, targetGroup: 'staged' | 'unstaged') => {
+    e.preventDefault();
+    setDragOverGroup(null);
+
+    try {
+      const raw = e.dataTransfer.getData('text/plain');
+      const paths: string[] = JSON.parse(raw);
+
+      if (targetGroup === 'staged') {
+        // Stage the dropped files
+        await handleBatchStage(paths);
+      } else {
+        // Unstage the dropped files
+        await handleBatchUnstage(paths);
+      }
+    } catch {
+      // ignore invalid drag data
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Batch operations ──
+  const handleBatchStage = useCallback(async (paths: string[]) => {
+    if (paths.length === 0) return;
+    setBatchLoading(true);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      if (paths.length === 1) {
+        await invoke('git_stage_file', { path: paths[0] });
+      } else {
+        await invoke('git_batch_stage_files', { paths });
+      }
+      clearSelection();
+      await gitStatus.refresh();
+    } catch (err) {
+      console.error('Batch stage failed:', err);
+    } finally {
+      setBatchLoading(false);
+    }
+  }, [gitStatus, clearSelection]);
+
+  const handleBatchUnstage = useCallback(async (paths: string[]) => {
+    if (paths.length === 0) return;
+    setBatchLoading(true);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      if (paths.length === 1) {
+        await invoke('git_unstage_file', { path: paths[0] });
+      } else {
+        await invoke('git_batch_unstage_files', { paths });
+      }
+      clearSelection();
+      await gitStatus.refresh();
+    } catch (err) {
+      console.error('Batch unstage failed:', err);
+    } finally {
+      setBatchLoading(false);
+    }
+  }, [gitStatus, clearSelection]);
+
+  const handleStageAll = useCallback(async () => {
+    setBatchLoading(true);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('git_stage_all');
+      clearSelection();
+      await gitStatus.refresh();
+    } catch (err) {
+      console.error('Stage all failed:', err);
+    } finally {
+      setBatchLoading(false);
+    }
+  }, [gitStatus, clearSelection]);
+
+  const handleUnstageAll = useCallback(async () => {
+    setBatchLoading(true);
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('git_unstage_all');
+      clearSelection();
+      await gitStatus.refresh();
+    } catch (err) {
+      console.error('Unstage all failed:', err);
+    } finally {
+      setBatchLoading(false);
+    }
+  }, [gitStatus, clearSelection]);
+
+  // --- Single-file Git operations ---
   const handlePush = async () => {
     setIsPushing(true);
     setSyncMessage(null);
@@ -318,6 +732,96 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
     }
   };
 
+  // ── Compute selected counts for batch action bar ──
+  const selectedStagedCount = gitStatus.data
+    ? gitStatus.data.files.filter(f => f.status === 'staged' && selectedFiles.has(f.path)).length
+    : 0;
+  const selectedUnstagedCount = gitStatus.data
+    ? gitStatus.data.files.filter(f => (f.status === 'unstaged' || f.status === 'untracked') && selectedFiles.has(f.path)).length
+    : 0;
+
+  // ── Render a file group section with drop zone ──
+  const renderFileGroup = (
+    groupKey: 'staged' | 'unstaged' | 'untracked',
+    files: FileDiffInfo[],
+    label: string,
+    labelColor: string,
+    iconName: 'tertiary' | 'primary' | 'warning',
+    isDropTarget?: boolean,
+  ) => {
+    if (files.length === 0) return null;
+    const collapsed = collapsedGroups[groupKey] ?? (groupKey === 'untracked');
+    const ChevronIcon = collapsed ? ChevronRight : ChevronDown;
+    const colorMap = { tertiary: 'text-tertiary', primary: 'text-primary', warning: 'text-warning' };
+
+    const isDragOver = dragOverGroup === groupKey && isDropTarget;
+
+    return (
+      <div className="space-y-1">
+        <button
+          onClick={() => setCollapsedGroups(prev => ({ ...prev, [groupKey]: !collapsed }))}
+          className="flex items-center gap-2 w-full hover:bg-surface-container-high/30 rounded px-1 py-0.5 transition-colors"
+        >
+          <ChevronIcon size={12} className={cn("shrink-0", colorMap[iconName])} />
+          <span className={cn("text-[9px] font-bold uppercase tracking-widest", colorMap[iconName])}>{label}</span>
+          <span className={cn(
+            "text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center",
+            iconName === 'tertiary' && "text-tertiary/70 bg-tertiary/10",
+            iconName === 'primary' && "text-primary/70 bg-primary/10",
+            iconName === 'warning' && "text-warning/70 bg-warning/10",
+          )}>
+            {files.length}
+          </span>
+        </button>
+        <AnimatePresence initial={false}>
+          {!collapsed && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div
+                className={cn(
+                  "bg-surface-container-lowest rounded-lg border overflow-hidden divide-y divide-outline-variant/5 transition-all",
+                  isDragOver
+                    ? "border-secondary/50 bg-secondary/5 ring-2 ring-inset ring-secondary/30"
+                    : "border-outline-variant/10",
+                )}
+                onDragOver={isDropTarget ? (e) => handleDragOver(e, groupKey) : undefined}
+                onDragEnter={isDropTarget ? (e) => { e.preventDefault(); setDragOverGroup(groupKey); } : undefined}
+                onDragLeave={isDropTarget ? handleDragLeave : undefined}
+                onDrop={isDropTarget ? (e) => handleDrop(e, groupKey) : undefined}
+              >
+                {isDragOver && (
+                  <div className="flex items-center justify-center py-3 text-[10px] font-bold text-secondary animate-pulse">
+                    {groupKey === 'staged' ? 'Release to stage files' : 'Release to unstage files'}
+                  </div>
+                )}
+                {files.map((file) => (
+                  <FileRow
+                    key={file.path}
+                    file={file}
+                    isSelected={selectedFiles.has(file.path)}
+                    isDragging={draggingPaths.has(file.path)}
+                    stagingPath={stagingPath}
+                    group={groupKey}
+                    onSelect={handleFileSelect}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                    onStage={handleStageFile}
+                    onUnstage={handleUnstageFile}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  };
+
   // --- Tab definitions ---
   const tabs: { key: GitModalTab; icon: any; label: string }[] = [
     { key: 'overview', icon: Eye, label: 'Overview' },
@@ -328,6 +832,8 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
     { key: 'features', icon: Box, label: 'Features' },
     { key: 'graph', icon: Network, label: 'Graph' },
   ];
+
+  const { staged: stagedFiles, unstaged: unstagedFiles, untracked: untrackedFiles } = getGroupedFiles();
 
   return (
     <div className="flex-1 flex flex-col bg-surface overflow-hidden relative">
@@ -368,7 +874,7 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
         {tabs.map(({ key, icon: Icon, label }) => (
           <button
             key={key}
-            onClick={() => setActiveTab(key)}
+            onClick={() => { setActiveTab(key); if (key !== 'changes') clearSelection(); }}
             className={cn(
               'flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all border-b-2',
               activeTab === key
@@ -385,9 +891,9 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
       {/* ─── Main Content ─── */}
       <div className="flex-1 flex overflow-hidden">
         {/* Content area */}
-        <div className="flex-1 overflow-y-auto p-6 scroll-hide">
+        <div className="flex-1 overflow-y-auto scroll-hide" ref={changesPanelRef}>
           {gitStatus.error ? (
-            <div className="flex items-center gap-3 p-4 bg-error/10 rounded-lg border border-error/20">
+            <div className="flex items-center gap-3 p-4 m-6 bg-error/10 rounded-lg border border-error/20">
               <AlertTriangle size={16} className="text-error shrink-0" />
               <div>
                 <p className="text-xs font-bold text-error">{gitStatus.error}</p>
@@ -402,7 +908,7 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
             <>
               {/* ── Overview Tab ── */}
               {activeTab === 'overview' && (
-                <div className="space-y-6 max-w-4xl">
+                <div className="space-y-6 max-w-4xl p-6">
                   {/* Branch + remote summary */}
                   <div className="flex items-center gap-3">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Branch</span>
@@ -464,7 +970,7 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
 
               {/* ── Branches Tab ── */}
               {activeTab === 'branches' && (
-                <div className="space-y-2 max-w-4xl">
+                <div className="space-y-2 max-w-4xl p-6">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Local Branches</span>
                     <span className="text-[10px] text-on-surface-variant">{gitDetail.branches.length} branch{gitDetail.branches.length !== 1 ? 'es' : ''}</span>
@@ -495,7 +1001,7 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
 
               {/* ── Tags Tab ── */}
               {activeTab === 'tags' && (
-                <div className="space-y-2 max-w-4xl">
+                <div className="space-y-2 max-w-4xl p-6">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Git Tags</span>
                     <span className="text-[10px] text-on-surface-variant">{gitDetail.tags.length} tag{gitDetail.tags.length !== 1 ? 's' : ''}</span>
@@ -619,7 +1125,7 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
 
               {/* ── History Tab ── */}
               {activeTab === 'history' && (
-                <div className="space-y-2 max-w-4xl">
+                <div className="space-y-2 max-w-4xl p-6">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Commit History</span>
                     <span className="text-[10px] text-on-surface-variant">{gitDetail.commits.length} commits</span>
@@ -651,8 +1157,8 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
 
               {/* ── Changes Tab — Left/Right Split Layout ── */}
               {activeTab === 'changes' && (
-                <div className="flex gap-6 h-full">
-                  {/* Left: File list */}
+                <div className="flex gap-6 h-full p-6">
+                  {/* Left: File list with drop zones */}
                   <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-outline">{t('project.changesDetected', 'Changes Detected')}</span>
@@ -668,143 +1174,39 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
                       </div>
                     ) : (
                       <div className="flex-1 overflow-y-auto space-y-3">
-                        {/* Staged files */}
-                        {(() => {
-                          const stagedFiles = gitStatus.data.files.filter(f => f.status === 'staged');
-                          if (stagedFiles.length === 0) return null;
-                          const collapsed = collapsedGroups['staged'] ?? false;
-                          return (
-                            <div className="space-y-1">
-                              <button
-                                onClick={() => setCollapsedGroups(prev => ({ ...prev, staged: !prev.staged }))}
-                                className="flex items-center gap-2 w-full hover:bg-surface-container-high/30 rounded px-1 py-0.5 transition-colors"
-                              >
-                                {collapsed ? <ChevronRight size={12} className="text-tertiary shrink-0" /> : <ChevronDown size={12} className="text-tertiary shrink-0" />}
-                                <span className="text-[9px] font-bold uppercase tracking-widest text-tertiary">Staged</span>
-                                <span className="text-[9px] font-bold text-tertiary/70 bg-tertiary/10 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{stagedFiles.length}</span>
-                              </button>
-                              <AnimatePresence initial={false}>
-                                {!collapsed && (
-                                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-                                    <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden divide-y divide-outline-variant/5">
-                                      {stagedFiles.map((file) => {
-                                        const fileName = file.path.split('/').pop() || file.path;
-                                        return (
-                                          <div key={file.path} className="flex items-center gap-3 p-2.5">
-                                            <FileText size={14} className="text-tertiary shrink-0" />
-                                            <div className="flex-1 min-w-0">
-                                              <p className="text-xs font-bold truncate">{fileName}</p>
-                                              <p className="text-[10px] text-outline truncate">{file.path}</p>
-                                            </div>
-                                            {(file.additions > 0 || file.deletions > 0) && (
-                                              <div className="flex items-center gap-1 text-[10px] font-mono shrink-0">
-                                                {file.additions > 0 && <span className="text-emerald-400">+{file.additions}</span>}
-                                                {file.deletions > 0 && <span className="text-error">-{file.deletions}</span>}
-                                              </div>
-                                            )}
-                                            <button onClick={() => handleUnstageFile(file.path)} disabled={stagingPath === file.path} className="p-1 rounded-md text-warning hover:bg-warning/10 transition-colors disabled:opacity-50" title="Unstage">
-                                              {stagingPath === file.path ? <Loader2 size={12} className="animate-spin" /> : <MinusCircle size={12} />}
-                                            </button>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
-                            </div>
-                          );
-                        })()}
-                        {/* Unstaged files */}
-                        {(() => {
-                          const unstagedFiles = gitStatus.data.files.filter(f => f.status === 'unstaged');
-                          if (unstagedFiles.length === 0) return null;
-                          const collapsed = collapsedGroups['unstaged'] ?? false;
-                          return (
-                            <div className="space-y-1">
-                              <button
-                                onClick={() => setCollapsedGroups(prev => ({ ...prev, unstaged: !prev.unstaged }))}
-                                className="flex items-center gap-2 w-full hover:bg-surface-container-high/30 rounded px-1 py-0.5 transition-colors"
-                              >
-                                {collapsed ? <ChevronRight size={12} className="text-primary shrink-0" /> : <ChevronDown size={12} className="text-primary shrink-0" />}
-                                <span className="text-[9px] font-bold uppercase tracking-widest text-primary">Modified</span>
-                                <span className="text-[9px] font-bold text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{unstagedFiles.length}</span>
-                              </button>
-                              <AnimatePresence initial={false}>
-                                {!collapsed && (
-                                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-                                    <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden divide-y divide-outline-variant/5">
-                                      {unstagedFiles.map((file) => {
-                                        const fileName = file.path.split('/').pop() || file.path;
-                                        return (
-                                          <div key={file.path} className="flex items-center gap-3 p-2.5">
-                                            <FileText size={14} className="text-primary shrink-0" />
-                                            <div className="flex-1 min-w-0">
-                                              <p className="text-xs font-bold truncate">{fileName}</p>
-                                              <p className="text-[10px] text-outline truncate">{file.path}</p>
-                                            </div>
-                                            {(file.additions > 0 || file.deletions > 0) && (
-                                              <div className="flex items-center gap-1 text-[10px] font-mono shrink-0">
-                                                {file.additions > 0 && <span className="text-emerald-400">+{file.additions}</span>}
-                                                {file.deletions > 0 && <span className="text-error">-{file.deletions}</span>}
-                                              </div>
-                                            )}
-                                            <button onClick={() => handleStageFile(file.path)} disabled={stagingPath === file.path} className="p-1 rounded-md text-tertiary hover:bg-tertiary/10 transition-colors disabled:opacity-50" title="Stage">
-                                              {stagingPath === file.path ? <Loader2 size={12} className="animate-spin" /> : <PlusCircle size={12} />}
-                                            </button>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
-                            </div>
-                          );
-                        })()}
+                        {/* Staged files — drop target for unstaging */}
+                        {renderFileGroup('staged', stagedFiles, 'Staged', 'tertiary', 'tertiary', true)}
+                        {/* Unstaged files — drop target for staging */}
+                        {renderFileGroup('unstaged', unstagedFiles, 'Modified', 'primary', 'primary', true)}
                         {/* Untracked files */}
-                        {(() => {
-                          const untrackedFiles = gitStatus.data.files.filter(f => f.status === 'untracked');
-                          if (untrackedFiles.length === 0) return null;
-                          const collapsed = collapsedGroups['untracked'] ?? true;
-                          return (
-                            <div className="space-y-1">
-                              <button
-                                onClick={() => setCollapsedGroups(prev => ({ ...prev, untracked: !prev.untracked }))}
-                                className="flex items-center gap-2 w-full hover:bg-surface-container-high/30 rounded px-1 py-0.5 transition-colors"
-                              >
-                                {collapsed ? <ChevronRight size={12} className="text-warning shrink-0" /> : <ChevronDown size={12} className="text-warning shrink-0" />}
-                                <span className="text-[9px] font-bold uppercase tracking-widest text-warning">Untracked</span>
-                                <span className="text-[9px] font-bold text-warning/70 bg-warning/10 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{untrackedFiles.length}</span>
-                              </button>
-                              <AnimatePresence initial={false}>
-                                {!collapsed && (
-                                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-                                    <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden divide-y divide-outline-variant/5">
-                                      {untrackedFiles.map((file) => {
-                                        const fileName = file.path.split('/').pop() || file.path;
-                                        return (
-                                          <div key={file.path} className="flex items-center gap-3 p-2.5">
-                                            <FileText size={14} className="text-warning shrink-0" />
-                                            <div className="flex-1 min-w-0">
-                                              <p className="text-xs font-bold truncate">{fileName}</p>
-                                              <p className="text-[10px] text-outline truncate">{file.path}</p>
-                                            </div>
-                                            <button onClick={() => handleStageFile(file.path)} disabled={stagingPath === file.path} className="p-1 rounded-md text-tertiary hover:bg-tertiary/10 transition-colors disabled:opacity-50" title="Stage">
-                                              {stagingPath === file.path ? <Loader2 size={12} className="animate-spin" /> : <PlusCircle size={12} />}
-                                            </button>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
-                            </div>
-                          );
-                        })()}
+                        {renderFileGroup('untracked', untrackedFiles, 'Untracked', 'warning', 'warning')}
                       </div>
                     )}
+
+                    {/* Batch action bar */}
+                    <BatchActionBar
+                      selectedCount={selectedFiles.size}
+                      selectedStagedCount={selectedStagedCount}
+                      selectedUnstagedCount={selectedUnstagedCount}
+                      onStageSelected={() => {
+                        const paths = [...unstagedFiles, ...untrackedFiles]
+                          .filter(f => selectedFiles.has(f.path))
+                          .map(f => f.path);
+                        handleBatchStage(paths);
+                      }}
+                      onUnstageSelected={() => {
+                        const paths = stagedFiles
+                          .filter(f => selectedFiles.has(f.path))
+                          .map(f => f.path);
+                        handleBatchUnstage(paths);
+                      }}
+                      onStageAll={handleStageAll}
+                      onUnstageAll={handleUnstageAll}
+                      onClearSelection={clearSelection}
+                      isBatchLoading={batchLoading}
+                      hasStagedFiles={stagedFiles.length > 0}
+                      hasUnstagedFiles={unstagedFiles.length > 0 || untrackedFiles.length > 0}
+                    />
                   </div>
 
                   {/* Right: Operation panel */}
@@ -873,13 +1275,48 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
                         </button>
                       </div>
                     </div>
+
+                    {/* Keyboard shortcuts hint */}
+                    <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 p-4 space-y-2">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Shortcuts</span>
+                      <div className="space-y-1.5 text-[9px] text-on-surface-variant">
+                        <div className="flex items-center justify-between">
+                          <span>Select all</span>
+                          <kbd className="bg-surface-container-high/50 px-1.5 py-0.5 rounded text-[8px] font-mono border border-outline-variant/10">
+                            {navigator.platform?.includes('Mac') ? 'Cmd' : 'Ctrl'}+A
+                          </kbd>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Clear selection</span>
+                          <kbd className="bg-surface-container-high/50 px-1.5 py-0.5 rounded text-[8px] font-mono border border-outline-variant/10">Esc</kbd>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Stage selected</span>
+                          <kbd className="bg-surface-container-high/50 px-1.5 py-0.5 rounded text-[8px] font-mono border border-outline-variant/10">Enter</kbd>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Unstage selected</span>
+                          <kbd className="bg-surface-container-high/50 px-1.5 py-0.5 rounded text-[8px] font-mono border border-outline-variant/10">Del</kbd>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Range select</span>
+                          <kbd className="bg-surface-container-high/50 px-1.5 py-0.5 rounded text-[8px] font-mono border border-outline-variant/10">Shift+Click</kbd>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Toggle select</span>
+                          <kbd className="bg-surface-container-high/50 px-1.5 py-0.5 rounded text-[8px] font-mono border border-outline-variant/10">
+                            {navigator.platform?.includes('Mac') ? 'Cmd' : 'Ctrl'}+Click
+                          </kbd>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* ── Features Tab ── */}
               {activeTab === 'features' && (
-                <div className="space-y-2 max-w-4xl">
+                <div className="space-y-2 max-w-4xl p-6">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Completed Features</span>
                   </div>
