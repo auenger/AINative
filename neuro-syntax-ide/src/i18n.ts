@@ -104,7 +104,15 @@ const resources = {
         clipboardCutSuccess: 'Cut to clipboard',
         clipboardPasteSuccess: 'Pasted successfully',
         clipboardPasteFailed: 'Paste failed',
-        clipboardMoveFailed: 'Move failed'
+        clipboardMoveFailed: 'Move failed',
+        // Navigation operations (feat-file-tree-navigation)
+        contextCopyRelativePath: 'Copy Relative Path',
+        contextRevealInFinder: 'Reveal in File Manager',
+        contextLocateInTree: 'Locate in File Tree',
+        pathCopied: 'Path copied to clipboard',
+        relativePathCopied: 'Relative path copied to clipboard',
+        revealNotAvailable: 'Reveal in file manager requires Tauri backend',
+        locateInTree: 'Locate in File Tree',
       },
       tasks: {
         title: 'Task Board',
@@ -310,7 +318,15 @@ const resources = {
         clipboardCutSuccess: '已剪切',
         clipboardPasteSuccess: '粘贴成功',
         clipboardPasteFailed: '粘贴失败',
-        clipboardMoveFailed: '移动失败'
+        clipboardMoveFailed: '移动失败',
+        // Navigation operations (feat-file-tree-navigation)
+        contextCopyRelativePath: '复制相对路径',
+        contextRevealInFinder: '在文件管理器中显示',
+        contextLocateInTree: '在文件树中定位',
+        pathCopied: '路径已复制到剪贴板',
+        relativePathCopied: '相对路径已复制到剪贴板',
+        revealNotAvailable: '在文件管理器中显示需要 Tauri 后端支持',
+        locateInTree: '在文件树中定位',
       },
       tasks: {
         title: '任务板',
