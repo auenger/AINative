@@ -7,7 +7,8 @@ import {
   FileCode,
   Layout,
   Bot,
-  Building2
+  Building2,
+  Github
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../lib/utils';
@@ -25,6 +26,7 @@ export const SideNav: React.FC<SideNavProps> = ({ activeView, onViewChange }) =>
     { id: 'project', icon: Layout, label: t('nav.project') },
     { id: 'tasks', icon: ClipboardList, label: t('nav.tasks') },
     { id: 'editor', icon: FileCode, label: t('nav.editor') },
+    { id: 'git', icon: Github, label: t('nav.git', 'Git') },
     { id: 'mission-control', icon: Rocket, label: t('nav.missionControl') },
     { id: 'agents', icon: Bot, label: t('nav.agents') },
     { id: 'agent-pixel', icon: Building2, label: t('nav.observatory') },
