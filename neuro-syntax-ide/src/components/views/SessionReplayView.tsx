@@ -248,7 +248,8 @@ function AssistantContentBlock({ block }: { block: ClaudeContentBlock }) {
   if (block.type === 'tool_use') {
     const toolName = block.name || 'unknown';
     const inputStr = block.input
-      ? (typeof block.input === 'string' ? block.input : JSON.stringify(block.input, null, 2));
+      ? (typeof block.input === 'string' ? block.input : JSON.stringify(block.input, null, 2))
+      : '';
     const preview = (inputStr || '').slice(0, 150);
 
     return (
