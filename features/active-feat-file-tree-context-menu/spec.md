@@ -31,7 +31,20 @@
 - feat-file-tree-resizable（已完成）— 文件树宽度拖拽
 
 ## Technical Solution
-<!-- To be filled during implementation -->
+
+### Architecture
+- **Rust backend**: 4 new Tauri commands (`create_file`, `create_dir`, `delete_entry`, `rename_entry`) registered in `lib.rs`
+- **Frontend**: Reusable `ContextMenu` component in `components/common/ContextMenu.tsx`
+- **Integration**: Right-click context menu wired into existing `EditorView.tsx` file tree renderer
+- **Inline editing**: New file/folder creation and rename use inline `<input>` elements embedded in the tree
+- **Delete confirmation**: Dedicated `DeleteConfirmDialog` component with modal backdrop
+
+### Files Changed
+1. `src-tauri/src/lib.rs` — Added 4 Tauri commands + registered in `generate_handler`
+2. `src/components/common/ContextMenu.tsx` — New reusable context menu component
+3. `src/components/common/DeleteConfirmDialog.tsx` — New delete confirmation dialog
+4. `src/components/views/EditorView.tsx` — Integrated context menu, inline editing, refresh
+5. `src/i18n.ts` — Added EN + ZH translations for menu items
 
 ## Acceptance Criteria (Gherkin)
 

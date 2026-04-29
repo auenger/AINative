@@ -23,7 +23,13 @@ import {
   RefreshCw,
   Video,
   Music,
-  List
+  List,
+  FilePlus2,
+  FolderPlus,
+  Pencil,
+  Trash2,
+  ClipboardCopy,
+  AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
@@ -41,6 +47,8 @@ import { PdfPreview } from './PdfPreview';
 import { MediaPreview } from './MediaPreview';
 import { ConfigTreeView } from './ConfigTreeView';
 import { registerVueLanguage } from '../../lib/vue-language';
+import { ContextMenu, ContextMenuEntry } from '../common/ContextMenu';
+import { DeleteConfirmDialog } from '../common/DeleteConfirmDialog';
 
 // Lazy-load Monaco Editor for performance
 const Editor = lazy(() => import('@monaco-editor/react'));
@@ -357,6 +365,32 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
   const [showFileMenu, setShowFileMenu] = useState(false);
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
 
+  // Context menu state (feat-file-tree-context-menu)
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    node: WSFileNode | null; // null = blank area
+    parentNode: WSFileNode | null; // parent directory for blank area
+  } | null>(null);
+
+  // Inline editing state for new file / new folder / rename
+  const [inlineEdit, setInlineEdit] = useState<{
+    type: 'new-file' | 'new-folder' | 'rename';
+    parentPath: string; // directory where item is being created/renamed
+    originalName?: string; // for rename
+    nodePath?: string; // for rename — full path of the node
+  } | null>(null);
+  const [inlineInputValue, setInlineInputValue] = useState('');
+  const inlineInputRef = useRef<HTMLInputElement>(null);
+
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    node: WSFileNode;
+  } | null>(null);
+
+  // Error message for file operations
+  const [fileOpError, setFileOpError] = useState<string | null>(null);
+
   // Tab overflow state
   const [showOverflowMenu, setShowOverflowMenu] = useState(false);
   const [overflowFocusIndex, setOverflowFocusIndex] = useState(-1);
@@ -654,6 +688,247 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
   };
 
   // -----------------------------------------------------------------------
+  // Context menu handlers (feat-file-tree-context-menu)
+  // -----------------------------------------------------------------------
+
+  /** Refresh file tree and preserve expanded directories */
+  const refreshFileTree = useCallback(async () => {
+    if (!workspacePath || !isTauri) return;
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const tree: WSFileNode[] = await invoke('read_file_tree', { path: workspacePath });
+      // Use loadFileTree to update state (this preserves expanded dirs since we track them separately)
+      // We directly update via loadFileTree
+      await loadFileTree(workspacePath);
+    } catch (e: any) {
+      setFileOpError(e?.toString() ?? 'Failed to refresh file tree');
+    }
+  }, [workspacePath, isTauri, loadFileTree]);
+
+  /** Handle right-click on a file tree node */
+  const handleNodeContextMenu = useCallback((e: React.MouseEvent, node: WSFileNode) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, node, parentNode: null });
+  }, []);
+
+  /** Handle right-click on blank area of file tree */
+  const handleBlankAreaContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, node: null, parentNode: null });
+  }, []);
+
+  /** Build context menu items based on what was right-clicked */
+  const buildContextMenuItems = useCallback((): ContextMenuEntry[] => {
+    if (!contextMenu) return [];
+    const { node } = contextMenu;
+    const items: ContextMenuEntry[] = [];
+
+    if (node) {
+      // Right-clicked on a file or folder
+      if (node.isDir) {
+        items.push(
+          {
+            key: 'new-file',
+            label: t('editor.contextNewFile'),
+            icon: <FilePlus2 size={14} />,
+            shortcut: '',
+            onClick: () => {
+              // Expand dir first, then show inline input
+              if (!expandedDirs.has(node.path)) {
+                toggleDir(node.path);
+              }
+              setInlineEdit({ type: 'new-file', parentPath: node.path });
+              setInlineInputValue('');
+            },
+          },
+          {
+            key: 'new-folder',
+            label: t('editor.contextNewFolder'),
+            icon: <FolderPlus size={14} />,
+            shortcut: '',
+            onClick: () => {
+              if (!expandedDirs.has(node.path)) {
+                toggleDir(node.path);
+              }
+              setInlineEdit({ type: 'new-folder', parentPath: node.path });
+              setInlineInputValue('');
+            },
+          },
+          { key: 'div-1', type: 'divider' },
+        );
+      }
+
+      items.push(
+        {
+          key: 'rename',
+          label: t('editor.contextRename'),
+          icon: <Pencil size={14} />,
+          shortcut: 'F2',
+          onClick: () => {
+            setInlineEdit({
+              type: 'rename',
+              parentPath: node.path.substring(0, node.path.lastIndexOf('/')),
+              originalName: node.name,
+              nodePath: node.path,
+            });
+            setInlineInputValue(node.name);
+          },
+        },
+        {
+          key: 'delete',
+          label: t('editor.contextDelete'),
+          icon: <Trash2 size={14} />,
+          shortcut: 'Del',
+          danger: true,
+          onClick: () => {
+            setDeleteConfirm({ node });
+          },
+        },
+        { key: 'div-2', type: 'divider' },
+        {
+          key: 'copy-path',
+          label: t('editor.contextCopyPath'),
+          icon: <ClipboardCopy size={14} />,
+          shortcut: '',
+          onClick: () => {
+            navigator.clipboard.writeText(node.path).catch(() => {});
+          },
+        },
+      );
+    } else {
+      // Right-clicked on blank area — create in workspace root
+      items.push(
+        {
+          key: 'new-file',
+          label: t('editor.contextNewFile'),
+          icon: <FilePlus2 size={14} />,
+          shortcut: '',
+          onClick: () => {
+            setInlineEdit({ type: 'new-file', parentPath: workspacePath });
+            setInlineInputValue('');
+          },
+        },
+        {
+          key: 'new-folder',
+          label: t('editor.contextNewFolder'),
+          icon: <FolderPlus size={14} />,
+          shortcut: '',
+          onClick: () => {
+            setInlineEdit({ type: 'new-folder', parentPath: workspacePath });
+            setInlineInputValue('');
+          },
+        },
+        { key: 'div-1', type: 'divider' },
+        {
+          key: 'refresh',
+          label: t('editor.refreshTree'),
+          icon: <RefreshCw size={14} />,
+          shortcut: '',
+          onClick: () => {
+            refreshFileTree();
+          },
+        },
+      );
+    }
+
+    return items;
+  }, [contextMenu, expandedDirs, t, workspacePath, refreshFileTree]);
+
+  /** Handle inline edit submission (Enter key or blur) */
+  const handleInlineEditSubmit = useCallback(async () => {
+    if (!inlineEdit || !inlineInputValue.trim()) {
+      setInlineEdit(null);
+      return;
+    }
+
+    const name = inlineInputValue.trim();
+
+    // Validate: no slashes, not empty
+    if (name.includes('/') || name.includes('\\')) {
+      setFileOpError(t('editor.errorInvalidName'));
+      setInlineEdit(null);
+      return;
+    }
+
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+
+      if (inlineEdit.type === 'new-file') {
+        const fullPath = `${inlineEdit.parentPath}/${name}`;
+        await invoke('create_file', { path: fullPath });
+      } else if (inlineEdit.type === 'new-folder') {
+        const fullPath = `${inlineEdit.parentPath}/${name}`;
+        await invoke('create_dir', { path: fullPath });
+      } else if (inlineEdit.type === 'rename' && inlineEdit.nodePath) {
+        const dirPath = inlineEdit.parentPath;
+        const newPath = `${dirPath}/${name}`;
+        if (newPath !== inlineEdit.nodePath) {
+          await invoke('rename_entry', { oldPath: inlineEdit.nodePath, newPath });
+        }
+      }
+
+      setInlineEdit(null);
+      setInlineInputValue('');
+      // Refresh file tree after operation
+      await refreshFileTree();
+    } catch (e: any) {
+      setFileOpError(e?.toString() ?? 'Operation failed');
+      setInlineEdit(null);
+    }
+  }, [inlineEdit, inlineInputValue, isTauri, refreshFileTree, t]);
+
+  /** Handle inline edit cancellation (Escape key) */
+  const handleInlineEditCancel = useCallback(() => {
+    setInlineEdit(null);
+    setInlineInputValue('');
+  }, []);
+
+  /** Handle delete confirmation */
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteConfirm || !isTauri) return;
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('delete_entry', { path: deleteConfirm.node.path });
+
+      // If the deleted file was open, close its tab
+      closeFile(deleteConfirm.node.path);
+
+      setDeleteConfirm(null);
+      await refreshFileTree();
+    } catch (e: any) {
+      setFileOpError(e?.toString() ?? 'Delete failed');
+      setDeleteConfirm(null);
+    }
+  }, [deleteConfirm, isTauri, refreshFileTree, closeFile]);
+
+  // Auto-focus inline input when it appears
+  useEffect(() => {
+    if (inlineEdit && inlineInputRef.current) {
+      // Small delay to ensure DOM is ready
+      requestAnimationFrame(() => {
+        inlineInputRef.current?.focus();
+        // For rename, select the name part (before extension)
+        if (inlineEdit.type === 'rename' && inlineEdit.originalName) {
+          const dotIndex = inlineEdit.originalName.lastIndexOf('.');
+          if (dotIndex > 0) {
+            inlineInputRef.current?.setSelectionRange(0, dotIndex);
+          } else {
+            inlineInputRef.current?.select();
+          }
+        }
+      });
+    }
+  }, [inlineEdit]);
+
+  // Auto-dismiss error messages
+  useEffect(() => {
+    if (!fileOpError) return;
+    const timer = setTimeout(() => setFileOpError(null), 5000);
+    return () => clearTimeout(timer);
+  }, [fileOpError]);
+
+  // -----------------------------------------------------------------------
   // Terminal Tab management
   // -----------------------------------------------------------------------
   const addTab = useCallback((kind: TerminalKind) => {
@@ -722,47 +997,133 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
       const isExpanded = expandedDirs.has(node.path);
       const isActive = activeFilePath === node.path;
 
+      // Check if this node is being renamed
+      const isRenaming = inlineEdit?.type === 'rename' && inlineEdit.nodePath === node.path;
+
       return (
         <div key={node.path}>
-          <div
-            className={cn(
-              "flex items-center gap-2 py-1 px-2 hover:bg-surface-container-high rounded cursor-pointer transition-colors group",
-              isActive && "bg-surface-container-highest/50 text-on-surface"
-            )}
-            style={{ paddingLeft: `${depth * 12 + 8}px` }}
-            onClick={() => {
-              if (node.isDir) {
-                toggleDir(node.path);
-              } else {
-                openFile(node.path);
-              }
-            }}
-          >
-            {node.isDir ? (
-              isExpanded ? (
-                <ChevronDown size={14} className="text-outline" />
+          {isRenaming ? (
+            // Inline rename input
+            <div
+              className="flex items-center gap-2 py-1 px-2"
+              style={{ paddingLeft: `${depth * 12 + 8}px` }}
+            >
+              {node.isDir ? (
+                isExpanded ? (
+                  <ChevronDown size={14} className="text-outline" />
+                ) : (
+                  <ChevronRight size={14} className="text-outline" />
+                )
               ) : (
-                <ChevronRight size={14} className="text-outline" />
-              )
-            ) : (
-              <div className="w-3.5" />
-            )}
-            {node.isDir ? (
-              <Folder size={14} className="text-primary" />
-            ) : (
-              (() => {
-                const { Icon, color } = getFileIcon(node.name);
-                return <Icon size={14} className={color} />;
-              })()
-            )}
-            <span className={cn(
-              "text-xs font-medium truncate",
-              isActive ? "text-on-surface" : "text-on-surface-variant"
-            )}>
-              {node.name}
-            </span>
-          </div>
-          {node.isDir && isExpanded && node.children && renderFileTree(node.children, depth + 1)}
+                <div className="w-3.5" />
+              )}
+              {node.isDir ? (
+                <Folder size={14} className="text-primary" />
+              ) : (
+                (() => {
+                  const { Icon, color } = getFileIcon(node.name);
+                  return <Icon size={14} className={color} />;
+                })()
+              )}
+              <input
+                ref={inlineInputRef}
+                value={inlineInputValue}
+                onChange={(e) => setInlineInputValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleInlineEditSubmit();
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    handleInlineEditCancel();
+                  }
+                }}
+                onBlur={() => handleInlineEditSubmit()}
+                className="flex-1 bg-surface-container-lowest border border-primary/50 rounded px-1 py-0.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          ) : (
+            <div
+              className={cn(
+                "flex items-center gap-2 py-1 px-2 hover:bg-surface-container-high rounded cursor-pointer transition-colors group",
+                isActive && "bg-surface-container-highest/50 text-on-surface"
+              )}
+              style={{ paddingLeft: `${depth * 12 + 8}px` }}
+              onClick={() => {
+                if (node.isDir) {
+                  toggleDir(node.path);
+                } else {
+                  openFile(node.path);
+                }
+              }}
+              onContextMenu={(e) => handleNodeContextMenu(e, node)}
+            >
+              {node.isDir ? (
+                isExpanded ? (
+                  <ChevronDown size={14} className="text-outline" />
+                ) : (
+                  <ChevronRight size={14} className="text-outline" />
+                )
+              ) : (
+                <div className="w-3.5" />
+              )}
+              {node.isDir ? (
+                <Folder size={14} className="text-primary" />
+              ) : (
+                (() => {
+                  const { Icon, color } = getFileIcon(node.name);
+                  return <Icon size={14} className={color} />;
+                })()
+              )}
+              <span className={cn(
+                "text-xs font-medium truncate",
+                isActive ? "text-on-surface" : "text-on-surface-variant"
+              )}>
+                {node.name}
+              </span>
+            </div>
+          )}
+          {node.isDir && isExpanded && (
+            <>
+              {/* Inline new-file/new-folder input at top of children */}
+              {inlineEdit && (inlineEdit.type === 'new-file' || inlineEdit.type === 'new-folder') && inlineEdit.parentPath === node.path && (
+                <div
+                  className="flex items-center gap-2 py-1 px-2"
+                  style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
+                >
+                  <div className="w-3.5" />
+                  {inlineEdit.type === 'new-file' ? (
+                    (() => {
+                      const { Icon, color } = getFileIcon(inlineInputValue || 'untitled');
+                      return <Icon size={14} className={color} />;
+                    })()
+                  ) : (
+                    <Folder size={14} className="text-primary" />
+                  )}
+                  <input
+                    ref={inlineInputRef}
+                    value={inlineInputValue}
+                    onChange={(e) => setInlineInputValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleInlineEditSubmit();
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        handleInlineEditCancel();
+                      }
+                    }}
+                    onBlur={() => handleInlineEditSubmit()}
+                    placeholder={inlineEdit.type === 'new-file' ? t('editor.placeholderNewFile') : t('editor.placeholderNewFolder')}
+                    className="flex-1 bg-surface-container-lowest border border-primary/50 rounded px-1 py-0.5 text-xs text-on-surface focus:outline-none focus:border-primary placeholder:text-outline-variant/50"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              )}
+              {node.children && renderFileTree(node.children, depth + 1)}
+            </>
+          )}
         </div>
       );
     });
@@ -980,7 +1341,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
           </AnimatePresence>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-2 scroll-hide">
+        <div className="flex-1 overflow-y-auto p-2 scroll-hide" onContextMenu={handleBlankAreaContextMenu}>
           {!workspacePath ? (
             <div className="p-4 flex flex-col items-center justify-center gap-4 text-center min-h-[200px]">
               <FolderOpen size={32} className="text-outline opacity-40" />
@@ -1011,7 +1372,41 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
               </div>
             )
           ) : fileTree.length > 0 ? (
-            renderFileTree(filteredTree)
+            <>
+              {/* Inline new-file/new-folder input at root level */}
+              {inlineEdit && (inlineEdit.type === 'new-file' || inlineEdit.type === 'new-folder') && inlineEdit.parentPath === workspacePath && (
+                <div className="flex items-center gap-2 py-1 px-2" style={{ paddingLeft: '8px' }}>
+                  <div className="w-3.5" />
+                  {inlineEdit.type === 'new-file' ? (
+                    (() => {
+                      const { Icon, color } = getFileIcon(inlineInputValue || 'untitled');
+                      return <Icon size={14} className={color} />;
+                    })()
+                  ) : (
+                    <Folder size={14} className="text-primary" />
+                  )}
+                  <input
+                    ref={inlineInputRef}
+                    value={inlineInputValue}
+                    onChange={(e) => setInlineInputValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleInlineEditSubmit();
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        handleInlineEditCancel();
+                      }
+                    }}
+                    onBlur={() => handleInlineEditSubmit()}
+                    placeholder={inlineEdit.type === 'new-file' ? t('editor.placeholderNewFile') : t('editor.placeholderNewFolder')}
+                    className="flex-1 bg-surface-container-lowest border border-primary/50 rounded px-1 py-0.5 text-xs text-on-surface focus:outline-none focus:border-primary placeholder:text-outline-variant/50"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              )}
+              {renderFileTree(filteredTree)}
+            </>
           ) : (
             <div className="p-2 text-center">
               <p className="text-[10px] text-outline uppercase tracking-widest mt-4">
@@ -1031,6 +1426,47 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
       >
         <div className="absolute inset-y-0 -left-1 -right-1" />
       </div>
+
+      {/* Context menu overlay (feat-file-tree-context-menu) */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={buildContextMenuItems()}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {/* Delete confirmation dialog */}
+      {deleteConfirm && (
+        <DeleteConfirmDialog
+          entryName={deleteConfirm.node.name}
+          isDir={deleteConfirm.node.isDir}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteConfirm(null)}
+        />
+      )}
+
+      {/* File operation error toast */}
+      <AnimatePresence>
+        {fileOpError && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[400] bg-error/90 text-on-primary px-4 py-2 rounded-lg text-xs font-bold shadow-lg flex items-center gap-2 max-w-md"
+          >
+            <AlertTriangle size={12} />
+            <span className="truncate">{fileOpError}</span>
+            <button
+              onClick={() => setFileOpError(null)}
+              className="ml-2 hover:opacity-70 transition-opacity"
+            >
+              <X size={12} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Editor Area */}
       <main className="flex-1 flex flex-col overflow-hidden relative">
