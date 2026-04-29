@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-29T12:00:00Z'
+  last_updated: '2026-04-29T12:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -33,16 +33,7 @@ parents:
   - feat-git-tab-page
   - feat-git-file-interaction
   - feat-git-display-enhance
-active:
-- id: feat-file-tree-clipboard
-  name: 文件树剪贴板操作（复制/剪切/粘贴/移动）
-  priority: 80
-  size: S
-  depends_on:
-  - feat-file-tree-context-menu
-  branch: feature/feat-file-tree-clipboard
-  worktree: /Users/ryan/mycode/NeuroSyntaxIDE-feat-file-tree-clipboard
-  started_at: '2026-04-29T12:00:00Z'
+active: []
 pending:
 - id: feat-file-tree-ops
   name: 文件树编辑器操作增强
@@ -87,6 +78,10 @@ pending:
   - feat-file-tree-clipboard
 blocked: []
 completed:
+- id: feat-file-tree-clipboard
+  name: 文件树剪贴板操作（复制/剪切/粘贴/移动）
+  completed_at: '2026-04-29T12:30:00Z'
+  tag: feat-file-tree-clipboard-20260429
 - id: feat-git-file-interaction
   name: 文件变更交互增强
   completed_at: '2026-04-28T16:30:00Z'

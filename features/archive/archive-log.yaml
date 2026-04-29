@@ -1,10 +1,33 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-28T16:30:00Z"
+  last_updated: "2026-04-29T12:30:00Z"
   version: 1
-  total_completed: 98
+  total_completed: 99
 
 records:
+  - id: feat-file-tree-clipboard
+    name: "文件树剪贴板操作（复制/剪切/粘贴/移动）"
+    completed_at: "2026-04-29T12:30:00Z"
+    tag: feat-file-tree-clipboard-20260429
+    merge_commit: 29fdb1e
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-file-tree-clipboard
+    worktree_deleted: true
+    worktree_path: /Users/ryan/mycode/NeuroSyntaxIDE-feat-file-tree-clipboard
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 5
+      scenarios_passed: 5
+    stats:
+      started: "2026-04-29T12:00:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 3
+
   - id: feat-git-file-interaction
     name: "文件变更交互增强"
     completed_at: "2026-04-28T16:30:00Z"
