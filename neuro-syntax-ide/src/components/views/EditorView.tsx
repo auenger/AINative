@@ -30,6 +30,9 @@ import {
   Trash2,
   ClipboardCopy,
   AlertTriangle,
+  Copy,
+  Scissors,
+  ClipboardPaste,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
@@ -388,6 +391,16 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
     node: WSFileNode;
   } | null>(null);
 
+  // Clipboard state (feat-file-tree-clipboard)
+  const [clipboard, setClipboard] = useState<{
+    sourcePath: string;
+    sourceName: string;
+    mode: 'copy' | 'cut';
+  } | null>(null);
+
+  // Drag & drop state (feat-file-tree-clipboard)
+  const [dragOverPath, setDragOverPath] = useState<string | null>(null);
+
   // Error message for file operations
   const [fileOpError, setFileOpError] = useState<string | null>(null);
 
@@ -705,6 +718,68 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
     }
   }, [workspacePath, isTauri, loadFileTree]);
 
+  // -----------------------------------------------------------------------
+  // Clipboard operations (feat-file-tree-clipboard)
+  // -----------------------------------------------------------------------
+
+  /** Handle copy: store source path in clipboard state */
+  const handleCopy = useCallback((node: WSFileNode) => {
+    setClipboard({ sourcePath: node.path, sourceName: node.name, mode: 'copy' });
+    setStatusMessage(t('editor.clipboardCopySuccess'));
+  }, [t]);
+
+  /** Handle cut: store source path and mark as cut */
+  const handleCut = useCallback((node: WSFileNode) => {
+    setClipboard({ sourcePath: node.path, sourceName: node.name, mode: 'cut' });
+    setStatusMessage(t('editor.clipboardCutSuccess'));
+  }, [t]);
+
+  /** Handle paste: copy or move entry to target directory */
+  const handlePaste = useCallback(async (targetDir: string) => {
+    if (!clipboard || !isTauri) return;
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      if (clipboard.mode === 'copy') {
+        await invoke('copy_entry', { sourcePath: clipboard.sourcePath, targetDir });
+        setStatusMessage(t('editor.clipboardPasteSuccess'));
+      } else {
+        await invoke('move_entry', { sourcePath: clipboard.sourcePath, targetDir });
+        setStatusMessage(t('editor.clipboardPasteSuccess'));
+        // After a cut-paste, clear the clipboard
+        setClipboard(null);
+      }
+      await refreshFileTree();
+    } catch (e: any) {
+      setFileOpError(e?.toString() ?? (clipboard.mode === 'copy' ? t('editor.clipboardPasteFailed') : t('editor.clipboardMoveFailed')));
+    }
+  }, [clipboard, isTauri, refreshFileTree, t]);
+
+  /** Handle drag & drop move */
+  const handleDrop = useCallback(async (sourcePath: string, targetDir: string) => {
+    if (!isTauri) return;
+    // Don't allow dropping onto itself
+    const srcParent = sourcePath.substring(0, sourcePath.lastIndexOf('/'));
+    if (srcParent === targetDir) return;
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('move_entry', { sourcePath, targetDir });
+      await refreshFileTree();
+    } catch (e: any) {
+      setFileOpError(e?.toString() ?? t('editor.clipboardMoveFailed'));
+    }
+  }, [isTauri, refreshFileTree, t]);
+
+  /** Clear clipboard on Escape key */
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && clipboard) {
+        setClipboard(null);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [clipboard]);
+
   /** Handle right-click on a file tree node */
   const handleNodeContextMenu = useCallback((e: React.MouseEvent, node: WSFileNode) => {
     e.preventDefault();
@@ -756,6 +831,17 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
             },
           },
           { key: 'div-1', type: 'divider' },
+          {
+            key: 'paste',
+            label: t('editor.contextPaste'),
+            icon: <ClipboardPaste size={14} />,
+            shortcut: 'Ctrl+V',
+            disabled: !clipboard,
+            onClick: () => {
+              handlePaste(node.path);
+            },
+          },
+          { key: 'div-paste', type: 'divider' },
         );
       }
 
@@ -786,6 +872,25 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
           },
         },
         { key: 'div-2', type: 'divider' },
+        {
+          key: 'copy',
+          label: t('editor.contextCopy'),
+          icon: <Copy size={14} />,
+          shortcut: 'Ctrl+C',
+          onClick: () => {
+            handleCopy(node);
+          },
+        },
+        {
+          key: 'cut',
+          label: t('editor.contextCut'),
+          icon: <Scissors size={14} />,
+          shortcut: 'Ctrl+X',
+          onClick: () => {
+            handleCut(node);
+          },
+        },
+        { key: 'div-3', type: 'divider' },
         {
           key: 'copy-path',
           label: t('editor.contextCopyPath'),
@@ -821,6 +926,17 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
         },
         { key: 'div-1', type: 'divider' },
         {
+          key: 'paste',
+          label: t('editor.contextPaste'),
+          icon: <ClipboardPaste size={14} />,
+          shortcut: 'Ctrl+V',
+          disabled: !clipboard,
+          onClick: () => {
+            handlePaste(workspacePath);
+          },
+        },
+        { key: 'div-paste', type: 'divider' },
+        {
           key: 'refresh',
           label: t('editor.refreshTree'),
           icon: <RefreshCw size={14} />,
@@ -833,7 +949,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
     }
 
     return items;
-  }, [contextMenu, expandedDirs, t, workspacePath, refreshFileTree]);
+  }, [contextMenu, expandedDirs, t, workspacePath, refreshFileTree, clipboard, handleCopy, handleCut, handlePaste]);
 
   /** Handle inline edit submission (Enter key or blur) */
   const handleInlineEditSubmit = useCallback(async () => {
@@ -1000,6 +1116,12 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
       // Check if this node is being renamed
       const isRenaming = inlineEdit?.type === 'rename' && inlineEdit.nodePath === node.path;
 
+      // Check if this node is in cut state (feat-file-tree-clipboard)
+      const isCut = clipboard?.mode === 'cut' && clipboard.sourcePath === node.path;
+
+      // Drag & drop: whether this directory is a current drop target
+      const isDropTarget = dragOverPath === node.path;
+
       return (
         <div key={node.path}>
           {isRenaming ? (
@@ -1045,9 +1167,39 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
             </div>
           ) : (
             <div
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('text/plain', node.path);
+                e.dataTransfer.effectAllowed = 'move';
+              }}
+              onDragOver={(e) => {
+                if (node.isDir) {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  setDragOverPath(node.path);
+                }
+              }}
+              onDragLeave={() => {
+                if (dragOverPath === node.path) {
+                  setDragOverPath(null);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const sourcePath = e.dataTransfer.getData('text/plain');
+                if (sourcePath && node.isDir && sourcePath !== node.path) {
+                  handleDrop(sourcePath, node.path);
+                }
+                setDragOverPath(null);
+              }}
+              onDragEnd={() => {
+                setDragOverPath(null);
+              }}
               className={cn(
                 "flex items-center gap-2 py-1 px-2 hover:bg-surface-container-high rounded cursor-pointer transition-colors group",
-                isActive && "bg-surface-container-highest/50 text-on-surface"
+                isActive && "bg-surface-container-highest/50 text-on-surface",
+                isCut && "opacity-50",
+                isDropTarget && "bg-primary/10 ring-1 ring-primary/30"
               )}
               style={{ paddingLeft: `${depth * 12 + 8}px` }}
               onClick={() => {
@@ -1078,7 +1230,8 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
               )}
               <span className={cn(
                 "text-xs font-medium truncate",
-                isActive ? "text-on-surface" : "text-on-surface-variant"
+                isActive ? "text-on-surface" : "text-on-surface-variant",
+                isCut && "line-through text-outline-variant"
               )}>
                 {node.name}
               </span>
@@ -1341,7 +1494,22 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
           </AnimatePresence>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-2 scroll-hide" onContextMenu={handleBlankAreaContextMenu}>
+        <div
+          className="flex-1 overflow-y-auto p-2 scroll-hide"
+          onContextMenu={handleBlankAreaContextMenu}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            const sourcePath = e.dataTransfer.getData('text/plain');
+            if (sourcePath && workspacePath) {
+              handleDrop(sourcePath, workspacePath);
+            }
+            setDragOverPath(null);
+          }}
+        >
           {!workspacePath ? (
             <div className="p-4 flex flex-col items-center justify-center gap-4 text-center min-h-[200px]">
               <FolderOpen size={32} className="text-outline opacity-40" />

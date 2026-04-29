@@ -95,7 +95,16 @@ const resources = {
         contextCopyPath: 'Copy Path',
         placeholderNewFile: 'filename',
         placeholderNewFolder: 'folder name',
-        errorInvalidName: 'Name cannot contain slashes'
+        errorInvalidName: 'Name cannot contain slashes',
+        // Clipboard operations (feat-file-tree-clipboard)
+        contextCopy: 'Copy',
+        contextCut: 'Cut',
+        contextPaste: 'Paste',
+        clipboardCopySuccess: 'Copied to clipboard',
+        clipboardCutSuccess: 'Cut to clipboard',
+        clipboardPasteSuccess: 'Pasted successfully',
+        clipboardPasteFailed: 'Paste failed',
+        clipboardMoveFailed: 'Move failed'
       },
       tasks: {
         title: 'Task Board',
@@ -292,7 +301,16 @@ const resources = {
         contextCopyPath: '复制路径',
         placeholderNewFile: '文件名',
         placeholderNewFolder: '文件夹名',
-        errorInvalidName: '名称不能包含斜杠'
+        errorInvalidName: '名称不能包含斜杠',
+        // Clipboard operations (feat-file-tree-clipboard)
+        contextCopy: '复制',
+        contextCut: '剪切',
+        contextPaste: '粘贴',
+        clipboardCopySuccess: '已复制',
+        clipboardCutSuccess: '已剪切',
+        clipboardPasteSuccess: '粘贴成功',
+        clipboardPasteFailed: '粘贴失败',
+        clipboardMoveFailed: '移动失败'
       },
       tasks: {
         title: '任务板',

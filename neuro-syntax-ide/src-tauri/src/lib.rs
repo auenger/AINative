@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, BufWriter, Read as IoRead, Write as IoWrite};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -6856,6 +6856,135 @@ async fn rename_entry(old_path: String, new_path: String) -> Result<(), String> 
 }
 
 // ===========================================================================
+// Tauri commands - File Tree Clipboard (feat-file-tree-clipboard)
+// ===========================================================================
+
+/// Result of a copy/move entry operation, including the final destination path.
+#[derive(serde::Serialize)]
+struct CopyMoveResult {
+    /// The actual destination path (may differ from requested path if renamed due to conflict).
+    destination: String,
+}
+
+/// Generate a non-conflicting target path by appending "-copy" (and optionally a number).
+fn resolve_conflict(target: &Path) -> PathBuf {
+    if !target.exists() {
+        return target.to_path_buf();
+    }
+    let stem = target
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("untitled");
+    let ext = target
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("");
+    let parent = target.parent().unwrap_or(Path::new("."));
+
+    let mut counter = 0u32;
+    loop {
+        let new_name = if counter == 0 {
+            if ext.is_empty() {
+                format!("{} - copy", stem)
+            } else {
+                format!("{} - copy.{}", stem, ext)
+            }
+        } else {
+            if ext.is_empty() {
+                format!("{} - copy ({})", stem, counter)
+            } else {
+                format!("{} - copy ({}).{}", stem, counter, ext)
+            }
+        };
+        let candidate = parent.join(&new_name);
+        if !candidate.exists() {
+            return candidate;
+        }
+        counter += 1;
+    }
+}
+
+/// Copy a file or directory to a target directory.
+/// If a file with the same name exists in the target, auto-renames with "-copy" suffix.
+#[tauri::command]
+async fn copy_entry(source_path: String, target_dir: String) -> Result<CopyMoveResult, String> {
+    let src = PathBuf::from(&source_path);
+    let dst_dir = PathBuf::from(&target_dir);
+
+    if !src.exists() {
+        return Err(format!("Source does not exist: {}", source_path));
+    }
+    if !dst_dir.is_dir() {
+        return Err(format!("Target is not a directory: {}", target_dir));
+    }
+
+    let file_name = src
+        .file_name()
+        .ok_or_else(|| "Cannot determine source file name".to_string())?;
+    let target_path = resolve_conflict(&dst_dir.join(file_name));
+
+    if src.is_dir() {
+        copy_dir_recursive(&src, &target_path)
+            .map_err(|e| format!("Failed to copy directory: {}", e))?;
+    } else {
+        fs::copy(&src, &target_path)
+            .map_err(|e| format!("Failed to copy file '{}': {}", source_path, e))?;
+    }
+
+    Ok(CopyMoveResult {
+        destination: target_path.to_string_lossy().to_string(),
+    })
+}
+
+/// Copy a directory recursively.
+fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), std::io::Error> {
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        if src_path.is_dir() {
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else {
+            fs::copy(&src_path, &dst_path)?;
+        }
+    }
+    Ok(())
+}
+
+/// Move a file or directory to a target directory.
+/// If a file with the same name exists in the target, auto-renames with "-copy" suffix.
+#[tauri::command]
+async fn move_entry(source_path: String, target_dir: String) -> Result<CopyMoveResult, String> {
+    let src = PathBuf::from(&source_path);
+    let dst_dir = PathBuf::from(&target_dir);
+
+    if !src.exists() {
+        return Err(format!("Source does not exist: {}", source_path));
+    }
+    if !dst_dir.is_dir() {
+        return Err(format!("Target is not a directory: {}", target_dir));
+    }
+
+    // Prevent moving a directory into itself or a subdirectory
+    if dst_dir.starts_with(&src) {
+        return Err("Cannot move a directory into itself or its subdirectory".to_string());
+    }
+
+    let file_name = src
+        .file_name()
+        .ok_or_else(|| "Cannot determine source file name".to_string())?;
+    let target_path = resolve_conflict(&dst_dir.join(file_name));
+
+    fs::rename(&src, &target_path)
+        .map_err(|e| format!("Failed to move '{}' to '{}': {}", source_path, target_path.display(), e))?;
+
+    Ok(CopyMoveResult {
+        destination: target_path.to_string_lossy().to_string(),
+    })
+}
+
+// ===========================================================================
 // Tauri commands - Settings & LLM Provider (feat-settings-llm-config)
 // ===========================================================================
 
@@ -8049,6 +8178,9 @@ pub fn run() {
             create_dir,
             delete_entry,
             rename_entry,
+            // File tree clipboard (feat-file-tree-clipboard)
+            copy_entry,
+            move_entry,
             // Image metadata (feat-file-preview-image-enhance)
             read_image_meta,
             // MD Explorer (feat-project-md-explorer)
