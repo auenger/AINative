@@ -664,3 +664,131 @@ export interface SessionStoreAPI {
   loadNewTaskSession: () => NewTaskSessionState | null;
   clearNewTaskSession: () => void;
 }
+
+// ---------------------------------------------------------------------------
+// Claude Session History types (feat-claude-session-history)
+// ---------------------------------------------------------------------------
+
+/** A single session entry from .session_cache.json index. */
+export interface ClaudeSessionListItem {
+  /** Session ID (UUID) */
+  session_id: string;
+  /** Session file path (relative to project dir) */
+  file_path: string;
+  /** Summary text (first assistant text) */
+  summary: string | null;
+  /** First user message content */
+  first_user_content: string | null;
+  /** Last user message content */
+  last_user_content: string | null;
+  /** Project name */
+  project_name: string | null;
+  /** Total message count */
+  message_count: number;
+  /** First message timestamp (ISO string) */
+  first_message_time: string | null;
+  /** Last message timestamp (ISO string) */
+  last_message_time: string | null;
+  /** Whether the session used tools */
+  has_tool_use: boolean;
+  /** Whether the session had errors */
+  has_errors: boolean;
+  /** Git branch at session start */
+  git_branch: string | null;
+  /** Model used */
+  model: string | null;
+  /** Session entrypoint: "cli" | "print" */
+  entrypoint: string | null;
+}
+
+/** A single message in a Claude Code session (parsed from JSONL). */
+export interface ClaudeSessionMessage {
+  /** Entry UUID */
+  uuid: string;
+  /** Parent entry UUID */
+  parent_uuid: string | null;
+  /** Message type: "user" | "assistant" | "system" | "tool_result" | ... */
+  type: string;
+  /** Timestamp (ISO string) */
+  timestamp: string | null;
+  /** Session ID */
+  session_id: string | null;
+  /** Git branch */
+  git_branch: string | null;
+  /** Whether this is a sidechain entry */
+  is_sidechain: boolean;
+  /** User type: "external" | "internal" */
+  user_type: string | null;
+  /** The message content */
+  message: ClaudeMessageContent | null;
+}
+
+/** Message content from a Claude session entry. */
+export interface ClaudeMessageContent {
+  /** Role: "user" | "assistant" | ... */
+  role: string;
+  /** Content blocks */
+  content: ClaudeContentBlock[];
+}
+
+/** A content block within a message. */
+export interface ClaudeContentBlock {
+  /** Block type: "text" | "tool_use" | "tool_result" | "thinking" */
+  type: string;
+  /** Text content (for text blocks) */
+  text?: string;
+  /** Tool ID (for tool_use / tool_result) */
+  id?: string;
+  /** Tool name (for tool_use) */
+  name?: string;
+  /** Tool input (for tool_use) */
+  input?: unknown;
+  /** Tool result content (for tool_result) */
+  content?: string | ClaudeContentBlock[];
+  /** Thinking text (for thinking blocks) */
+  thinking?: string;
+}
+
+/** Metadata for a session detail view. */
+export interface ClaudeSessionMetadata {
+  /** Session ID */
+  session_id: string;
+  /** Session file path */
+  file_path: string;
+  /** First message timestamp */
+  first_message_time: string | null;
+  /** Last message timestamp */
+  last_message_time: string | null;
+  /** Duration in seconds */
+  duration_seconds: number;
+  /** Total message count */
+  total_messages: number;
+  /** Input token count */
+  input_tokens: number;
+  /** Output token count */
+  output_tokens: number;
+  /** Model used */
+  model: string | null;
+  /** Git branch */
+  git_branch: string | null;
+  /** Whether tools were used */
+  has_tool_use: boolean;
+  /** Whether errors occurred */
+  has_errors: boolean;
+}
+
+/** Detailed view of a Claude session with messages and metadata. */
+export interface ClaudeHistorySessionDetail {
+  /** Session metadata */
+  metadata: ClaudeSessionMetadata;
+  /** Paginated messages */
+  messages: ClaudeSessionMessage[];
+  /** Total message count (for pagination) */
+  total_count: number;
+  /** Current page offset */
+  offset: number;
+  /** Page size */
+  limit: number;
+  /** Whether there are more messages to load */
+  has_more: boolean;
+}

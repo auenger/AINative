@@ -6361,6 +6361,604 @@ fn dirs_home() -> Result<String, String> {
 }
 
 // ===========================================================================
+// Claude Session History (feat-claude-session-history)
+// ===========================================================================
+
+/// Encode a file system path to Claude's project directory naming convention.
+/// E.g. "/Users/ryan/foo" -> "-Users-ryan-foo"
+fn encode_claude_path(p: &str) -> String {
+    let p = p.trim_end_matches('/');
+    let mut s = String::new();
+    for ch in p.chars() {
+        if ch == '/' { s.push('-'); }
+        else { s.push(ch); }
+    }
+    s
+}
+
+/// Find the Claude project directory for a given workspace path.
+/// Tries the workspace path itself and up to 4 parent directories.
+fn find_claude_project_dir(workspace_path: &str) -> Option<PathBuf> {
+    let home = dirs_home().ok()?;
+    let claude_dir = PathBuf::from(&home).join(".claude");
+    if !claude_dir.exists() { return None; }
+    let projects_base = claude_dir.join("projects");
+    if !projects_base.exists() { return None; }
+
+    let mut try_path = workspace_path.trim_end_matches('/').to_string();
+    for _ in 0..5 {
+        let encoded = encode_claude_path(&try_path);
+        let candidate = projects_base.join(&encoded);
+        if candidate.is_dir() {
+            return Some(candidate);
+        }
+        match PathBuf::from(&try_path).parent() {
+            Some(p) if !p.as_os_str().is_empty() => try_path = p.to_string_lossy().to_string(),
+            _ => break,
+        }
+    }
+    None
+}
+
+/// A single session entry from .session_cache.json.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ClaudeHistorySessionItem {
+    pub session_id: String,
+    pub file_path: String,
+    pub summary: Option<String>,
+    pub first_user_content: Option<String>,
+    pub last_user_content: Option<String>,
+    pub project_name: Option<String>,
+    pub message_count: u64,
+    pub first_message_time: Option<String>,
+    pub last_message_time: Option<String>,
+    pub has_tool_use: bool,
+    pub has_errors: bool,
+    pub git_branch: Option<String>,
+    pub model: Option<String>,
+    pub entrypoint: Option<String>,
+}
+
+/// A content block within a session message.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ClaudeHistoryContentBlock {
+    #[serde(rename = "type")]
+    pub block_type: String,
+    pub text: Option<String>,
+    pub id: Option<String>,
+    pub name: Option<String>,
+    pub input: Option<serde_json::Value>,
+    pub content: Option<serde_json::Value>,
+    pub thinking: Option<String>,
+}
+
+/// Message content from a session entry.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ClaudeHistoryMessageContent {
+    pub role: String,
+    pub content: Vec<ClaudeHistoryContentBlock>,
+}
+
+/// A single message in a Claude session (parsed from JSONL).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ClaudeHistoryMessage {
+    pub uuid: String,
+    pub parent_uuid: Option<String>,
+    #[serde(rename = "type")]
+    pub msg_type: String,
+    pub timestamp: Option<String>,
+    pub session_id: Option<String>,
+    pub git_branch: Option<String>,
+    pub is_sidechain: bool,
+    pub user_type: Option<String>,
+    pub message: Option<ClaudeHistoryMessageContent>,
+}
+
+/// Metadata for a session detail view.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ClaudeHistoryMetadata {
+    pub session_id: String,
+    pub file_path: String,
+    pub first_message_time: Option<String>,
+    pub last_message_time: Option<String>,
+    pub duration_seconds: f64,
+    pub total_messages: u64,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub model: Option<String>,
+    pub git_branch: Option<String>,
+    pub has_tool_use: bool,
+    pub has_errors: bool,
+}
+
+/// Detailed view of a Claude session with messages and metadata.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ClaudeHistoryDetail {
+    pub metadata: ClaudeHistoryMetadata,
+    pub messages: Vec<ClaudeHistoryMessage>,
+    pub total_count: u64,
+    pub offset: u64,
+    pub limit: u64,
+    pub has_more: bool,
+}
+
+/// List Claude Code sessions for a workspace (feat-claude-session-history).
+/// Reads .session_cache.json and scans for JSONL files.
+/// Returns sessions sorted by last_message_time descending.
+#[tauri::command]
+async fn list_claude_sessions(
+    workspace_path: String,
+) -> Result<Vec<ClaudeHistorySessionItem>, String> {
+    let project_dir = find_claude_project_dir(&workspace_path)
+        .ok_or_else(|| "No Claude project directory found for workspace".to_string())?;
+
+    let mut sessions = Vec::new();
+
+    // 1. Try to read .session_cache.json for indexed metadata
+    let cache_path = project_dir.join(".session_cache.json");
+    if cache_path.exists() {
+        if let Ok(content) = fs::read_to_string(&cache_path) {
+            if let Ok(cache) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(entries) = cache.get("entries").and_then(|e| e.as_object()) {
+                    for (file_path, entry) in entries {
+                        let session = entry.get("session");
+                        let first_user = entry.get("first_user_content")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string());
+                        let last_user = entry.get("last_user_content")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string());
+
+                        if let Some(s) = session {
+                            // Extract session_id from actual_session_id or file name
+                            let session_id = s.get("actual_session_id")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string())
+                                .unwrap_or_else(|| {
+                                    // Extract from file_path: strip .jsonl extension
+                                    file_path.trim_end_matches(".jsonl").to_string()
+                                });
+
+                            sessions.push(ClaudeHistorySessionItem {
+                                session_id,
+                                file_path: file_path.clone(),
+                                summary: s.get("summary").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                                first_user_content: first_user,
+                                last_user_content: last_user,
+                                project_name: s.get("project_name").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                                message_count: s.get("message_count").and_then(|v| v.as_u64()).unwrap_or(0),
+                                first_message_time: s.get("first_message_time").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                                last_message_time: s.get("last_message_time").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                                has_tool_use: s.get("has_tool_use").and_then(|v| v.as_bool()).unwrap_or(false),
+                                has_errors: s.get("has_errors").and_then(|v| v.as_bool()).unwrap_or(false),
+                                git_branch: None, // Filled from JSONL on demand
+                                model: None,       // Filled from JSONL on demand
+                                entrypoint: None,  // Filled from JSONL on demand
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. If no cache, scan for JSONL files and extract basic metadata
+    if sessions.is_empty() {
+        if let Ok(entries) = fs::read_dir(&project_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if !path.extension().map_or(false, |e| e == "jsonl") { continue; }
+
+                let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                let session_id = file_name.trim_end_matches(".jsonl").to_string();
+
+                // Read first and last few lines for metadata
+                let mut msg_count = 0u64;
+                let mut first_time: Option<String> = None;
+                let mut last_time: Option<String> = None;
+                let mut summary: Option<String> = None;
+                let mut has_tool = false;
+                let mut has_err = false;
+                let mut branch: Option<String> = None;
+                let mut model: Option<String> = None;
+
+                if let Ok(content) = fs::read_to_string(&path) {
+                    let lines: Vec<&str> = content.lines().collect();
+                    msg_count = lines.len() as u64;
+
+                    for (i, line) in lines.iter().enumerate() {
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+                            // Extract timestamps
+                            if let Some(ts) = json.get("timestamp").and_then(|v| v.as_str()) {
+                                if first_time.is_none() { first_time = Some(ts.to_string()); }
+                                last_time = Some(ts.to_string());
+                            }
+                            // Extract summary from first assistant text
+                            if summary.is_none() {
+                                if json.get("type").and_then(|v| v.as_str()) == Some("assistant") {
+                                    if let Some(msg) = json.get("message") {
+                                        if let Some(content_arr) = msg.get("content").and_then(|c| c.as_array()) {
+                                            for block in content_arr {
+                                                if block.get("type").and_then(|t| t.as_str()) == Some("text") {
+                                                    if let Some(text) = block.get("text").and_then(|t| t.as_str()) {
+                                                        summary = Some(text.chars().take(200).collect());
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            // Check for tool_use
+                            if !has_tool && json.get("type").and_then(|v| v.as_str()) == Some("assistant") {
+                                if let Some(msg) = json.get("message") {
+                                    if let Some(content_arr) = msg.get("content").and_then(|c| c.as_array()) {
+                                        for block in content_arr {
+                                            if block.get("type").and_then(|t| t.as_str()) == Some("tool_use") {
+                                                has_tool = true;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            // Extract git branch
+                            if branch.is_none() {
+                                branch = json.get("gitBranch").and_then(|v| v.as_str()).map(|s| s.to_string());
+                            }
+                            // Extract model
+                            if model.is_none() {
+                                model = json.get("model").and_then(|v| v.as_str()).map(|s| s.to_string());
+                            }
+                            // Check for errors (simplistic)
+                            if !has_err {
+                                if json.get("type").and_then(|v| v.as_str()) == Some("system") {
+                                    if let Some(msg) = json.get("message") {
+                                        if let Some(content_arr) = msg.get("content").and_then(|c| c.as_array()) {
+                                            for block in content_arr {
+                                                if block.get("type").and_then(|t| t.as_str()) == Some("tool_result") {
+                                                    if block.get("is_error").and_then(|v| v.as_bool()).unwrap_or(false) {
+                                                        has_err = true;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Only parse first 10 lines for summary/branch/model, count rest
+                            if i > 10 && summary.is_some() && branch.is_some() && model.is_some() {
+                                // Just count remaining
+                            }
+                        }
+                    }
+                }
+
+                sessions.push(ClaudeHistorySessionItem {
+                    session_id,
+                    file_path: file_name,
+                    summary,
+                    first_user_content: None,
+                    last_user_content: None,
+                    project_name: None,
+                    message_count: msg_count,
+                    first_message_time: first_time,
+                    last_message_time: last_time,
+                    has_tool_use: has_tool,
+                    has_errors: has_err,
+                    git_branch: branch,
+                    model,
+                    entrypoint: None,
+                });
+            }
+        }
+    } else {
+        // For cached sessions, try to enrich with git_branch and model from JSONL first line
+        for session in &mut sessions {
+            let jsonl_path = project_dir.join(&session.file_path);
+            if !jsonl_path.exists() { continue; }
+
+            if let Ok(content) = fs::read_to_string(&jsonl_path) {
+                for line in content.lines().take(5) {
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+                        if session.git_branch.is_none() {
+                            session.git_branch = json.get("gitBranch")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string());
+                        }
+                        if session.model.is_none() {
+                            session.model = json.get("model")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string());
+                        }
+                        if session.entrypoint.is_none() {
+                            session.entrypoint = json.get("entrypoint")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string());
+                        }
+                        if session.git_branch.is_some() && session.model.is_some() { break; }
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort by last_message_time descending (most recent first)
+    sessions.sort_by(|a, b| {
+        let time_a = a.last_message_time.as_deref().unwrap_or("");
+        let time_b = b.last_message_time.as_deref().unwrap_or("");
+        time_b.cmp(time_a)
+    });
+
+    Ok(sessions)
+}
+
+/// Get the detail of a specific Claude Code session (feat-claude-session-history).
+/// Reads the JSONL file and returns paginated messages with metadata.
+#[tauri::command]
+async fn get_claude_session_detail(
+    session_id: String,
+    workspace_path: String,
+    offset: Option<u64>,
+    limit: Option<u64>,
+) -> Result<ClaudeHistoryDetail, String> {
+    let project_dir = find_claude_project_dir(&workspace_path)
+        .ok_or_else(|| "No Claude project directory found for workspace".to_string())?;
+
+    // Find the JSONL file for this session
+    let jsonl_path = if session_id.contains('-') && session_id.len() > 20 {
+        // Likely a UUID-based session ID, look for {session_id}.jsonl
+        let direct = project_dir.join(format!("{}.jsonl", session_id));
+        if direct.exists() { direct } else {
+            // Try looking for files matching the ID pattern
+            let mut found = None;
+            if let Ok(entries) = fs::read_dir(&project_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                    if name.starts_with(&session_id) && name.ends_with(".jsonl") {
+                        found = Some(path);
+                        break;
+                    }
+                }
+            }
+            found.ok_or_else(|| format!("Session file not found for ID: {}", session_id))?
+        }
+    } else {
+        // Treat session_id as partial file path or name
+        let direct = project_dir.join(format!("{}.jsonl", session_id));
+        if direct.exists() {
+            direct
+        } else {
+            project_dir.join(&session_id)
+        }
+    };
+
+    if !jsonl_path.exists() {
+        return Err(format!("Session file not found: {:?}", jsonl_path));
+    }
+
+    let content = fs::read_to_string(&jsonl_path)
+        .map_err(|e| format!("Failed to read session file: {}", e))?;
+
+    let all_lines: Vec<&str> = content.lines().collect();
+    let total_count = all_lines.len() as u64;
+
+    let offset_val = offset.unwrap_or(0);
+    let limit_val = limit.unwrap_or(50);
+
+    // Parse all messages to extract metadata (first pass)
+    let mut first_time: Option<String> = None;
+    let mut last_time: Option<String> = None;
+    let mut model: Option<String> = None;
+    let mut branch: Option<String> = None;
+    let mut has_tool = false;
+    let mut has_err = false;
+    let mut input_tokens = 0u64;
+    let mut output_tokens = 0u64;
+
+    // Quick metadata scan from first and last lines
+    for line in all_lines.iter().take(3) {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+            if model.is_none() {
+                model = json.get("model").and_then(|v| v.as_str()).map(|s| s.to_string());
+            }
+            if branch.is_none() {
+                branch = json.get("gitBranch").and_then(|v| v.as_str()).map(|s| s.to_string());
+            }
+            if first_time.is_none() {
+                first_time = json.get("timestamp").and_then(|v| v.as_str()).map(|s| s.to_string());
+            }
+        }
+    }
+    for line in all_lines.iter().rev().take(3) {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+            if last_time.is_none() {
+                last_time = json.get("timestamp").and_then(|v| v.as_str()).map(|s| s.to_string());
+            }
+        }
+    }
+
+    // Calculate duration
+    let duration_seconds = match (&first_time, &last_time) {
+        (Some(ft), Some(lt)) => {
+            let t1 = ft.parse::<chrono::DateTime<chrono::Utc>>().ok();
+            let t2 = lt.parse::<chrono::DateTime<chrono::Utc>>().ok();
+            match (t1, t2) {
+                (Some(a), Some(b)) => (b - a).num_seconds() as f64,
+                _ => 0.0,
+            }
+        }
+        _ => 0.0,
+    };
+
+    // Parse paginated messages
+    // We want to show messages in chronological order, paginated from the end (most recent first page)
+    // offset = number of messages to skip from the end
+    let skip_from_end = offset_val;
+    let take = limit_val;
+
+    // Collect messages from the end of the file
+    let start_idx = if total_count > skip_from_end + take {
+        (total_count - skip_from_end - take) as usize
+    } else {
+        0usize
+    };
+    let end_idx = (total_count - skip_from_end) as usize;
+
+    let mut messages = Vec::new();
+    let sliced_lines = &all_lines[start_idx..end_idx.min(all_lines.len())];
+
+    for line in sliced_lines {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+            let msg_type = json.get("type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+
+            // Track metadata
+            if msg_type == "assistant" {
+                if let Some(msg) = json.get("message") {
+                    if let Some(content_arr) = msg.get("content").and_then(|c| c.as_array()) {
+                        for block in content_arr {
+                            if block.get("type").and_then(|t| t.as_str()) == Some("tool_use") {
+                                has_tool = true;
+                            }
+                        }
+                    }
+                    // Extract token usage from usage field
+                    if let Some(usage) = msg.get("usage") {
+                        input_tokens += usage.get("input_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+                        output_tokens += usage.get("output_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+                    }
+                }
+            }
+            if msg_type == "user" {
+                if let Some(msg) = json.get("message") {
+                    if let Some(usage) = msg.get("usage") {
+                        input_tokens += usage.get("input_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+                    }
+                }
+            }
+
+            // Parse message content blocks
+            let message = json.get("message").map(|msg| {
+                let role = msg.get("role")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+
+                let content_blocks = msg.get("content")
+                    .and_then(|c| c.as_array())
+                    .map(|arr| {
+                        arr.iter().filter_map(|block| {
+                            let block_type = block.get("type")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("unknown")
+                                .to_string();
+
+                            Some(ClaudeHistoryContentBlock {
+                                block_type,
+                                text: block.get("text").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                                id: block.get("id").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                                name: block.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                                input: block.get("input").cloned(),
+                                content: block.get("content").cloned(),
+                                thinking: block.get("thinking").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                            })
+                        }).collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+
+                ClaudeHistoryMessageContent {
+                    role,
+                    content: content_blocks,
+                }
+            });
+
+            messages.push(ClaudeHistoryMessage {
+                uuid: json.get("uuid")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                parent_uuid: json.get("parentUuid")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
+                msg_type,
+                timestamp: json.get("timestamp")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
+                session_id: json.get("sessionId")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
+                git_branch: json.get("gitBranch")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
+                is_sidechain: json.get("isSidechain")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false),
+                user_type: json.get("userType")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
+                message,
+            });
+        }
+    }
+
+    let has_more = end_idx < all_lines.len();
+
+    Ok(ClaudeHistoryDetail {
+        metadata: ClaudeHistoryMetadata {
+            session_id: session_id.clone(),
+            file_path: jsonl_path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            first_message_time: first_time,
+            last_message_time: last_time,
+            duration_seconds,
+            total_messages: total_count,
+            input_tokens,
+            output_tokens,
+            model,
+            git_branch: branch,
+            has_tool_use: has_tool,
+            has_errors: has_err,
+        },
+        messages,
+        total_count,
+        offset: offset_val,
+        limit: limit_val,
+        has_more,
+    })
+}
+
+/// Search Claude Code sessions by keyword (feat-claude-session-history).
+/// Searches through session summaries and first/last user content.
+#[tauri::command]
+async fn search_claude_sessions(
+    query: String,
+    workspace_path: String,
+) -> Result<Vec<ClaudeHistorySessionItem>, String> {
+    let all_sessions = list_claude_sessions(workspace_path).await?;
+    let query_lower = query.to_lowercase();
+
+    let results: Vec<ClaudeHistorySessionItem> = all_sessions.into_iter().filter(|s| {
+        let search_fields = [
+            s.summary.as_deref(),
+            s.first_user_content.as_deref(),
+            s.last_user_content.as_deref(),
+            s.project_name.as_deref(),
+            s.git_branch.as_deref(),
+        ];
+
+        search_fields.iter().any(|field| {
+            field.map_or(false, |f| f.to_lowercase().contains(&query_lower))
+        })
+    }).collect();
+
+    Ok(results)
+}
+
+// ===========================================================================
 // Misc commands
 // ===========================================================================
 
@@ -8546,6 +9144,10 @@ pub fn run() {
             discover_session_tool,
             // Kill process by PID (feat-runtime-process-stop)
             kill_process_by_pid,
+            // Claude Session History (feat-claude-session-history)
+            list_claude_sessions,
+            get_claude_session_detail,
+            search_claude_sessions,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
