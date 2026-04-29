@@ -6715,6 +6715,69 @@ async fn write_file(path: String, content: String) -> Result<(), String> {
 }
 
 // ===========================================================================
+// Tauri commands - File Tree Context Menu (feat-file-tree-context-menu)
+// ===========================================================================
+
+/// Create a new empty file at the given path.
+#[tauri::command]
+async fn create_file(path: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    if p.exists() {
+        return Err(format!("File already exists: {}", path));
+    }
+    // Ensure parent directory exists
+    if let Some(parent) = p.parent() {
+        if !parent.exists() {
+            return Err(format!("Parent directory does not exist: {}", parent.display()));
+        }
+    }
+    fs::write(&p, "")
+        .map_err(|e| format!("Failed to create file '{}': {}", path, e))
+}
+
+/// Create a new directory at the given path.
+#[tauri::command]
+async fn create_dir(path: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    if p.exists() {
+        return Err(format!("Directory already exists: {}", path));
+    }
+    fs::create_dir(&p)
+        .map_err(|e| format!("Failed to create directory '{}': {}", path, e))
+}
+
+/// Delete a file or directory (recursively).
+#[tauri::command]
+async fn delete_entry(path: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    if !p.exists() {
+        return Err(format!("Path does not exist: {}", path));
+    }
+    if p.is_dir() {
+        fs::remove_dir_all(&p)
+            .map_err(|e| format!("Failed to delete directory '{}': {}", path, e))
+    } else {
+        fs::remove_file(&p)
+            .map_err(|e| format!("Failed to delete file '{}': {}", path, e))
+    }
+}
+
+/// Rename a file or directory.
+#[tauri::command]
+async fn rename_entry(old_path: String, new_path: String) -> Result<(), String> {
+    let old = PathBuf::from(&old_path);
+    let new = PathBuf::from(&new_path);
+    if !old.exists() {
+        return Err(format!("Source path does not exist: {}", old_path));
+    }
+    if new.exists() {
+        return Err(format!("Target already exists: {}", new_path));
+    }
+    fs::rename(&old, &new)
+        .map_err(|e| format!("Failed to rename '{}' to '{}': {}", old_path, new_path, e))
+}
+
+// ===========================================================================
 // Tauri commands - Settings & LLM Provider (feat-settings-llm-config)
 // ===========================================================================
 
@@ -7900,6 +7963,11 @@ pub fn run() {
             read_file,
             read_file_base64,
             write_file,
+            // File tree context menu (feat-file-tree-context-menu)
+            create_file,
+            create_dir,
+            delete_entry,
+            rename_entry,
             // Image metadata (feat-file-preview-image-enhance)
             read_image_meta,
             // MD Explorer (feat-project-md-explorer)

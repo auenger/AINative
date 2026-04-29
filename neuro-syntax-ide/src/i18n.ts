@@ -86,7 +86,16 @@ const resources = {
         closeAnyway: 'Close',
         cancel: 'Cancel',
         refreshTree: 'Refresh file tree',
-        openTerminal: 'Show Terminal'
+        openTerminal: 'Show Terminal',
+        // Context menu (feat-file-tree-context-menu)
+        contextNewFile: 'New File',
+        contextNewFolder: 'New Folder',
+        contextRename: 'Rename',
+        contextDelete: 'Delete',
+        contextCopyPath: 'Copy Path',
+        placeholderNewFile: 'filename',
+        placeholderNewFolder: 'folder name',
+        errorInvalidName: 'Name cannot contain slashes'
       },
       tasks: {
         title: 'Task Board',
@@ -274,7 +283,16 @@ const resources = {
         closeAnyway: '关闭',
         cancel: '取消',
         refreshTree: '刷新文件树',
-        openTerminal: '显示终端'
+        openTerminal: '显示终端',
+        // Context menu (feat-file-tree-context-menu)
+        contextNewFile: '新建文件',
+        contextNewFolder: '新建文件夹',
+        contextRename: '重命名',
+        contextDelete: '删除',
+        contextCopyPath: '复制路径',
+        placeholderNewFile: '文件名',
+        placeholderNewFolder: '文件夹名',
+        errorInvalidName: '名称不能包含斜杠'
       },
       tasks: {
         title: '任务板',
