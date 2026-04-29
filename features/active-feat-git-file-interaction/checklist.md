@@ -1,17 +1,22 @@
 # Checklist: feat-git-file-interaction
 ## Completion Checklist
 ### Development
-- [ ] All tasks completed
-- [ ] Code self-tested
+- [x] All tasks completed
+- [x] Code self-tested
 ### Code Quality
-- [ ] Code style follows conventions
-- [ ] 拖拽逻辑封装为独立 hook 或 utility
+- [x] Code style follows conventions
+- [x] 拖拽逻辑封装为独立 hook 或 utility
 ### Testing
-- [ ] 多选文件（Shift/Ctrl/Cmd）正常
-- [ ] 拖拽 staging/unstaging 正常
-- [ ] 批量操作按钮正常
-- [ ] 快捷键正常
-- [ ] 单选和拖拽不冲突
-- [ ] 大量文件（50+）时性能正常
+- [x] 多选文件（Shift/Ctrl/Cmd）正常
+- [x] 拖拽 staging/unstaging 正常
+- [x] 批量操作按钮正常
+- [x] 快捷键正常
+- [x] 单选和拖拽不冲突
+- [x] 大量文件（50+）时性能正常
 ### Documentation
-- [ ] spec.md technical solution filled
+- [x] spec.md technical solution filled
+
+## Verification Record
+| Date | Status | Results | Evidence |
+|------|--------|---------|----------|
+| 2026-04-28 | PASS | 28/28 tasks, 6/6 Gherkin scenarios pass, 0 errors | evidence/verification-report.md |

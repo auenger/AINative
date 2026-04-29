@@ -3824,6 +3824,84 @@ async fn git_unstage_file(
     Ok(())
 }
 
+/// Unstage all files (reset entire index to HEAD). Equivalent to `git reset`.
+#[tauri::command]
+async fn git_unstage_all(
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo = git2::Repository::discover(&workspace)
+        .map_err(|e| format!("Not a git repository: {}", e))?;
+
+    let head = repo.head()
+        .map_err(|e| format!("Failed to read HEAD: {}", e))?;
+    let head_tree = head.peel_to_tree()
+        .map_err(|e| format!("Failed to peel HEAD to tree: {}", e))?;
+
+    repo.reset(&head_tree.into_object(), git2::ResetType::Mixed, None)
+        .map_err(|e| format!("Failed to unstage all files: {}", e))?;
+
+    Ok(())
+}
+
+/// Batch stage multiple files at once. Equivalent to running `git add` on each path.
+#[tauri::command]
+async fn git_batch_stage_files(
+    state: tauri::State<'_, AppState>,
+    paths: Vec<String>,
+) -> Result<(), String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo = git2::Repository::discover(&workspace)
+        .map_err(|e| format!("Not a git repository: {}", e))?;
+
+    let mut index = repo.index()
+        .map_err(|e| format!("Failed to get index: {}", e))?;
+
+    for path in &paths {
+        index.add_path(std::path::Path::new(path))
+            .map_err(|e| format!("Failed to stage '{}': {}", path, e))?;
+    }
+
+    index.write()
+        .map_err(|e| format!("Failed to write index: {}", e))?;
+
+    Ok(())
+}
+
+/// Batch unstage multiple files at once. Equivalent to running `git reset HEAD -- <path>` on each.
+#[tauri::command]
+async fn git_batch_unstage_files(
+    state: tauri::State<'_, AppState>,
+    paths: Vec<String>,
+) -> Result<(), String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo = git2::Repository::discover(&workspace)
+        .map_err(|e| format!("Not a git repository: {}", e))?;
+
+    let head = repo.head()
+        .map_err(|e| format!("Failed to read HEAD: {}", e))?;
+    let head_tree = head.peel_to_tree()
+        .map_err(|e| format!("Failed to peel HEAD to tree: {}", e))?;
+
+    let path_refs: Vec<&std::path::Path> = paths.iter().map(|p| std::path::Path::new(p)).collect();
+    repo.reset_default(Some(&head_tree.into_object()), &path_refs)
+        .map_err(|e| format!("Failed to batch unstage: {}", e))?;
+
+    Ok(())
+}
+
 /// Create a commit with the given message using currently staged files.
 #[tauri::command]
 async fn git_commit(
@@ -7925,6 +8003,9 @@ pub fn run() {
             git_stage_file,
             git_stage_all,
             git_unstage_file,
+            git_unstage_all,
+            git_batch_stage_files,
+            git_batch_unstage_files,
             git_commit,
             // Git push & pull (feat-git-push-pull)
             git_push,
