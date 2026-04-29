@@ -36,7 +36,25 @@
 - feat-git-file-interaction（协同功能）
 
 ## Technical Solution
-<!-- To be filled during implementation -->
+### Backend (Rust / Tauri Commands)
+- **`git_file_diff`**: New Tauri command accepting `path` and `staged` boolean, returns `FileDiffResult` with structured diff lines (type, old/new line numbers, content). Uses `git2::Patch::from_diff` to parse individual file diffs into structured line data.
+- **`git_commit_detail`**: New Tauri command accepting `hash`, returns `CommitDetailResult` with file changes and total additions/deletions. Uses `git2::Repository::diff_tree_to_tree` between commit and parent.
+
+### Frontend Components
+- **`DiffPanel`**: New component rendering unified diff with line numbers, color-coded additions (green) and deletions (red). Includes header showing file path and +/- stats.
+- **`DiffLineRow`**: Individual diff line renderer with proper styling per line type.
+- **`StatBarChart`**: Pure CSS bar chart for commit frequency visualization (no chart library).
+
+### State Management
+- Extended `useGitDetail` hook with commit expand state (`expandedCommits`, `commitDetails`, `commitLoading`, `toggleCommitExpand`).
+- Added diff preview state in GitView (`selectedDiffFile`, `diffResult`, `diffLoading`, `diffError`, `showDiffPanel`).
+
+### UI Enhancements
+- Overview tab: Glass-card grid layout, staged/unstaged/untracked stat cards, line change totals, 7-day commit frequency bar chart.
+- History tab: Expandable commit items with file change lists, click-to-diff from history.
+- Changes tab: Toggleable diff preview panel, responsive md:flex-row layout.
+- Tab bar: Horizontal scroll for narrow screens.
+- Consistent rounded-xl and backdrop-blur styling across all cards.
 
 ## Acceptance Criteria (Gherkin)
 ### User Story

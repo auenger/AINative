@@ -285,6 +285,53 @@ pub struct GitBranchInfo {
 }
 
 // ===========================================================================
+// Data types - Git display enhance (feat-git-display-enhance)
+// ===========================================================================
+
+/// A single line in a unified diff.
+#[derive(Debug, Serialize, Clone)]
+pub struct DiffLine {
+    /// "context" | "add" | "remove" | "header"
+    pub line_type: String,
+    pub old_line_no: Option<usize>,
+    pub new_line_no: Option<usize>,
+    pub content: String,
+}
+
+/// Result returned by git_file_diff: full unified diff for a single file.
+#[derive(Debug, Serialize, Clone)]
+pub struct FileDiffResult {
+    pub path: String,
+    pub lines: Vec<DiffLine>,
+    pub additions: usize,
+    pub deletions: usize,
+}
+
+/// File change info for a specific commit.
+#[derive(Debug, Serialize, Clone)]
+pub struct CommitFileChangeInfo {
+    pub path: String,
+    /// "added" | "modified" | "removed" | "renamed"
+    pub status: String,
+    pub additions: usize,
+    pub deletions: usize,
+}
+
+/// Detailed commit information with file changes, returned by git_commit_detail.
+#[derive(Debug, Serialize, Clone)]
+pub struct CommitDetailResult {
+    pub hash: String,
+    pub short_hash: String,
+    pub message: String,
+    pub author: String,
+    pub timestamp: i64,
+    pub time_ago: String,
+    pub file_changes: Vec<CommitFileChangeInfo>,
+    pub total_additions: usize,
+    pub total_deletions: usize,
+}
+
+// ===========================================================================
 // Data types - AI Agent Service
 // ===========================================================================
 
@@ -3727,6 +3774,291 @@ async fn fetch_tag_diff(
     Ok(TagDiffResult {
         tag_name,
         file_changes,
+    })
+}
+
+// ===========================================================================
+// Tauri commands - Git display enhance (feat-git-display-enhance)
+// ===========================================================================
+
+/// Fetch the unified diff for a single file (staged or unstaged).
+/// Returns the full diff content with line-level detail.
+#[tauri::command]
+async fn git_file_diff(
+    state: tauri::State<'_, AppState>,
+    path: String,
+    staged: Option<bool>,
+) -> Result<FileDiffResult, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo_path = PathBuf::from(&workspace);
+    let repo = git2::Repository::discover(&repo_path)
+        .map_err(|e| format!("Not a git repository: {}", e))?;
+
+    let is_staged = staged.unwrap_or(false);
+
+    // Build the appropriate diff
+    let diff = if is_staged {
+        // Staged: compare HEAD tree to index
+        let head_tree = repo.head()
+            .ok()
+            .and_then(|r| r.peel_to_tree().ok());
+        repo.diff_tree_to_index(head_tree.as_ref(), None, None)
+            .map_err(|e| format!("Failed to get staged diff: {}", e))?
+    } else {
+        // Unstaged: compare index to workdir
+        repo.diff_index_to_workdir(None, None)
+            .map_err(|e| format!("Failed to get unstaged diff: {}", e))?
+    };
+
+    // Find the delta index for the requested file
+    let delta_idx = diff.deltas()
+        .position(|d| {
+            let p = d.new_file().path()
+                .or_else(|| d.old_file().path())
+                .map(|pp| pp.to_string_lossy().to_string())
+                .unwrap_or_default();
+            p == path
+        });
+
+    let idx = match delta_idx {
+        Some(i) => i,
+        None => return Ok(FileDiffResult {
+            path: path.clone(),
+            lines: Vec::new(),
+            additions: 0,
+            deletions: 0,
+        }),
+    };
+
+    // Parse the diff for this file into structured lines
+    let mut lines: Vec<DiffLine> = Vec::new();
+    let mut additions: usize = 0;
+    let mut deletions: usize = 0;
+    let mut old_line: usize = 0;
+    let mut new_line: usize = 0;
+
+    // Get patch for this specific delta
+    let patch = git2::Patch::from_diff(&diff, idx).unwrap_or(None);
+
+    if let Some(patch) = patch {
+        for h in 0..patch.num_hunks() {
+            let (hunk, _num_lines) = patch.hunk(h).map_err(|e| format!("Failed to get hunk: {}", e))?;
+            let old_start = hunk.old_start() as usize;
+            let new_start = hunk.new_start() as usize;
+
+            // Add hunk header
+            let header = format!("@@ -{},{} +{},{} @@",
+                old_start, hunk.old_lines(),
+                new_start, hunk.new_lines());
+            lines.push(DiffLine {
+                line_type: "header".to_string(),
+                old_line_no: None,
+                new_line_no: None,
+                content: header,
+            });
+
+            old_line = if old_start == 0 { 0 } else { old_start };
+            new_line = if new_start == 0 { 0 } else { new_start };
+
+            for l in 0..patch.num_lines_in_hunk(h).map_err(|e| format!("Failed to get line count: {}", e))? {
+                let line = patch.line_in_hunk(h, l)
+                    .map_err(|e| format!("Failed to get diff line: {}", e))?;
+                let origin = line.origin();
+
+                match origin {
+                    '+' => {
+                        additions += 1;
+                        let ln = new_line;
+                        new_line += 1;
+                        let content = String::from_utf8_lossy(line.content()).to_string();
+                        lines.push(DiffLine {
+                            line_type: "add".to_string(),
+                            old_line_no: None,
+                            new_line_no: Some(ln),
+                            content,
+                        });
+                    }
+                    '-' => {
+                        deletions += 1;
+                        let ln = old_line;
+                        old_line += 1;
+                        let content = String::from_utf8_lossy(line.content()).to_string();
+                        lines.push(DiffLine {
+                            line_type: "remove".to_string(),
+                            old_line_no: Some(ln),
+                            new_line_no: None,
+                            content,
+                        });
+                    }
+                    _ => {
+                        // Context line
+                        let ol = old_line;
+                        let nl = new_line;
+                        old_line += 1;
+                        new_line += 1;
+                        let content = String::from_utf8_lossy(line.content()).to_string();
+                        lines.push(DiffLine {
+                            line_type: "context".to_string(),
+                            old_line_no: Some(ol),
+                            new_line_no: Some(nl),
+                            content,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(FileDiffResult {
+        path,
+        lines,
+        additions,
+        deletions,
+    })
+}
+
+/// Fetch detailed information about a specific commit, including file changes.
+#[tauri::command]
+async fn git_commit_detail(
+    state: tauri::State<'_, AppState>,
+    hash: String,
+) -> Result<CommitDetailResult, String> {
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    if workspace.is_empty() {
+        return Err("No workspace loaded".into());
+    }
+
+    let repo_path = PathBuf::from(&workspace);
+    let repo = git2::Repository::discover(&repo_path)
+        .map_err(|e| format!("Not a git repository: {}", e))?;
+
+    // Parse the commit hash
+    let oid = git2::Oid::from_str(&hash)
+        .map_err(|e| format!("Invalid commit hash '{}': {}", hash, e))?;
+    let commit = repo.find_commit(oid)
+        .map_err(|e| format!("Commit '{}' not found: {}", &hash[..7], e))?;
+
+    let short_hash = hash[..7].to_string();
+    let message = commit.message()
+        .unwrap_or("(no message)")
+        .lines()
+        .next()
+        .unwrap_or("")
+        .to_string();
+    let author = commit.author().name().unwrap_or("unknown").to_string();
+    let timestamp = commit.time().seconds();
+    let time_ago = format_time_ago(timestamp);
+
+    // Get the commit tree and parent tree for diff
+    let commit_tree = commit.tree()
+        .map_err(|e| format!("Failed to get commit tree: {}", e))?;
+
+    let diff = if commit.parent_count() > 0 {
+        // Compare with first parent
+        let parent = commit.parent(0)
+            .map_err(|e| format!("Failed to get parent commit: {}", e))?;
+        let parent_tree = parent.tree()
+            .map_err(|e| format!("Failed to get parent tree: {}", e))?;
+        repo.diff_tree_to_tree(Some(&parent_tree), Some(&commit_tree), None)
+            .map_err(|e| format!("Failed to diff: {}", e))?
+    } else {
+        // Initial commit: diff against empty tree
+        let empty_oid = repo.treebuilder(None)
+            .and_then(|tb| tb.write())
+            .map_err(|e| format!("Failed to create empty tree: {}", e))?;
+        let empty_tree = repo.find_tree(empty_oid)
+            .map_err(|e| format!("Failed to find empty tree: {}", e))?;
+        repo.diff_tree_to_tree(Some(&empty_tree), Some(&commit_tree), None)
+            .map_err(|e| format!("Failed to diff against empty tree: {}", e))?
+    };
+
+    // Extract file changes
+    let mut file_changes: Vec<CommitFileChangeInfo> = Vec::new();
+
+    for delta in diff.deltas() {
+        let path = delta.new_file().path()
+            .or_else(|| delta.old_file().path())
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
+
+        let status = match delta.status() {
+            git2::Delta::Added => "added",
+            git2::Delta::Deleted => "removed",
+            git2::Delta::Modified => "modified",
+            git2::Delta::Renamed => "renamed",
+            git2::Delta::Copied => "modified",
+            _ => "modified",
+        }.to_string();
+
+        file_changes.push(CommitFileChangeInfo {
+            path,
+            status,
+            additions: 0,
+            deletions: 0,
+        });
+    }
+
+    // Count line changes per file using diff print
+    let file_count = file_changes.len();
+    let stats_map: Arc<Mutex<HashMap<usize, (usize, usize)>>> = Arc::new(Mutex::new(HashMap::new()));
+    let stats_clone = Arc::clone(&stats_map);
+    let mut cur_idx: Option<usize> = None;
+    let mut cur_adds: usize = 0;
+    let mut cur_dels: usize = 0;
+
+    let _ = diff.print(git2::DiffFormat::Patch, |d, _hunk, line| {
+        let path = d.new_file().path()
+            .or_else(|| d.old_file().path())
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
+
+        if let Some(idx) = (0..file_count).find(|&i| file_changes[i].path == path) {
+            if cur_idx != Some(idx) {
+                if let Some(prev) = cur_idx {
+                    stats_clone.lock().unwrap().insert(prev, (cur_adds, cur_dels));
+                }
+                cur_idx = Some(idx);
+                cur_adds = 0;
+                cur_dels = 0;
+            }
+            let origin = line.origin();
+            if origin == '+' { cur_adds += 1; }
+            else if origin == '-' { cur_dels += 1; }
+        }
+        true
+    });
+
+    // Flush last
+    if let Some(idx) = cur_idx {
+        stats_clone.lock().unwrap().insert(idx, (cur_adds, cur_dels));
+    }
+
+    let stats = stats_map.lock().unwrap();
+    let mut total_additions: usize = 0;
+    let mut total_deletions: usize = 0;
+    for (idx, (adds, dels)) in stats.iter() {
+        if *idx < file_changes.len() {
+            file_changes[*idx].additions = *adds;
+            file_changes[*idx].deletions = *dels;
+            total_additions += adds;
+            total_deletions += dels;
+        }
+    }
+
+    Ok(CommitDetailResult {
+        hash,
+        short_hash,
+        message,
+        author,
+        timestamp,
+        time_ago,
+        file_changes,
+        total_additions,
+        total_deletions,
     })
 }
 
@@ -8141,6 +8473,9 @@ pub fn run() {
             git_pull,
             // Branch graph (feat-git-branch-graph)
             fetch_commit_graph,
+            // Git display enhance (feat-git-display-enhance)
+            git_file_diff,
+            git_commit_detail,
             // AI Agent Service
             agent_chat_stream,
             store_api_key,
