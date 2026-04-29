@@ -11,6 +11,7 @@ import {
   FileText,
   Sparkles,
   AlertCircle,
+  AlertTriangle,
   RefreshCw,
   Send,
   MessageSquare,
@@ -135,6 +136,9 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
   // Session resume indicator state
   const [resumedSession, setResumedSession] = useState(false);
   const resumedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Safe-close confirmation state
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
   // Auto-scroll chat to bottom on new messages
   // (selectedAgentId is used instead of selectedAgent to avoid hoisting issues)
@@ -631,6 +635,18 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
     onClose();
   }, [step, featureCreated, selectedAgentId, messages, extMessages, chatInput, extChatInput, onFeatureCreated, onClose, clearChat, sessionStore]);
 
+  // Whether an interaction is currently active (streaming / executing)
+  const isInteractionActive = isStreaming || extStreaming || (step === 'executing' && !featureCreated && !execError);
+
+  // Safe-close request: check if interaction is active before closing
+  const requestClose = useCallback(() => {
+    if (isInteractionActive) {
+      setShowCloseConfirm(true);
+    } else {
+      handleClose();
+    }
+  }, [isInteractionActive, handleClose]);
+
   // -----------------------------------------------------------------------
   // Render helpers
   // -----------------------------------------------------------------------
@@ -683,7 +699,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        onClick={handleClose}
+        onClick={requestClose}
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
       />
 
@@ -736,7 +752,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
             <StepIndicator />
             <button
               onMouseDown={(e) => e.stopPropagation()}
-              onClick={handleClose}
+              onClick={requestClose}
               className="p-1.5 hover:bg-surface-container-high rounded-lg transition-colors"
             >
               <X size={14} className="text-outline" />
@@ -1257,7 +1273,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
           <div className="flex items-center gap-3">
             {/* Cancel / Close button */}
             <button
-              onClick={handleClose}
+              onClick={requestClose}
               className="px-4 py-1.5 text-[11px] font-medium text-on-surface-variant hover:text-on-surface transition-colors"
             >
               {(step === 'executing' && !featureCreated && !execError) ? 'Cancel' : 'Close'}
@@ -1338,6 +1354,60 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
             )}
           </div>
         </div>
+
+        {/* Safe-close confirmation overlay */}
+        <AnimatePresence>
+          {showCloseConfirm && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-xl"
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.stopPropagation();
+                  setShowCloseConfirm(false);
+                }
+              }}
+              tabIndex={-1}
+              ref={(el) => el?.focus()}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-surface-container-low border border-warning/30 rounded-xl p-6 shadow-2xl max-w-sm mx-4"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle size={18} className="text-warning" />
+                  <h4 className="text-sm font-bold text-on-surface">AI is responding</h4>
+                </div>
+                <p className="text-[11px] text-on-surface-variant leading-relaxed mb-5">
+                  Close anyway? You can recover the conversation by reopening.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <button
+                    autoFocus
+                    onClick={() => setShowCloseConfirm(false)}
+                    className="px-4 py-2 rounded-lg text-[11px] font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-all border border-primary/20"
+                  >
+                    Continue Waiting
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowCloseConfirm(false);
+                      handleClose();
+                    }}
+                    className="px-4 py-2 rounded-lg text-[11px] font-bold bg-surface-container-highest text-on-surface hover:bg-surface-variant transition-all border border-outline-variant/20"
+                  >
+                    Close
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );

@@ -515,6 +515,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
   const [resumedSession, setResumedSession] = useState(false);
   const resumedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Safe-close confirmation state
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+
   // Drag state
   const draggedIdRef = useRef<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<QueueName | null>(null);
@@ -592,6 +595,18 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
     agentStreamingRef.current = '';
     setResumedSession(false);
   }, [selectedFeature, agentOutput, agentAction, agentDone, agentError, detailTab, sessionStore]);
+
+  // Whether the agent is currently active (streaming / sending)
+  const isAgentActive = agentSending && !agentDone;
+
+  // Safe-close request: check if agent is active before closing
+  const requestCloseModal = useCallback(() => {
+    if (isAgentActive) {
+      setShowCloseConfirm(true);
+    } else {
+      closeModal();
+    }
+  }, [isAgentActive, closeModal]);
 
   const handleDragStart = useCallback((e: React.DragEvent, id: string) => {
     draggedIdRef.current = id;
@@ -1076,7 +1091,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={closeModal}
+              onClick={requestCloseModal}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             />
             <motion.div
@@ -1119,7 +1134,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
                 </div>
                 <button
                   onMouseDown={(e) => e.stopPropagation()}
-                  onClick={closeModal}
+                  onClick={requestCloseModal}
                   className="p-2 hover:bg-surface-container-high rounded-full transition-colors"
                 >
                   <X size={18} />
@@ -1413,6 +1428,60 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
                 </div>
               </div>
 
+              {/* Safe-close confirmation overlay */}
+              <AnimatePresence>
+                {showCloseConfirm && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-xl"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        e.stopPropagation();
+                        setShowCloseConfirm(false);
+                      }
+                    }}
+                    tabIndex={-1}
+                    ref={(el) => el?.focus()}
+                  >
+                    <motion.div
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.9, opacity: 0 }}
+                      className="bg-surface-container-low border border-warning/30 rounded-xl p-6 shadow-2xl max-w-sm mx-4"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangle size={18} className="text-warning" />
+                        <h4 className="text-sm font-bold text-on-surface">AI is responding</h4>
+                      </div>
+                      <p className="text-[11px] text-on-surface-variant leading-relaxed mb-5">
+                        Close anyway? You can recover the conversation by reopening.
+                      </p>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          autoFocus
+                          onClick={() => setShowCloseConfirm(false)}
+                          className="px-4 py-2 rounded-lg text-[11px] font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-all border border-primary/20"
+                        >
+                          Continue Waiting
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowCloseConfirm(false);
+                            closeModal();
+                          }}
+                          className="px-4 py-2 rounded-lg text-[11px] font-bold bg-surface-container-highest text-on-surface hover:bg-surface-variant transition-all border border-outline-variant/20"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Modal footer */}
               <div className="p-6 bg-surface-container-high/30 border-t border-outline-variant/10 flex justify-between gap-3 shrink-0">
                 {/* Clear session button — only show if agent tab has output */}
@@ -1436,7 +1505,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
                 )}
                 <div className="ml-auto">
                   <button
-                    onClick={closeModal}
+                    onClick={requestCloseModal}
                     className="px-6 py-2 bg-surface-container-highest text-on-surface rounded-lg text-xs font-bold hover:bg-surface-variant transition-all border border-outline-variant/10"
                   >
                     Close
