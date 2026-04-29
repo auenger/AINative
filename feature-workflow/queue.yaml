@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-29T13:30:00Z'
+  last_updated: '2026-04-29T18:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -42,24 +42,6 @@ pending:
   - feat-file-tree-context-menu
   - feat-file-tree-clipboard
   - feat-file-tree-navigation
-- id: feat-claude-session-history
-  name: Claude Code 会话历史回看
-  priority: 75
-  size: M
-- id: feat-git-display-enhance
-  name: Git 信息展示强化
-  priority: 75
-  size: S
-  depends_on:
-  - feat-git-tab-page
-- id: feat-settings-workflow-config
-  name: Settings 工作流参数配置（并行/自动化/清理）
-  priority: 70
-  size: M
-- id: feat-task-board-layout-optim
-  name: Task Board 列排序与显示优化
-  priority: 70
-  size: M
 - id: feat-task-execution-overlay
   name: 任务执行乐观状态（Execution Overlay + Ghost Card）
   priority: 70
@@ -72,6 +54,22 @@ pending:
   - feat-modal-session-store
 blocked: []
 completed:
+- id: feat-task-board-layout-optim
+  name: Task Board 列排序与显示优化
+  completed_at: '2026-04-29T18:30:00Z'
+  tag: feat-task-board-layout-optim-20260429
+- id: feat-settings-workflow-config
+  name: Settings 工作流参数配置（并行/自动化/清理）
+  completed_at: '2026-04-29T17:30:00Z'
+  tag: feat-settings-workflow-config-20260429
+- id: feat-claude-session-history
+  name: Claude Code 会话历史回看
+  completed_at: '2026-04-29T16:00:00Z'
+  tag: feat-claude-session-history-20260429
+- id: feat-git-display-enhance
+  name: Git 信息展示强化
+  completed_at: '2026-04-29T14:30:00Z'
+  tag: feat-git-display-enhance-20260429
 - id: feat-file-tree-navigation
   name: 文件树快速导航（定位/跳转/路径复制）
   completed_at: '2026-04-29T13:30:00Z'
