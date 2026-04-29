@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Target, Activity, Terminal, Brain, ArrowRight, Bot, GitBranch, GitCommit, Clock } from 'lucide-react';
+import { Target, Activity, Terminal, Brain, ArrowRight, Bot, GitBranch, GitCommit, Clock, History } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { HardwareStats, GitStats, RecentCommit } from '../../types';
 import { RuntimeMonitorPanel } from './RuntimeMonitorPanel';
+import { SessionHistoryPanel } from './SessionHistoryPanel';
+import { SessionReplayView } from './SessionReplayView';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -89,6 +91,10 @@ async function listen<T>(event: string, cb: (payload: T) => void): Promise<(() =
 export const MissionControl: React.FC<{ workspacePath?: string }> = ({ workspacePath }) => {
   const { t } = useTranslation();
 
+  // Tab state for Session History (feat-claude-session-history)
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'sessions'>('dashboard');
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+
   // Hardware state
   const [hw, setHw] = useState<HardwareStats | null>(null);
   const [cpuHistory, setCpuHistory] = useState<number[]>([]);
@@ -165,12 +171,39 @@ export const MissionControl: React.FC<{ workspacePath?: string }> = ({ workspace
 
   return (
     <div className="flex-1 p-6 overflow-y-auto scroll-hide bg-surface">
-      <div className="flex items-end justify-between mb-8 border-b border-outline-variant pb-4">
+      <div className="flex items-end justify-between mb-6 border-b border-outline-variant pb-4">
         <div>
           <h1 className="font-headline text-3xl font-bold tracking-tight text-on-surface">{t('missionControl.title')}</h1>
           <p className="text-on-surface-variant text-sm font-label opacity-70">AI-Agent Active &bull; System Monitoring Environment</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex items-center gap-4">
+          {/* Tab switcher (feat-claude-session-history) */}
+          <div className="flex bg-surface-container-lowest rounded-lg p-0.5 border border-outline-variant/10">
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className={cn(
+                'px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors cursor-pointer',
+                activeTab === 'dashboard'
+                  ? 'bg-primary/20 text-primary'
+                  : 'text-on-surface-variant hover:text-on-surface',
+              )}
+            >
+              Dashboard
+            </button>
+            <button
+              onClick={() => setActiveTab('sessions')}
+              className={cn(
+                'px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors cursor-pointer flex items-center gap-1',
+                activeTab === 'sessions'
+                  ? 'bg-primary/20 text-primary'
+                  : 'text-on-surface-variant hover:text-on-surface',
+              )}
+            >
+              <History size={10} />
+              Sessions
+            </button>
+          </div>
+          <div className="flex gap-4">
           <div className="flex flex-col items-end">
             <span className="text-[10px] uppercase tracking-widest text-secondary opacity-60">Status</span>
             <div className="flex items-center gap-2">
@@ -183,8 +216,11 @@ export const MissionControl: React.FC<{ workspacePath?: string }> = ({ workspace
             <span className="font-mono text-sm text-on-surface-variant">{hw ? formatUptime(hw.uptime) : '--'}</span>
           </div>
         </div>
+        </div>
       </div>
 
+      {/* Dashboard Tab (default) */}
+      {activeTab === 'dashboard' && (
       <div className="grid grid-cols-12 gap-4 auto-rows-min">
         {/* System Health Card */}
         <div className="col-span-12 lg:col-span-4 bg-surface-container-low p-5 rounded flex flex-col gap-6">
@@ -500,6 +536,28 @@ export const MissionControl: React.FC<{ workspacePath?: string }> = ({ workspace
           <RuntimeMonitorPanel workspacePath={workspacePath} />
         </div>
       </div>
+      )}
+
+      {/* Sessions History Tab (feat-claude-session-history) */}
+      {activeTab === 'sessions' && (
+        <div className="flex gap-4 h-[calc(100vh-200px)] min-h-[400px] mt-2">
+          {/* Left: Session list */}
+          <div className="w-80 shrink-0 bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden flex flex-col">
+            <SessionHistoryPanel
+              workspacePath={workspacePath}
+              selectedSessionId={selectedSessionId}
+              onSelectSession={setSelectedSessionId}
+            />
+          </div>
+          {/* Right: Session replay */}
+          <div className="flex-1 bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden flex flex-col">
+            <SessionReplayView
+              sessionId={selectedSessionId}
+              workspacePath={workspacePath}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
