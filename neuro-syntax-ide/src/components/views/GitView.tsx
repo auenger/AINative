@@ -22,13 +22,21 @@ import {
   MinusCircle,
   Layers,
   Trash2,
+  PanelRightClose,
+  PanelRightOpen,
+  BarChart3,
+  TrendingUp,
+  TrendingDown,
+  FilePlus,
+  FileMinus,
+  FileQuestion,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { useGitStatus } from '../../lib/useGitStatus';
 import { useGitDetail } from '../../lib/useGitDetail';
-import type { GitModalTab, CommitGraphResult, FileDiffInfo } from '../../types';
+import type { GitModalTab, CommitGraphResult, FileDiffInfo, FileDiffResult, DiffLine, CommitDetailResult } from '../../types';
 
 // ---------------------------------------------------------------------------
 // CommitGraphTab — git-log style vertical timeline visualization
@@ -200,6 +208,175 @@ const CommitGraphTab: React.FC<CommitGraphTabProps> = ({ graphData, hoveredCommi
           );
         })}
       </svg>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// DiffPanel — Shows unified diff for a selected file
+// ---------------------------------------------------------------------------
+
+interface DiffPanelProps {
+  diff: FileDiffResult | null;
+  loading: boolean;
+  error: string | null;
+  onClose: () => void;
+  onFileClick?: (path: string, staged: boolean) => void;
+}
+
+const DiffPanel: React.FC<DiffPanelProps> = ({ diff, loading, error, onClose }) => {
+  if (loading) {
+    return (
+      <div className="flex flex-col h-full bg-surface-container-lowest rounded-lg border border-outline-variant/10">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant/10">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Loading Diff...</span>
+          <button onClick={onClose} className="p-1 rounded hover:bg-surface-container-high/30 transition-colors">
+            <PanelRightClose size={14} className="text-on-surface-variant" />
+          </button>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 size={20} className="animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col h-full bg-surface-container-lowest rounded-lg border border-outline-variant/10">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant/10">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-error">Error</span>
+          <button onClick={onClose} className="p-1 rounded hover:bg-surface-container-high/30 transition-colors">
+            <PanelRightClose size={14} className="text-on-surface-variant" />
+          </button>
+        </div>
+        <div className="flex-1 flex items-center justify-center p-4">
+          <p className="text-xs text-error">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!diff) {
+    return (
+      <div className="flex flex-col h-full bg-surface-container-lowest rounded-lg border border-outline-variant/10">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant/10">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Diff Preview</span>
+          <button onClick={onClose} className="p-1 rounded hover:bg-surface-container-high/30 transition-colors">
+            <PanelRightClose size={14} className="text-on-surface-variant" />
+          </button>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-on-surface-variant opacity-50">
+          <FileText size={32} />
+          <p className="text-xs">Click a file to preview changes</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full bg-surface-container-lowest rounded-lg border border-outline-variant/10 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant/10 shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <FileText size={14} className="text-secondary shrink-0" />
+          <span className="text-xs font-mono truncate text-on-surface">{diff.path}</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono">
+            <span className="text-emerald-400 flex items-center gap-0.5"><PlusCircle size={10} />+{diff.additions}</span>
+            <span className="text-error flex items-center gap-0.5"><MinusCircle size={10} />-{diff.deletions}</span>
+          </div>
+          <button onClick={onClose} className="p-1 rounded hover:bg-surface-container-high/30 transition-colors">
+            <PanelRightClose size={14} className="text-on-surface-variant" />
+          </button>
+        </div>
+      </div>
+
+      {/* Diff content */}
+      <div className="flex-1 overflow-auto font-mono text-[11px] leading-5 scroll-hide">
+        {diff.lines.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-on-surface-variant text-xs opacity-60">
+            No changes to display
+          </div>
+        ) : (
+          diff.lines.map((line, idx) => (
+            <DiffLineRow key={idx} line={line} />
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// DiffLineRow — Single line in a diff
+// ---------------------------------------------------------------------------
+
+const DiffLineRow: React.FC<{ line: DiffLine }> = ({ line }) => {
+  const bgColor = line.type === 'add'
+    ? 'bg-emerald-500/10'
+    : line.type === 'remove'
+    ? 'bg-red-500/10'
+    : line.type === 'header'
+    ? 'bg-primary/10'
+    : 'transparent';
+  const textColor = line.type === 'add'
+    ? 'text-emerald-400'
+    : line.type === 'remove'
+    ? 'text-red-400'
+    : line.type === 'header'
+    ? 'text-primary'
+    : 'text-on-surface-variant';
+  const prefix = line.type === 'add' ? '+' : line.type === 'remove' ? '-' : ' ';
+
+  return (
+    <div className={cn('flex whitespace-pre', bgColor)}>
+      {/* Old line number */}
+      <span className="w-10 shrink-0 text-right pr-2 text-outline-variant/60 select-none border-r border-outline-variant/10">
+        {line.old_line_no ?? ''}
+      </span>
+      {/* New line number */}
+      <span className="w-10 shrink-0 text-right pr-2 text-outline-variant/60 select-none border-r border-outline-variant/10">
+        {line.new_line_no ?? ''}
+      </span>
+      {/* Prefix */}
+      <span className={cn('w-4 shrink-0 text-center select-none', textColor)}>{line.type === 'header' ? '' : prefix}</span>
+      {/* Content */}
+      <span className={cn('pl-1', textColor)}>{line.content.replace(/\n$/, '')}</span>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// StatBarChart — Simple bar chart for commit frequency
+// ---------------------------------------------------------------------------
+
+interface BarData {
+  label: string;
+  value: number;
+}
+
+interface StatBarChartProps {
+  data: BarData[];
+  maxValue: number;
+  color?: string;
+}
+
+const StatBarChart: React.FC<StatBarChartProps> = ({ data, maxValue, color = 'bg-secondary' }) => {
+  const max = Math.max(maxValue, 1);
+  return (
+    <div className="flex items-end gap-1.5 h-20">
+      {data.map((d, i) => (
+        <div key={i} className="flex flex-col items-center flex-1 gap-1">
+          <span className="text-[8px] text-on-surface-variant font-mono">{d.value || ''}</span>
+          <div
+            className={cn('w-full rounded-t-sm transition-all min-h-[2px]', color)}
+            style={{ height: `${Math.max((d.value / max) * 60, 2)}px` }}
+          />
+          <span className="text-[8px] text-outline truncate">{d.label}</span>
+        </div>
+      ))}
     </div>
   );
 };
@@ -427,7 +604,14 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
   const [batchLoading, setBatchLoading] = useState(false);
 
   // Drag-over state per group
-  const [dragOverGroup, setDragOverGroup] = useState<'staged' | 'unstaged' | null>(null);
+  const [dragOverGroup, setDragOverGroup] = useState<'staged' | 'unstaged' | 'untracked' | null>(null);
+
+  // Diff preview state (feat-git-display-enhance)
+  const [selectedDiffFile, setSelectedDiffFile] = useState<FileDiffInfo | null>(null);
+  const [diffResult, setDiffResult] = useState<FileDiffResult | null>(null);
+  const [diffLoading, setDiffLoading] = useState(false);
+  const [diffError, setDiffError] = useState<string | null>(null);
+  const [showDiffPanel, setShowDiffPanel] = useState(false);
 
   // Ref for the changes panel for keyboard shortcuts
   const changesPanelRef = useRef<HTMLDivElement>(null);
@@ -449,6 +633,54 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
       untracked: gitStatus.data.files.filter(f => f.status === 'untracked'),
     };
   }, [gitStatus.data]);
+
+  // ── Diff preview loading (feat-git-display-enhance) ──
+  const loadDiff = useCallback(async (file: FileDiffInfo) => {
+    setSelectedDiffFile(file);
+    setShowDiffPanel(true);
+    setDiffLoading(true);
+    setDiffError(null);
+    setDiffResult(null);
+
+    try {
+      const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+      if (!isTauri) {
+        // Mock diff for dev mode
+        await new Promise(r => setTimeout(r, 300));
+        const mockDiff: FileDiffResult = {
+          path: file.path,
+          additions: file.additions || 3,
+          deletions: file.deletions || 1,
+          lines: [
+            { type: 'header', old_line_no: null, new_line_no: null, content: '@@ -1,5 +1,8 @@' },
+            { type: 'context', old_line_no: 1, new_line_no: 1, content: 'import React from "react";' },
+            { type: 'context', old_line_no: 2, new_line_no: 2, content: '' },
+            { type: 'remove', old_line_no: 3, new_line_no: null, content: '// Old import' },
+            { type: 'add', old_line_no: null, new_line_no: 3, content: '// New import with changes' },
+            { type: 'add', old_line_no: null, new_line_no: 4, content: 'import { useState } from "react";' },
+            { type: 'context', old_line_no: 4, new_line_no: 5, content: '' },
+            { type: 'context', old_line_no: 5, new_line_no: 6, content: 'export const Component = () => {' },
+            { type: 'add', old_line_no: null, new_line_no: 7, content: '  const [count, setCount] = useState(0);' },
+            { type: 'context', old_line_no: 6, new_line_no: 8, content: '  return <div>Hello</div>;' },
+            { type: 'context', old_line_no: 7, new_line_no: 9, content: '};' },
+          ],
+        };
+        setDiffResult(mockDiff);
+        return;
+      }
+      const { invoke } = await import('@tauri-apps/api/core');
+      const result = await invoke<FileDiffResult>('git_file_diff', {
+        path: file.path,
+        staged: file.status === 'staged',
+      });
+      setDiffResult(result);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setDiffError(msg);
+    } finally {
+      setDiffLoading(false);
+    }
+  }, []);
 
   // ── Multi-selection handler ──
   const handleFileSelect = useCallback((file: FileDiffInfo, e: React.MouseEvent) => {
@@ -487,7 +719,12 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
     });
 
     setLastClickedIndex(clickedIndex);
-  }, [getGroupedFiles, lastClickedIndex]);
+
+    // Load diff preview on single click (no modifier keys)
+    if (!e.metaKey && !e.ctrlKey && !e.shiftKey && file.status !== 'untracked') {
+      loadDiff(file);
+    }
+  }, [getGroupedFiles, lastClickedIndex, loadDiff]);
 
   // ── Clear selection ──
   const clearSelection = useCallback(() => {
@@ -789,10 +1026,10 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
                     ? "border-secondary/50 bg-secondary/5 ring-2 ring-inset ring-secondary/30"
                     : "border-outline-variant/10",
                 )}
-                onDragOver={isDropTarget ? (e) => handleDragOver(e, groupKey) : undefined}
+                onDragOver={isDropTarget ? (e) => handleDragOver(e, groupKey as 'staged' | 'unstaged') : undefined}
                 onDragEnter={isDropTarget ? (e) => { e.preventDefault(); setDragOverGroup(groupKey); } : undefined}
                 onDragLeave={isDropTarget ? handleDragLeave : undefined}
-                onDrop={isDropTarget ? (e) => handleDrop(e, groupKey) : undefined}
+                onDrop={isDropTarget ? (e) => handleDrop(e, groupKey as 'staged' | 'unstaged') : undefined}
               >
                 {isDragOver && (
                   <div className="flex items-center justify-center py-3 text-[10px] font-bold text-secondary animate-pulse">
@@ -869,14 +1106,14 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
         </div>
       </header>
 
-      {/* ─── Tab Bar ─── */}
-      <div className="flex border-b border-outline-variant/10 bg-surface-container-low shrink-0">
+      {/* ─── Tab Bar (responsive with horizontal scroll) ─── */}
+      <div className="flex overflow-x-auto border-b border-outline-variant/10 bg-surface-container-low shrink-0 scroll-hide">
         {tabs.map(({ key, icon: Icon, label }) => (
           <button
             key={key}
             onClick={() => { setActiveTab(key); if (key !== 'changes') clearSelection(); }}
             className={cn(
-              'flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all border-b-2',
+              'flex items-center gap-2 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all border-b-2 whitespace-nowrap',
               activeTab === key
                 ? 'text-secondary border-secondary bg-surface-container-lowest'
                 : 'text-on-surface-variant border-transparent hover:text-on-surface hover:bg-surface-container-high/20'
@@ -906,9 +1143,9 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
             </div>
           ) : gitStatus.data ? (
             <>
-              {/* ── Overview Tab ── */}
+              {/* ── Overview Tab (Enhanced) ── */}
               {activeTab === 'overview' && (
-                <div className="space-y-6 max-w-4xl p-6">
+                <div className="space-y-6 max-w-5xl p-6">
                   {/* Branch + remote summary */}
                   <div className="flex items-center gap-3">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Branch</span>
@@ -916,27 +1153,121 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
                       {gitStatus.data.current_branch}
                     </span>
                   </div>
-                  {/* Quick stats */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/5 p-5 text-center">
+
+                  {/* Quick stats - glass card grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-surface-container-lowest/80 backdrop-blur rounded-xl border border-outline-variant/10 p-4 text-center">
                       <p className="text-2xl font-bold text-secondary">{gitDetail.branches.length || '—'}</p>
-                      <p className="text-[10px] uppercase tracking-widest text-outline mt-2">Branches</p>
+                      <p className="text-[10px] uppercase tracking-widest text-outline mt-1">Branches</p>
                     </div>
-                    <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/5 p-5 text-center">
+                    <div className="bg-surface-container-lowest/80 backdrop-blur rounded-xl border border-outline-variant/10 p-4 text-center">
                       <p className="text-2xl font-bold text-tertiary">{gitDetail.tags.length || '—'}</p>
-                      <p className="text-[10px] uppercase tracking-widest text-outline mt-2">Tags</p>
+                      <p className="text-[10px] uppercase tracking-widest text-outline mt-1">Tags</p>
                     </div>
-                    <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/5 p-5 text-center">
+                    <div className="bg-surface-container-lowest/80 backdrop-blur rounded-xl border border-outline-variant/10 p-4 text-center">
                       <p className="text-2xl font-bold text-primary">{gitStatus.data.files.length}</p>
-                      <p className="text-[10px] uppercase tracking-widest text-outline mt-2">Changes</p>
+                      <p className="text-[10px] uppercase tracking-widest text-outline mt-1">Changes</p>
+                    </div>
+                    <div className="bg-surface-container-lowest/80 backdrop-blur rounded-xl border border-outline-variant/10 p-4 text-center">
+                      <p className="text-2xl font-bold text-on-surface">{gitDetail.commits.length}</p>
+                      <p className="text-[10px] uppercase tracking-widest text-outline mt-1">Commits</p>
                     </div>
                   </div>
+
+                  {/* Change statistics visualization */}
+                  {(() => {
+                    const staged = gitStatus.data.files.filter(f => f.status === 'staged');
+                    const unstaged = gitStatus.data.files.filter(f => f.status === 'unstaged');
+                    const untracked = gitStatus.data.files.filter(f => f.status === 'untracked');
+                    const totalAdditions = gitStatus.data.files.reduce((s, f) => s + f.additions, 0);
+                    const totalDeletions = gitStatus.data.files.reduce((s, f) => s + f.deletions, 0);
+
+                    // Compute commit frequency for last 7 days
+                    const now = Date.now() / 1000;
+                    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                    const bars: { label: string; value: number }[] = [];
+                    for (let i = 6; i >= 0; i--) {
+                      const dayStart = now - (i + 1) * 86400;
+                      const dayEnd = now - i * 86400;
+                      const count = gitDetail.commits.filter(c => c.timestamp >= dayStart && c.timestamp < dayEnd).length;
+                      const date = new Date((now - i * 86400) * 1000);
+                      bars.push({ label: dayNames[date.getDay()], value: count });
+                    }
+                    const maxBar = Math.max(...bars.map(b => b.value), 1);
+
+                    return (
+                      <>
+                        {/* File change stats cards */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="flex items-center gap-3 bg-surface-container-lowest/80 backdrop-blur rounded-xl border border-outline-variant/10 p-4">
+                            <div className="p-2 rounded-lg bg-tertiary/10">
+                              <FilePlus size={16} className="text-tertiary" />
+                            </div>
+                            <div>
+                              <p className="text-lg font-bold text-tertiary">{staged.length}</p>
+                              <p className="text-[10px] text-outline uppercase tracking-wider">Staged</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 bg-surface-container-lowest/80 backdrop-blur rounded-xl border border-outline-variant/10 p-4">
+                            <div className="p-2 rounded-lg bg-primary/10">
+                              <FileText size={16} className="text-primary" />
+                            </div>
+                            <div>
+                              <p className="text-lg font-bold text-primary">{unstaged.length}</p>
+                              <p className="text-[10px] text-outline uppercase tracking-wider">Modified</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 bg-surface-container-lowest/80 backdrop-blur rounded-xl border border-outline-variant/10 p-4">
+                            <div className="p-2 rounded-lg bg-warning/10">
+                              <FileQuestion size={16} className="text-warning" />
+                            </div>
+                            <div>
+                              <p className="text-lg font-bold text-warning">{untracked.length}</p>
+                              <p className="text-[10px] text-outline uppercase tracking-wider">Untracked</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Additions/Deletions totals + Bar chart */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {/* Line change stats */}
+                          <div className="bg-surface-container-lowest/80 backdrop-blur rounded-xl border border-outline-variant/10 p-4 space-y-3">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Line Changes</span>
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-2">
+                                <TrendingUp size={16} className="text-emerald-400" />
+                                <div>
+                                  <p className="text-xl font-bold text-emerald-400">+{totalAdditions}</p>
+                                  <p className="text-[9px] text-outline">Additions</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <TrendingDown size={16} className="text-error" />
+                                <div>
+                                  <p className="text-xl font-bold text-error">-{totalDeletions}</p>
+                                  <p className="text-[9px] text-outline">Deletions</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          {/* Commit frequency bar chart */}
+                          <div className="bg-surface-container-lowest/80 backdrop-blur rounded-xl border border-outline-variant/10 p-4 space-y-3">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Commits (7d)</span>
+                            <StatBarChart data={bars} maxValue={maxBar} color="bg-secondary" />
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+
                   {/* Recent commits */}
                   <div className="space-y-2">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Recent Commits</span>
                     {gitDetail.commits.slice(0, 8).map((c) => (
-                      <div key={c.hash} className="flex items-center gap-3 p-3 bg-surface-container-lowest/50 rounded-lg border border-outline-variant/5">
-                        <GitCommitHorizontal size={14} className="text-outline shrink-0" />
+                      <div key={c.hash} className="flex items-center gap-3 p-3 bg-surface-container-lowest/50 rounded-xl border border-outline-variant/5 hover:bg-surface-container-low/30 transition-colors">
+                        <div className="shrink-0 flex items-center justify-center w-7 h-7 rounded-full bg-surface-container-high/50">
+                          <GitCommitHorizontal size={12} className="text-outline" />
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs truncate font-medium">{c.message}</p>
                           <p className="text-[9px] text-outline font-mono">{c.short_hash} · {c.author}</p>
@@ -945,26 +1276,6 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
                       </div>
                     ))}
                   </div>
-                  {/* File change summary */}
-                  {gitStatus.data.files.length > 0 && (
-                    <div className="space-y-2">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-outline">File Changes</span>
-                      <div className="flex items-center gap-3">
-                        {(() => {
-                          const staged = gitStatus.data.files.filter(f => f.status === 'staged').length;
-                          const unstaged = gitStatus.data.files.filter(f => f.status === 'unstaged').length;
-                          const untracked = gitStatus.data.files.filter(f => f.status === 'untracked').length;
-                          return (
-                            <>
-                              {staged > 0 && <span className="text-[10px] bg-tertiary/10 text-tertiary px-2 py-0.5 rounded">{staged} staged</span>}
-                              {unstaged > 0 && <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded">{unstaged} modified</span>}
-                              {untracked > 0 && <span className="text-[10px] bg-warning/10 text-warning px-2 py-0.5 rounded">{untracked} untracked</span>}
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -1123,7 +1434,7 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
                 </div>
               )}
 
-              {/* ── History Tab ── */}
+              {/* ── History Tab (Enhanced with expandable details) ── */}
               {activeTab === 'history' && (
                 <div className="space-y-2 max-w-4xl p-6">
                   <div className="flex items-center justify-between mb-3">
@@ -1132,22 +1443,113 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
                   </div>
                   {gitDetail.commits.length === 0 ? (
                     <div className="flex items-center justify-center py-8 text-xs text-on-surface-variant opacity-60">No commits</div>
-                  ) : gitDetail.commits.map((c) => (
-                    <div key={c.hash} className="flex items-center gap-3 p-3 bg-surface-container-lowest/50 rounded-lg border border-outline-variant/5">
-                      <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-surface-container-high/50">
-                        <GitCommitHorizontal size={14} className="text-outline" />
+                  ) : gitDetail.commits.map((c) => {
+                    const isExpanded = gitDetail.expandedCommits.has(c.hash);
+                    const isLoading = gitDetail.commitLoading.has(c.hash);
+                    const detail = gitDetail.commitDetails.get(c.hash);
+                    return (
+                      <div key={c.hash} className="bg-surface-container-lowest/50 rounded-xl border border-outline-variant/5 overflow-hidden">
+                        {/* Commit header row */}
+                        <div
+                          className="flex items-center gap-3 p-3 cursor-pointer hover:bg-surface-container-low/30 transition-colors"
+                          onClick={() => gitDetail.toggleCommitExpand(c.hash)}
+                        >
+                          <div className="shrink-0 text-outline">
+                            {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                          </div>
+                          <div className="shrink-0 flex items-center justify-center w-7 h-7 rounded-full bg-surface-container-high/50">
+                            <GitCommitHorizontal size={12} className="text-outline" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs truncate font-medium">{c.message}</p>
+                            <p className="text-[9px] text-outline font-mono">{c.short_hash} · {c.author}</p>
+                          </div>
+                          <span className="text-[9px] text-on-surface-variant shrink-0">{c.time_ago}</span>
+                        </div>
+
+                        {/* Expanded commit detail */}
+                        {isExpanded && (
+                          <div className="border-t border-outline-variant/10 px-3 pb-3 pt-2 space-y-3">
+                            {isLoading && !detail && (
+                              <div className="space-y-2 py-2">
+                                {[1, 2, 3].map((i) => (
+                                  <div key={i} className="flex items-center gap-2 py-1">
+                                    <div className="h-2.5 w-8 bg-outline-variant/10 rounded animate-pulse" />
+                                    <div className="h-2.5 flex-1 bg-outline-variant/10 rounded animate-pulse" />
+                                    <div className="h-2.5 w-12 bg-outline-variant/10 rounded animate-pulse" />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {detail && (
+                              <>
+                                {/* Stats summary */}
+                                <div className="flex items-center gap-3 text-[10px]">
+                                  <span className="text-outline">{detail.file_changes.length} files changed</span>
+                                  <span className="text-emerald-400 font-mono">+{detail.total_additions}</span>
+                                  <span className="text-error font-mono">-{detail.total_deletions}</span>
+                                </div>
+
+                                {/* File change list */}
+                                {detail.file_changes.length > 0 && (
+                                  <div className="space-y-1 max-h-60 overflow-y-auto">
+                                    {detail.file_changes.map((fc, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="flex items-center gap-2 py-1 px-1 rounded hover:bg-surface-container-high/20 transition-colors cursor-pointer"
+                                        onClick={async () => {
+                                          // Switch to changes tab and load diff for this file
+                                          try {
+                                            const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+                                            if (isTauri) {
+                                              const { invoke } = await import('@tauri-apps/api/core');
+                                              const diff = await invoke<FileDiffResult>('git_file_diff', {
+                                                path: fc.path,
+                                                staged: false,
+                                              });
+                                              setDiffResult(diff);
+                                              setSelectedDiffFile({ path: fc.path, status: 'unstaged', additions: fc.additions, deletions: fc.deletions });
+                                              setShowDiffPanel(true);
+                                            }
+                                          } catch { /* ignore */ }
+                                        }}
+                                      >
+                                        <span className={cn(
+                                          "text-[7px] font-bold uppercase px-1 py-0.5 rounded shrink-0 w-14 text-center",
+                                          fc.status === 'added' && "bg-green-500/10 text-green-400",
+                                          fc.status === 'modified' && "bg-blue-500/10 text-blue-400",
+                                          fc.status === 'removed' && "bg-red-500/10 text-red-400",
+                                          fc.status === 'renamed' && "bg-yellow-500/10 text-yellow-400",
+                                        )}>
+                                          {fc.status}
+                                        </span>
+                                        <span className="text-[9px] truncate flex-1 font-mono">{fc.path}</span>
+                                        <span className="text-[8px] shrink-0 space-x-1.5">
+                                          {fc.additions > 0 && <span className="text-green-400">+{fc.additions}</span>}
+                                          {fc.deletions > 0 && <span className="text-red-400">-{fc.deletions}</span>}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {detail.file_changes.length === 0 && (
+                                  <p className="text-[9px] text-on-surface-variant text-center py-2 opacity-60">
+                                    No file changes in this commit
+                                  </p>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs truncate font-medium">{c.message}</p>
-                        <p className="text-[9px] text-outline font-mono">{c.short_hash} · {c.author}</p>
-                      </div>
-                      <span className="text-[9px] text-on-surface-variant shrink-0">{c.time_ago}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {gitDetail.commits.length >= 50 && (
                     <button
                       onClick={() => gitDetail.loadMoreCommits(gitDetail.commits.length)}
-                      className="w-full py-2 text-xs text-primary font-bold hover:bg-primary/10 rounded-lg transition-colors"
+                      className="w-full py-2 text-xs text-primary font-bold hover:bg-primary/10 rounded-xl transition-colors"
                     >
                       Load more...
                     </button>
@@ -1155,18 +1557,32 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
                 </div>
               )}
 
-              {/* ── Changes Tab — Left/Right Split Layout ── */}
+              {/* ── Changes Tab — Enhanced with Diff Preview ── */}
               {activeTab === 'changes' && (
-                <div className="flex gap-6 h-full p-6">
+                <div className="flex flex-col md:flex-row gap-4 h-full p-4 md:p-6">
                   {/* Left: File list with drop zones */}
-                  <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                  <div className={cn(
+                    "flex flex-col min-w-0 overflow-hidden",
+                    showDiffPanel ? "flex-1" : "flex-1"
+                  )}>
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-outline">{t('project.changesDetected', 'Changes Detected')}</span>
-                      <span className="text-[10px] font-bold text-tertiary">
-                        {gitStatus.data.files.length === 0
-                          ? 'No changes'
-                          : `${gitStatus.data.files.length} File${gitStatus.data.files.length > 1 ? 's' : ''} Changed`}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-tertiary">
+                          {gitStatus.data.files.length === 0
+                            ? 'No changes'
+                            : `${gitStatus.data.files.length} File${gitStatus.data.files.length > 1 ? 's' : ''} Changed`}
+                        </span>
+                        {!showDiffPanel && (
+                          <button
+                            onClick={() => setShowDiffPanel(true)}
+                            className="p-1 rounded hover:bg-surface-container-high/30 transition-colors"
+                            title="Open Diff Preview"
+                          >
+                            <PanelRightOpen size={14} className="text-on-surface-variant" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     {gitStatus.data.files.length === 0 ? (
                       <div className="flex items-center justify-center py-8 text-xs text-on-surface-variant opacity-60">
@@ -1209,10 +1625,26 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
                     />
                   </div>
 
+                  {/* Middle: Diff Preview Panel (toggleable) */}
+                  {showDiffPanel && (
+                    <div className="w-full md:w-[420px] lg:w-[480px] shrink-0 h-[300px] md:h-auto">
+                      <DiffPanel
+                        diff={diffResult}
+                        loading={diffLoading}
+                        error={diffError}
+                        onClose={() => {
+                          setShowDiffPanel(false);
+                          setSelectedDiffFile(null);
+                          setDiffResult(null);
+                        }}
+                      />
+                    </div>
+                  )}
+
                   {/* Right: Operation panel */}
-                  <div className="w-[380px] shrink-0 flex flex-col gap-4">
+                  <div className="w-full md:w-[320px] shrink-0 flex flex-col gap-3">
                     {/* Commit input */}
-                    <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 p-4 space-y-3">
+                    <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 space-y-3">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Commit</span>
                       <div className="flex gap-2">
                         <input
@@ -1254,7 +1686,7 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
                     )}
 
                     {/* Push / Pull */}
-                    <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 p-4 space-y-3">
+                    <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 space-y-3">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Sync</span>
                       <div className="flex gap-2">
                         <button
@@ -1277,7 +1709,7 @@ export const GitView: React.FC<GitViewProps> = ({ workspacePath }) => {
                     </div>
 
                     {/* Keyboard shortcuts hint */}
-                    <div className="bg-surface-container-lowest rounded-lg border border-outline-variant/10 p-4 space-y-2">
+                    <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-4 space-y-2">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Shortcuts</span>
                       <div className="space-y-1.5 text-[9px] text-on-surface-variant">
                         <div className="flex items-center justify-between">

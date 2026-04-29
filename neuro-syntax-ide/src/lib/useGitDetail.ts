@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { GitTag, GitCommit, GitBranch, TagDetail, CommitGraphResult } from '../types';
+import type { GitTag, GitCommit, GitBranch, TagDetail, CommitGraphResult, CommitDetailResult } from '../types';
 
 /**
  * Hook that fetches extended Git repository details: tags, commit log, branches.
@@ -17,6 +17,11 @@ export function useGitDetail() {
   const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set());
   const [tagDetails, setTagDetails] = useState<Map<string, TagDetail>>(new Map());
   const [tagLoading, setTagLoading] = useState<Set<string>>(new Set());
+
+  // Commit expand state (feat-git-display-enhance)
+  const [expandedCommits, setExpandedCommits] = useState<Set<string>>(new Set());
+  const [commitDetails, setCommitDetails] = useState<Map<string, CommitDetailResult>>(new Map());
+  const [commitLoading, setCommitLoading] = useState<Set<string>>(new Set());
 
   // Commit graph state
   const [commitGraph, setCommitGraph] = useState<CommitGraphResult>({ commits: [], connectors: [], lane_count: 0 });
@@ -140,10 +145,56 @@ export function useGitDetail() {
     }
   }, [isTauri, expandedTags, tagDetails]);
 
+  // Commit expand (feat-git-display-enhance)
+  const toggleCommitExpand = useCallback(async (hash: string) => {
+    if (expandedCommits.has(hash)) {
+      setExpandedCommits(prev => { const n = new Set(prev); n.delete(hash); return n; });
+      return;
+    }
+    if (commitDetails.has(hash)) {
+      setExpandedCommits(prev => new Set(prev).add(hash));
+      return;
+    }
+    setCommitLoading(prev => new Set(prev).add(hash));
+
+    try {
+      if (!isTauri) {
+        const mockDetail: CommitDetailResult = {
+          hash,
+          short_hash: hash.slice(0, 7),
+          message: 'Sample commit message',
+          author: 'developer',
+          timestamp: Date.now() / 1000 - 3600,
+          time_ago: '1h ago',
+          file_changes: [
+            { path: 'src/components/App.tsx', status: 'modified' as const, additions: 8, deletions: 2 },
+            { path: 'src/types.ts', status: 'modified' as const, additions: 15, deletions: 0 },
+            { path: 'src/lib/utils.ts', status: 'added' as const, additions: 5, deletions: 0 },
+          ],
+          total_additions: 28,
+          total_deletions: 2,
+        };
+        setCommitDetails(prev => new Map(prev).set(hash, mockDetail));
+        setExpandedCommits(prev => new Set(prev).add(hash));
+        return;
+      }
+
+      const { invoke } = await import('@tauri-apps/api/core');
+      const detail = await invoke<CommitDetailResult>('git_commit_detail', { hash });
+      setCommitDetails(prev => new Map(prev).set(hash, detail));
+      setExpandedCommits(prev => new Set(prev).add(hash));
+    } catch (e: unknown) {
+      console.error(`Failed to load commit detail for ${hash}:`, e);
+    } finally {
+      setCommitLoading(prev => { const n = new Set(prev); n.delete(hash); return n; });
+    }
+  }, [isTauri, expandedCommits, commitDetails]);
+
   return {
     tags, commits, branches, loading, error,
     refreshAll, loadMoreCommits,
     expandedTags, tagDetails, tagLoading, toggleTagExpand,
     commitGraph,
+    expandedCommits, commitDetails, commitLoading, toggleCommitExpand,
   };
 }

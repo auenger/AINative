@@ -100,6 +100,47 @@ export interface GitStatusResult {
 }
 
 // ---------------------------------------------------------------------------
+// Git display enhancement types (feat-git-display-enhance)
+// ---------------------------------------------------------------------------
+
+/** A single line in a unified diff output. */
+export interface DiffLine {
+  type: 'context' | 'add' | 'remove' | 'header';
+  old_line_no: number | null;
+  new_line_no: number | null;
+  content: string;
+}
+
+/** Result returned by git_file_diff command. */
+export interface FileDiffResult {
+  path: string;
+  lines: DiffLine[];
+  additions: number;
+  deletions: number;
+}
+
+/** File change info for a specific commit. */
+export interface CommitFileChange {
+  path: string;
+  status: 'added' | 'modified' | 'removed' | 'renamed';
+  additions: number;
+  deletions: number;
+}
+
+/** Detail for a specific commit returned by git_commit_detail command. */
+export interface CommitDetailResult {
+  hash: string;
+  short_hash: string;
+  message: string;
+  author: string;
+  timestamp: number;
+  time_ago: string;
+  file_changes: CommitFileChange[];
+  total_additions: number;
+  total_deletions: number;
+}
+
+// ---------------------------------------------------------------------------
 // Git detail types (feat-git-modal-enhance)
 // ---------------------------------------------------------------------------
 
