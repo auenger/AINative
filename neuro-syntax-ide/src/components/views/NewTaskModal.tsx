@@ -22,7 +22,7 @@ import { useAgentRuntimes } from '../../lib/useAgentRuntimes';
 import { useAgentChat } from '../../lib/useAgentChat';
 import { useSessionStore } from '../../lib/SessionStore';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
-import type { AgentRuntimeInfo, AgentRuntimeStatusType } from '../../types';
+import type { AgentRuntimeInfo, AgentRuntimeStatusType, GhostCard } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,6 +51,8 @@ interface NewTaskModalProps {
   open: boolean;
   onClose: () => void;
   onFeatureCreated?: () => void;
+  /** Callback to create a ghost card placeholder in the board while feature is being created. */
+  onGhostCardCreate?: (ghost: Omit<GhostCard, 'startedAt'>) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -83,7 +85,7 @@ function statusLabel(status: AgentRuntimeStatusType): string {
 // NewTaskModal Component
 // ---------------------------------------------------------------------------
 
-export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFeatureCreated }) => {
+export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFeatureCreated, onGhostCardCreate }) => {
   // Agent runtime detection
   const { runtimes, scanning, scan } = useAgentRuntimes();
 
@@ -435,6 +437,9 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
     setFeatureCreated(false);
     setCreatedFeatureId(null);
 
+    // ─── Ghost card temp ID for tracking ───
+    const ghostTempId = `ghost-${Date.now()}`;
+
     try {
       if (selectedAgent?.isBuiltIn) {
         // Built-in PM Agent path: generate plan from chat context -> create feature in FS
@@ -467,6 +472,18 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
         setStreamingOutput(prev => prev + '\nFeature plan generated:\n\n' + planText);
         setPreviewContent(planText);
 
+        // ─── Trigger ghost card immediately after plan is generated ───
+        if (onGhostCardCreate) {
+          onGhostCardCreate({
+            tempId: ghostTempId,
+            featureId: null,
+            name: plan.name || plan.id,
+            targetQueue: 'pending',
+            status: 'creating',
+            preview: plan.description?.slice(0, 100),
+          });
+        }
+
         // Create feature in filesystem
         const featureId = await createFeature('', plan);
         if (featureId) {
@@ -487,6 +504,19 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
           .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
           .join('\n\n');
         const newFeatureCommand = `/new-feature Based on the following discussion, create a feature:\n\n${chatContext}`;
+
+        // ─── Trigger ghost card immediately for external runtime path ───
+        if (onGhostCardCreate) {
+          const lastUserMsg = extMessages.filter(m => m.role === 'user').pop();
+          onGhostCardCreate({
+            tempId: ghostTempId,
+            featureId: null,
+            name: lastUserMsg?.content?.slice(0, 60) || 'New Feature',
+            targetQueue: 'pending',
+            status: 'creating',
+            preview: lastUserMsg?.content?.slice(0, 100),
+          });
+        }
 
         if (!isTauri) {
           // Dev fallback: simulate external agent execution
@@ -547,7 +577,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
     } catch (e: any) {
       setExecError(e?.toString() ?? 'An unexpected error occurred during execution');
     }
-  }, [selectedAgent, selectedAgentId, extMessages, messages, generateFeaturePlan, createFeature]);
+  }, [selectedAgent, selectedAgentId, extMessages, messages, generateFeaturePlan, createFeature, onGhostCardCreate]);
 
   const handleClose = useCallback(() => {
     // Save session to SessionStore before resetting (only if in a meaningful state)

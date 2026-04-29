@@ -27,14 +27,15 @@ import {
   AlertCircle,
   Network,
   RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
-import { useQueueData, FeatureNode, QueueName } from '../../lib/useQueueData';
+import { useQueueData, FeatureNode } from '../../lib/useQueueData';
 import { useAgentRuntimes } from '../../lib/useAgentRuntimes';
 import { useSessionStore } from '../../lib/SessionStore';
-import type { AgentActionType } from '../../types';
+import type { AgentActionType, TaskExecutionOverlay, GhostCard, QueueName } from '../../types';
 
 /** 智能时间格式化：返回相对时间与绝对时间 — 使用 i18n key */
 function useFormatUpdatedTime() {
@@ -157,8 +158,44 @@ function getPriorityIndicator(priority: number) {
   return 'bg-outline w-1.5 h-1.5';
 }
 
+/** Overlay border color by status. */
+function getOverlayBorderClass(status: TaskExecutionOverlay['status']) {
+  switch (status) {
+    case 'dispatching': return 'border-warning/50';
+    case 'streaming': return 'border-primary/50';
+    case 'writing': return 'border-secondary/50';
+    case 'done': return 'border-tertiary/50';
+    case 'error': return 'border-[#ffb4ab]/50';
+    default: return '';
+  }
+}
+
+/** Overlay status badge label. */
+function getOverlayStatusLabel(status: TaskExecutionOverlay['status']) {
+  switch (status) {
+    case 'dispatching': return 'Dispatching';
+    case 'streaming': return 'Streaming';
+    case 'writing': return 'Syncing...';
+    case 'done': return 'Done';
+    case 'error': return 'Error';
+    default: return status;
+  }
+}
+
+/** Overlay status badge color. */
+function getOverlayBadgeClass(status: TaskExecutionOverlay['status']) {
+  switch (status) {
+    case 'dispatching': return 'bg-warning/15 text-warning';
+    case 'streaming': return 'bg-primary/15 text-primary';
+    case 'writing': return 'bg-secondary/15 text-secondary';
+    case 'done': return 'bg-tertiary/15 text-tertiary';
+    case 'error': return 'bg-[#ffb4ab]/15 text-[#ffb4ab]';
+    default: return 'bg-surface-container-highest text-on-surface-variant';
+  }
+}
+
 // ---------------------------------------------------------------------------
-// Feature Card (draggable)
+// Feature Card (draggable, with overlay support)
 // ---------------------------------------------------------------------------
 
 interface FeatureCardProps {
@@ -166,9 +203,10 @@ interface FeatureCardProps {
   allFeatures: FeatureNode[];
   onClick: (f: FeatureNode) => void;
   onDragStart: (e: React.DragEvent, id: string) => void;
+  overlay?: TaskExecutionOverlay;
 }
 
-const FeatureCard: React.FC<FeatureCardProps> = ({ feature, allFeatures, onClick, onDragStart }) => {
+const FeatureCard: React.FC<FeatureCardProps> = ({ feature, allFeatures, onClick, onDragStart, overlay }) => {
   const [expanded, setExpanded] = useState(false);
   const hasDeps = feature.dependencies.length > 0;
 
@@ -181,13 +219,53 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ feature, allFeatures, onClick
       draggable
       onDragStart={(e) => onDragStart(e as unknown as React.DragEvent, feature.id)}
       className={cn(
-        "p-4 rounded-xl border border-outline-variant/10 bg-surface-container-low",
+        "relative p-4 rounded-xl border bg-surface-container-low",
         "hover:border-outline-variant/40 transition-all group cursor-grab active:cursor-grabbing",
         "hover:shadow-lg hover:shadow-primary/5",
-        feature.priority >= 80 && "border-l-2 border-l-red-400/40"
+        feature.priority >= 80 && "border-l-2 border-l-red-400/40",
+        // Overlay border override
+        overlay
+          ? cn(getOverlayBorderClass(overlay.status), overlay.status === 'streaming' && 'animate-pulse')
+          : "border-outline-variant/10"
       )}
       onClick={() => onClick(feature)}
     >
+      {/* Overlay visual layer (pointer-events-none to not block clicks) */}
+      {overlay && (
+        <div className="absolute inset-0 rounded-xl pointer-events-none">
+          {/* Status badge in top-right */}
+          <div className={cn(
+            "absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider",
+            getOverlayBadgeClass(overlay.status)
+          )}>
+            {overlay.status !== 'done' && overlay.status !== 'error' && (
+              <Loader2 size={8} className="animate-spin" />
+            )}
+            {overlay.status === 'done' && <CheckCircle2 size={8} />}
+            {overlay.status === 'error' && <AlertCircle size={8} />}
+            {getOverlayStatusLabel(overlay.status)}
+          </div>
+
+          {/* Output preview at bottom (only during streaming) */}
+          {overlay.status === 'streaming' && overlay.outputPreview && (
+            <div className="absolute bottom-2 left-3 right-3">
+              <p className="text-[8px] text-on-surface-variant opacity-60 truncate font-mono">
+                {overlay.outputPreview}
+              </p>
+            </div>
+          )}
+
+          {/* Error preview */}
+          {overlay.status === 'error' && (
+            <div className="absolute bottom-2 left-3 right-3">
+              <p className="text-[8px] text-[#ffb4ab] opacity-80 truncate">
+                Execution failed
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex justify-between items-start mb-3">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
@@ -315,6 +393,81 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ feature, allFeatures, onClick
 };
 
 // ---------------------------------------------------------------------------
+// Ghost Feature Card (placeholder for new features being created)
+// ---------------------------------------------------------------------------
+
+interface GhostFeatureCardProps {
+  ghost: GhostCard;
+  onClick?: () => void;
+}
+
+const GhostFeatureCard: React.FC<GhostFeatureCardProps> = ({ ghost, onClick }) => {
+  const isCreating = ghost.status === 'creating';
+  const isSynced = ghost.status === 'created' || ghost.status === 'syncing';
+  const isError = ghost.status === 'error';
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      onClick={onClick}
+      className={cn(
+        "p-4 rounded-xl border bg-surface-container-low/60 transition-all",
+        isCreating && "opacity-60 border-dashed border-primary/30 animate-pulse",
+        isSynced && "opacity-80 border-primary/40",
+        isError && "opacity-60 border-[#ffb4ab]/30",
+        !isCreating && !isSynced && !isError && "border-dashed border-primary/30 opacity-60",
+      )}
+    >
+      {/* Top status bar */}
+      <div className="flex items-center gap-2 mb-2">
+        {isCreating && (
+          <>
+            <Loader2 size={10} className="text-primary animate-spin" />
+            <span className="text-[9px] font-bold text-primary uppercase tracking-wider">Creating...</span>
+            <Sparkles size={10} className="text-primary ml-1" />
+          </>
+        )}
+        {isSynced && (
+          <>
+            <CheckCircle2 size={10} className="text-tertiary" />
+            <span className="text-[9px] font-bold text-tertiary uppercase tracking-wider">Synced</span>
+          </>
+        )}
+        {isError && (
+          <>
+            <AlertCircle size={10} className="text-[#ffb4ab]" />
+            <span className="text-[9px] font-bold text-[#ffb4ab] uppercase tracking-wider">Error</span>
+          </>
+        )}
+      </div>
+
+      {/* Feature name */}
+      <h3 className="text-sm font-bold text-on-surface leading-tight truncate">
+        {ghost.name}
+      </h3>
+
+      {/* Preview text */}
+      {ghost.preview && (
+        <p className="text-[9px] text-on-surface-variant opacity-60 mt-1 line-clamp-2 leading-relaxed">
+          {ghost.preview}
+        </p>
+      )}
+
+      {/* Ghost indicator */}
+      <div className="flex items-center gap-1.5 mt-2">
+        <div className="w-1.5 h-1.5 rounded-full bg-primary/50" />
+        <span className="text-[8px] text-on-surface-variant font-medium">
+          ghost-{ghost.tempId.slice(-6)}
+        </span>
+      </div>
+    </motion.div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // TaskBoard Component
 // ---------------------------------------------------------------------------
 
@@ -326,7 +479,13 @@ interface TaskBoardProps {
 export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath }) => {
   const { t } = useTranslation();
   const formatUpdatedTime = useFormatUpdatedTime();
-  const { queueState, loading, error, refresh, moveTask, readDetail } = useQueueData();
+  const {
+    queueState, loading, error, refresh, moveTask, readDetail,
+    // Overlay state
+    overlayState, setOverlay, clearOverlay, setOverlayError,
+    // Ghost card state
+    ghostCards, addGhostCard, updateGhostCard, removeGhostCard,
+  } = useQueueData();
   const sessionStore = useSessionStore();
 
   // Auto-refresh when workspace becomes available or when switching to tasks tab
@@ -511,7 +670,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
     return result;
   }, [queueState]);
 
-  // Agent tab: send handler
+  // Agent tab: send handler (with overlay integration)
   const handleAgentSend = useCallback(async () => {
     if (!selectedFeature) return;
     if (agentAction === 'modify' && !agentInput.trim()) return;
@@ -528,8 +687,12 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
     setAgentDone(false);
     agentStreamingRef.current = '';
 
+    const featureId = selectedFeature.id;
+
+    // ─── Layer A: Set dispatching overlay immediately ───
+    setOverlay(featureId, { status: 'dispatching', action: agentAction });
+
     try {
-      const featureId = selectedFeature.id;
       const specContent = selectedDetail?.['spec.md'] ?? '';
       const taskContent = selectedDetail?.['task.md'] ?? '';
 
@@ -548,9 +711,11 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
 
       if (!isTauri) {
         // Dev fallback: simulate agent execution
+        setOverlay(featureId, { status: 'streaming', action: agentAction, outputPreview: 'Connecting to Claude Code...' });
         setAgentOutput('Connecting to Claude Code...\n');
         await new Promise(resolve => setTimeout(resolve, 1000));
         setAgentOutput(prev => prev + `Executing ${skill}...\n`);
+        setOverlay(featureId, { status: 'streaming', action: agentAction, outputPreview: `Executing ${skill}...` });
         await new Promise(resolve => setTimeout(resolve, 1500));
         const mockResult = agentAction === 'review'
           ? 'Spec review complete. The feature spec looks well-structured. Consider adding more edge cases to the acceptance criteria.'
@@ -560,6 +725,8 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
         setAgentOutput(prev => prev + '\n' + mockResult);
         setAgentDone(true);
         setAgentSending(false);
+        // Overlay: done state
+        setOverlay(featureId, { status: 'done', action: agentAction });
         // Auto-refresh detail after completion
         const detail = await readDetail(featureId);
         if (detail) setSelectedDetail(detail);
@@ -570,7 +737,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
       const { invoke } = await import('@tauri-apps/api/core');
       const { listen } = await import('@tauri-apps/api/event');
 
-      // Listen for streaming output via agent://chunk
+      // Listen for streaming output via agent://chunk (with overlay updates)
       const unlisten = await listen<{ text: string; is_done: boolean; error?: string; type?: string }>(
         'agent://chunk',
         (event) => {
@@ -578,6 +745,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
           // Handle error chunks (but not stderr — those are just diagnostics)
           if (chunk.error && chunk.type !== 'stderr') {
             setAgentError(chunk.error);
+            setOverlayError(featureId);
             if (chunk.is_done) {
               unlisten();
             }
@@ -587,10 +755,17 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
           if (chunk.text && (chunk.type === 'assistant' || chunk.type === 'system' || chunk.type === 'raw' || !chunk.type)) {
             agentStreamingRef.current += chunk.text;
             setAgentOutput(agentStreamingRef.current);
+
+            // Update overlay: streaming with last 2 lines as preview
+            const lines = agentStreamingRef.current.split('\n').filter(Boolean);
+            const lastLines = lines.slice(-2).join('\n');
+            setOverlay(featureId, { status: 'streaming', action: agentAction, outputPreview: lastLines });
           }
           if (chunk.is_done) {
             unlisten();
             setAgentDone(true);
+            // Overlay: writing (waiting for fs refresh)
+            setOverlay(featureId, { status: 'writing', action: agentAction });
             // Auto-refresh detail after completion
             readDetail(featureId).then(detail => {
               if (detail) setSelectedDetail(detail);
@@ -613,17 +788,31 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
       });
     } catch (e: any) {
       setAgentError(e?.toString() ?? 'An unexpected error occurred during agent execution');
+      setOverlayError(featureId);
     } finally {
       setAgentSending(false);
     }
-  }, [selectedFeature, selectedDetail, agentAction, agentInput, runtimes, readDetail, refresh]);
+  }, [selectedFeature, selectedDetail, agentAction, agentInput, runtimes, readDetail, refresh, setOverlay, setOverlayError]);
+
+  // ─── Ghost card creation handler (passed to NewTaskModal) ───
+  const handleGhostCardCreate = useCallback((ghost: Omit<GhostCard, 'startedAt'>) => {
+    addGhostCard(ghost);
+  }, [addGhostCard]);
 
   // ---- Render helpers ----
+
+  /** Compute merged column items: ghost cards prepended before real items. */
+  const getColumnItems = useCallback((colKey: QueueName) => {
+    const realItems = queueState?.[colKey] ?? [];
+    const ghostsForColumn = ghostCards.filter(g => g.targetQueue === colKey);
+    return { ghosts: ghostsForColumn, real: realItems };
+  }, [queueState, ghostCards]);
 
   const renderBoardView = () => (
     <div className="flex-1 flex gap-4 overflow-x-auto">
       {COLUMNS.map(col => {
-        const items = queueState?.[col.key] ?? [];
+        const { ghosts, real } = getColumnItems(col.key);
+        const totalItems = ghosts.length + real.length;
         const Icon = col.icon;
         return (
           <div
@@ -655,7 +844,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
                 </div>
                 <div className={cn(
                   "ml-auto px-2.5 py-0.5 rounded-full text-[10px] font-bold min-w-[24px] text-center",
-                  items.length > 0
+                  totalItems > 0
                     ? col.key === 'pending'
                       ? "bg-blue-500/20 text-blue-400"
                       : col.key === 'active'
@@ -665,7 +854,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
                           : "bg-tertiary/20 text-tertiary"
                     : "bg-surface-container-high text-outline"
                 )}>
-                  {items.length}
+                  {totalItems}
                 </div>
               </div>
             </div>
@@ -673,18 +862,25 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
             {/* Column body */}
             <div className="flex-1 overflow-y-auto p-3 space-y-3 scroll-hide">
               <AnimatePresence mode="popLayout">
-                {items.map(feature => (
+                {/* Ghost cards first (top of column) */}
+                {ghosts.map(ghost => (
+                  <GhostFeatureCard key={ghost.tempId} ghost={ghost} />
+                ))}
+
+                {/* Real feature cards */}
+                {real.map(feature => (
                   <FeatureCard
                     key={feature.id}
                     feature={feature}
                     allFeatures={allFeatures}
                     onClick={handleFeatureClick}
                     onDragStart={handleDragStart}
+                    overlay={overlayState.get(feature.id)}
                   />
                 ))}
               </AnimatePresence>
 
-              {items.length === 0 && (
+              {totalItems === 0 && (
                 <div className="flex flex-col items-center justify-center py-8 text-outline opacity-50">
                   <Icon size={24} className="mb-2" />
                   <span className="text-[10px] font-bold uppercase tracking-widest">Empty</span>
@@ -1259,6 +1455,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
             open={showNewTaskModal}
             onClose={() => setShowNewTaskModal(false)}
             onFeatureCreated={refresh}
+            onGhostCardCreate={handleGhostCardCreate}
           />
         )}
       </AnimatePresence>
