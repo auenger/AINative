@@ -584,3 +584,42 @@ export interface StreamEventChunk {
   /** Idle seconds (only set for idle_warning events) */
   idle_seconds?: number;
 }
+
+// ---------------------------------------------------------------------------
+// Modal Session Store types (feat-modal-session-store)
+// ---------------------------------------------------------------------------
+
+/** State persisted for a Feature Detail Modal Agent tab session. */
+export interface TaskSessionState {
+  featureId: string;
+  agentOutput: string;
+  agentAction: AgentActionType;
+  agentDone: boolean;
+  agentError: string | null;
+  lastActiveTab: 'spec' | 'tasks' | 'checklist' | 'agent';
+  savedAt: number; // timestamp for expiration detection
+}
+
+/** State persisted for the NewTask Modal session. */
+export interface NewTaskSessionState {
+  step: 'select-agent' | 'input-requirement' | 'executing' | 'result';
+  selectedAgentId: string | null;
+  pmMessages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
+  extMessages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  chatInput: string;
+  extChatInput: string;
+  savedAt: number;
+}
+
+/** API exposed by the SessionStore Context. */
+export interface SessionStoreAPI {
+  // Task session (Feature Detail Modal)
+  saveTaskSession: (state: TaskSessionState) => void;
+  loadTaskSession: (featureId: string) => TaskSessionState | null;
+  clearTaskSession: (featureId: string) => void;
+
+  // NewTask session
+  saveNewTaskSession: (state: NewTaskSessionState) => void;
+  loadNewTaskSession: () => NewTaskSessionState | null;
+  clearNewTaskSession: () => void;
+}

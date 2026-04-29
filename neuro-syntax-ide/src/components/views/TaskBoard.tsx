@@ -26,12 +26,14 @@ import {
   Send,
   AlertCircle,
   Network,
+  RotateCcw,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useQueueData, FeatureNode, QueueName } from '../../lib/useQueueData';
 import { useAgentRuntimes } from '../../lib/useAgentRuntimes';
+import { useSessionStore } from '../../lib/SessionStore';
 import type { AgentActionType } from '../../types';
 
 /** 智能时间格式化：返回相对时间与绝对时间 — 使用 i18n key */
@@ -291,6 +293,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
   const { t } = useTranslation();
   const formatUpdatedTime = useFormatUpdatedTime();
   const { queueState, loading, error, refresh, moveTask, readDetail } = useQueueData();
+  const sessionStore = useSessionStore();
 
   // Auto-refresh when workspace becomes available or when switching to tasks tab
   useEffect(() => {
@@ -314,6 +317,10 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
   const [agentError, setAgentError] = useState<string | null>(null);
   const [agentDone, setAgentDone] = useState(false);
   const agentStreamingRef = useRef<string>('');
+
+  // Session resume indicator state
+  const [resumedSession, setResumedSession] = useState(false);
+  const resumedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Drag state
   const draggedIdRef = useRef<string | null>(null);
@@ -359,8 +366,25 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
     };
   }, [isDraggingModal]);
 
-  // Close modal helper: resets modal position
+  // Close modal helper: resets modal position, saves session before clearing
   const closeModal = useCallback(() => {
+    // Save current agent state to SessionStore before clearing
+    if (selectedFeature) {
+      try {
+        sessionStore.saveTaskSession({
+          featureId: selectedFeature.id,
+          agentOutput,
+          agentAction,
+          agentDone,
+          agentError,
+          lastActiveTab: detailTab,
+          savedAt: 0, // will be overwritten by SessionStore
+        });
+      } catch {
+        // Silently ignore save errors — session persistence is best-effort
+      }
+    }
+
     setSelectedFeature(null);
     setSelectedDetail(null);
     setDetailTab('spec');
@@ -373,7 +397,8 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
     setAgentError(null);
     setAgentDone(false);
     agentStreamingRef.current = '';
-  }, []);
+    setResumedSession(false);
+  }, [selectedFeature, agentOutput, agentAction, agentDone, agentError, detailTab, sessionStore]);
 
   const handleDragStart = useCallback((e: React.DragEvent, id: string) => {
     draggedIdRef.current = id;
@@ -400,14 +425,40 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
     if (!id) return;
     draggedIdRef.current = null;
     await moveTask(id, targetQueue);
-  }, [moveTask]);
+    // Clear session when feature is moved to completed
+    if (targetQueue === 'completed') {
+      try { sessionStore.clearTaskSession(id); } catch { /* ignore */ }
+    }
+  }, [moveTask, sessionStore]);
 
-  // Feature click => open detail modal
+  // Feature click => open detail modal, restore session if available
   const handleFeatureClick = useCallback(async (feature: FeatureNode) => {
     setSelectedFeature(feature);
     const detail = await readDetail(feature.id);
     setSelectedDetail(detail);
-  }, [readDetail]);
+
+    // Try to restore session from SessionStore
+    try {
+      const session = sessionStore.loadTaskSession(feature.id);
+      if (session) {
+        setAgentOutput(session.agentOutput);
+        setAgentAction(session.agentAction);
+        setAgentDone(session.agentDone);
+        setAgentError(session.agentError);
+        setDetailTab(session.lastActiveTab);
+        setResumedSession(true);
+        // Auto-dismiss after 3 seconds
+        if (resumedTimerRef.current) clearTimeout(resumedTimerRef.current);
+        resumedTimerRef.current = setTimeout(() => setResumedSession(false), 3000);
+      } else {
+        setResumedSession(false);
+      }
+    } catch {
+      // Stale/corrupted session: fallback to default state, clear silently
+      sessionStore.clearTaskSession(feature.id);
+      setResumedSession(false);
+    }
+  }, [readDetail, sessionStore]);
 
   // All features flat for dependency lookups
   const allFeatures: FeatureNode[] = queueState
@@ -975,6 +1026,18 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
 
                       return (
                         <div className="space-y-4">
+                          {/* Resumed session indicator */}
+                          {resumedSession && (
+                            <div
+                              onClick={() => setResumedSession(false)}
+                              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary/10 border border-secondary/20 cursor-pointer hover:bg-secondary/20 transition-all animate-in fade-in"
+                            >
+                              <RotateCcw size={11} className="text-secondary" />
+                              <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Resumed session</span>
+                              <span className="text-[9px] text-on-surface-variant ml-auto">click to dismiss</span>
+                            </div>
+                          )}
+
                           {/* Runtime status */}
                           {!isRuntimeInstalled ? (
                             <div className="rounded-lg bg-[#ffb4ab]/10 border border-[#ffb4ab]/20 p-3">
@@ -1105,13 +1168,34 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
               </div>
 
               {/* Modal footer */}
-              <div className="p-6 bg-surface-container-high/30 border-t border-outline-variant/10 flex justify-end gap-3 shrink-0">
-                <button
-                  onClick={closeModal}
-                  className="px-6 py-2 bg-surface-container-highest text-on-surface rounded-lg text-xs font-bold hover:bg-surface-variant transition-all border border-outline-variant/10"
-                >
-                  Close
-                </button>
+              <div className="p-6 bg-surface-container-high/30 border-t border-outline-variant/10 flex justify-between gap-3 shrink-0">
+                {/* Clear session button — only show if agent tab has output */}
+                {agentOutput && (
+                  <button
+                    onClick={() => {
+                      if (selectedFeature) {
+                        sessionStore.clearTaskSession(selectedFeature.id);
+                      }
+                      setAgentOutput('');
+                      setAgentDone(false);
+                      setAgentError(null);
+                      agentStreamingRef.current = '';
+                      setResumedSession(false);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant hover:text-error transition-colors"
+                  >
+                    <RotateCcw size={10} />
+                    Clear Session
+                  </button>
+                )}
+                <div className="ml-auto">
+                  <button
+                    onClick={closeModal}
+                    className="px-6 py-2 bg-surface-container-highest text-on-surface rounded-lg text-xs font-bold hover:bg-surface-variant transition-all border border-outline-variant/10"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>

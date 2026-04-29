@@ -14,6 +14,7 @@ import { PixelAgentView } from './components/views/PixelAgentView';
 import { ViewType, LogEntry } from './types';
 import { cn } from './lib/utils';
 import { useWorkspace } from './lib/useWorkspace';
+import { SessionStoreProvider } from './lib/SessionStore';
 
 const INITIAL_LOGS: LogEntry[] = [
   { timestamp: '14:20:01', level: 'INFO', message: 'Neuro Syntax Kernel v1.0.4 initialized.' },
@@ -43,6 +44,7 @@ const App: React.FC = () => {
   }, []);
 
   return (
+    <SessionStoreProvider>
     <div className="flex flex-col h-screen w-screen bg-app text-on-surface overflow-hidden selection:bg-primary/30">
       <TopNav />
 
@@ -95,6 +97,7 @@ const App: React.FC = () => {
         onToggleConsole={() => setConsoleVisible(!consoleVisible)}
       />
     </div>
+    </SessionStoreProvider>
   );
 };
 
