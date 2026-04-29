@@ -99,6 +99,15 @@ interface ColumnConfig {
 
 const COLUMNS: ColumnConfig[] = [
   {
+    key: 'pending',
+    label: 'Pending',
+    sublabel: 'Waiting to start',
+    icon: Clock,
+    colorClass: 'border-blue-400/30',
+    iconBg: 'bg-blue-500/10',
+    iconColor: 'text-blue-400',
+  },
+  {
     key: 'active',
     label: 'Active',
     sublabel: 'Currently in progress',
@@ -106,15 +115,6 @@ const COLUMNS: ColumnConfig[] = [
     colorClass: 'border-primary/30',
     iconBg: 'bg-primary/10',
     iconColor: 'text-primary',
-  },
-  {
-    key: 'pending',
-    label: 'Pending',
-    sublabel: 'Waiting to start',
-    icon: Clock,
-    colorClass: 'border-secondary/30',
-    iconBg: 'bg-secondary/10',
-    iconColor: 'text-secondary',
   },
   {
     key: 'blocked',
@@ -142,19 +142,19 @@ const COLUMNS: ColumnConfig[] = [
 
 function getSizeBadge(size: string) {
   switch (size) {
-    case 'S': return 'bg-tertiary/20 text-tertiary';
-    case 'M': return 'bg-secondary/20 text-secondary';
-    case 'L': return 'bg-primary/20 text-primary';
-    case 'XL': return 'bg-[#ffb4ab]/20 text-[#ffb4ab]';
+    case 'S': return 'bg-tertiary/15 text-tertiary border border-tertiary/20';
+    case 'M': return 'bg-secondary/15 text-secondary border border-secondary/20';
+    case 'L': return 'bg-primary/15 text-primary border border-primary/20';
+    case 'XL': return 'bg-[#ffb4ab]/15 text-[#ffb4ab] border border-[#ffb4ab]/20';
     default: return 'bg-surface-container-highest text-on-surface-variant';
   }
 }
 
 function getPriorityIndicator(priority: number) {
-  if (priority >= 80) return 'bg-primary';
-  if (priority >= 50) return 'bg-secondary';
-  if (priority >= 30) return 'bg-tertiary';
-  return 'bg-outline';
+  if (priority >= 80) return 'bg-red-400 w-2.5 h-2.5';
+  if (priority >= 50) return 'bg-amber-400 w-2 h-2';
+  if (priority >= 30) return 'bg-tertiary w-1.5 h-1.5';
+  return 'bg-outline w-1.5 h-1.5';
 }
 
 // ---------------------------------------------------------------------------
@@ -183,14 +183,15 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ feature, allFeatures, onClick
       className={cn(
         "p-4 rounded-xl border border-outline-variant/10 bg-surface-container-low",
         "hover:border-outline-variant/40 transition-all group cursor-grab active:cursor-grabbing",
-        "hover:shadow-lg hover:shadow-primary/5"
+        "hover:shadow-lg hover:shadow-primary/5",
+        feature.priority >= 80 && "border-l-2 border-l-red-400/40"
       )}
       onClick={() => onClick(feature)}
     >
       <div className="flex justify-between items-start mb-3">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <div className={cn("w-1.5 h-1.5 rounded-full", getPriorityIndicator(feature.priority))} />
+            <div className={cn("rounded-full", getPriorityIndicator(feature.priority))} />
             <span className="text-[9px] font-bold text-outline uppercase tracking-tighter">
               {feature.id}
             </span>
@@ -217,10 +218,43 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ feature, allFeatures, onClick
         </p>
       )}
 
+      {/* Dependency summary — always visible when deps exist */}
+      {hasDeps && !expanded && (
+        <div className="flex items-center gap-1 mb-2 flex-wrap">
+          {feature.dependencies.slice(0, 3).map(depId => {
+            const dep = allFeatures.find(f => f.id === depId);
+            const isResolved = !!dep;
+            return (
+              <span key={depId} className={cn(
+                "inline-flex items-center gap-1 text-[8px] font-bold px-1.5 py-0.5 rounded",
+                isResolved
+                  ? "bg-tertiary/10 text-tertiary"
+                  : "bg-[#ffb4ab]/10 text-[#ffb4ab]"
+              )}>
+                <Link2 size={8} />
+                {depId}
+              </span>
+            );
+          })}
+          {feature.dependencies.length > 3 && (
+            <span className="text-[8px] text-on-surface-variant font-medium">
+              +{feature.dependencies.length - 3}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Tags row: priority + deps + status */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-[9px] bg-surface-container-highest px-1.5 py-0.5 rounded text-on-surface-variant font-medium">
+          <span className={cn(
+            "text-[9px] px-1.5 py-0.5 rounded font-bold",
+            feature.priority >= 80
+              ? "bg-red-400/15 text-red-400"
+              : feature.priority >= 50
+                ? "bg-amber-400/15 text-amber-400"
+                : "bg-surface-container-highest text-on-surface-variant"
+          )}>
             P{feature.priority}
           </span>
           {feature.tag && (
@@ -601,11 +635,16 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
               "flex-1 flex flex-col min-w-[300px] max-w-[400px] rounded-xl border transition-all",
               dragOverColumn === col.key
                 ? "border-primary/50 bg-primary/5 ring-2 ring-primary/20"
-                : "border-outline-variant/10 bg-surface-container-lowest/50"
+                : col.key === 'pending'
+                  ? "border-blue-400/20 bg-surface-container-lowest/50"
+                  : "border-outline-variant/10 bg-surface-container-lowest/50"
             )}
           >
             {/* Column header */}
-            <div className="p-4 border-b border-outline-variant/10 shrink-0">
+            <div className={cn(
+              "p-4 border-b border-outline-variant/10 shrink-0",
+              col.key === 'pending' && "bg-blue-500/[0.03]"
+            )}>
               <div className="flex items-center gap-3">
                 <div className={cn("p-2 rounded-lg", col.iconBg)}>
                   <Icon size={16} className={col.iconColor} />
@@ -614,7 +653,18 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
                   <h3 className="text-sm font-bold uppercase tracking-widest text-on-surface">{col.label}</h3>
                   <p className="text-[9px] text-outline uppercase tracking-tighter">{col.sublabel}</p>
                 </div>
-                <div className="ml-auto bg-surface-container-high px-2 py-0.5 rounded text-[10px] font-bold text-outline">
+                <div className={cn(
+                  "ml-auto px-2.5 py-0.5 rounded-full text-[10px] font-bold min-w-[24px] text-center",
+                  items.length > 0
+                    ? col.key === 'pending'
+                      ? "bg-blue-500/20 text-blue-400"
+                      : col.key === 'active'
+                        ? "bg-primary/20 text-primary"
+                        : col.key === 'blocked'
+                          ? "bg-[#ffb4ab]/20 text-[#ffb4ab]"
+                          : "bg-tertiary/20 text-tertiary"
+                    : "bg-surface-container-high text-outline"
+                )}>
                   {items.length}
                 </div>
               </div>
