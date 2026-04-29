@@ -13,18 +13,20 @@ import {
   Zap,
   RefreshCw,
   User,
+  Layers,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useSettings } from '../../lib/useSettings';
 import { ProfilePanel } from '../common/ProfilePanel';
+import { WorkflowPanel } from '../common/WorkflowPanel';
 import type { AppSettings, ProviderConfig } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-type SettingsTab = 'general' | 'llm' | 'profile';
+type SettingsTab = 'general' | 'llm' | 'profile' | 'workflow';
 
 const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
@@ -458,6 +460,7 @@ export const SettingsView: React.FC = () => {
   const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
     { id: 'general', label: t('settings.general'), icon: <SettingsIcon size={14} /> },
     { id: 'llm', label: t('settings.llmProviders'), icon: <Zap size={14} /> },
+    { id: 'workflow', label: t('settings.workflow.title'), icon: <Layers size={14} /> },
     { id: 'profile', label: t('settings.profile.title'), icon: <User size={14} /> },
   ];
 
@@ -536,6 +539,9 @@ export const SettingsView: React.FC = () => {
         )}
         {activeTab === 'profile' && (
           <ProfilePanel settings={settings} onUpdate={update} />
+        )}
+        {activeTab === 'workflow' && (
+          <WorkflowPanel />
         )}
       </div>
     </div>

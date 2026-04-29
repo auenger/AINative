@@ -265,6 +265,52 @@ export interface AppSettings {
 }
 
 // ---------------------------------------------------------------------------
+// Workflow Config types (feat-settings-workflow-config)
+// ---------------------------------------------------------------------------
+
+/** Workflow parallelism settings. */
+export interface WorkflowParallelism {
+  max_concurrent: number;
+}
+
+/** Workflow automation settings. */
+export interface WorkflowAutomation {
+  auto_start: boolean;
+  auto_start_next: boolean;
+}
+
+/** Workflow git behavior settings. */
+export interface WorkflowGitBehavior {
+  auto_push: boolean;
+  push_tags: boolean;
+}
+
+/** Workflow archive settings. */
+export interface WorkflowArchive {
+  create_tag: boolean;
+}
+
+/** Workflow cleanup settings. */
+export interface WorkflowCleanup {
+  delete_worktree: boolean;
+  delete_branch: boolean;
+}
+
+/** Workflow completion settings. */
+export interface WorkflowCompletion {
+  archive: WorkflowArchive;
+  cleanup: WorkflowCleanup;
+}
+
+/** Full workflow configuration matching feature-workflow/config.yaml. */
+export interface WorkflowConfig {
+  parallelism: WorkflowParallelism;
+  workflow: WorkflowAutomation;
+  git: WorkflowGitBehavior;
+  completion: WorkflowCompletion;
+}
+
+// ---------------------------------------------------------------------------
 // Agent Runtime types (feat-agent-runtime-core)
 // ---------------------------------------------------------------------------
 
