@@ -1,10 +1,38 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-29T18:30:00Z"
+  last_updated: "2026-04-29T19:30:00Z"
   version: 1
-  total_completed: 104
+  total_completed: 105
 
 records:
+  - id: feat-task-execution-overlay
+    name: "任务执行乐观状态（Execution Overlay + Ghost Card）"
+    completed_at: "2026-04-29T19:30:00Z"
+    tag: feat-task-execution-overlay-20260429
+    merge_commit: 3a16279
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-task-execution-overlay
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-task-execution-overlay
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+      resolved_at: null
+      re_verified: false
+    verification:
+      status: passed
+      scenarios_total: 7
+      scenarios_passed: 7
+    stats:
+      started: "2026-04-29T19:00:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 5
+      insertions: 441
+      deletions: 62
+    archive_path: features/archive/done-feat-task-execution-overlay-20260429
+
   - id: feat-task-board-layout-optim
     name: "Task Board 列排序与显示优化"
     completed_at: "2026-04-29T18:30:00Z"

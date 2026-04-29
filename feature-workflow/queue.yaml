@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-29T18:30:00Z'
+  last_updated: '2026-04-29T19:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -42,10 +42,6 @@ pending:
   - feat-file-tree-context-menu
   - feat-file-tree-clipboard
   - feat-file-tree-navigation
-- id: feat-task-execution-overlay
-  name: 任务执行乐观状态（Execution Overlay + Ghost Card）
-  priority: 70
-  size: L
 - id: feat-modal-safe-close
   name: Modal 安全关闭保护
   priority: 60
@@ -54,6 +50,10 @@ pending:
   - feat-modal-session-store
 blocked: []
 completed:
+- id: feat-task-execution-overlay
+  name: 任务执行乐观状态（Execution Overlay + Ghost Card）
+  completed_at: '2026-04-29T19:30:00Z'
+  tag: feat-task-execution-overlay-20260429
 - id: feat-task-board-layout-optim
   name: Task Board 列排序与显示优化
   completed_at: '2026-04-29T18:30:00Z'
