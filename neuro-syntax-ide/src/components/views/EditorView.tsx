@@ -33,6 +33,8 @@ import {
   Copy,
   Scissors,
   ClipboardPaste,
+  Crosshair,
+  ExternalLink,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
@@ -403,6 +405,10 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
 
   // Error message for file operations
   const [fileOpError, setFileOpError] = useState<string | null>(null);
+
+  // Navigation: locate-in-tree highlight (feat-file-tree-navigation)
+  const [highlightedPath, setHighlightedPath] = useState<string | null>(null);
+  const fileTreeContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Tab overflow state
   const [showOverflowMenu, setShowOverflowMenu] = useState(false);
@@ -780,6 +786,121 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
     return () => window.removeEventListener('keydown', handler);
   }, [clipboard]);
 
+  // -----------------------------------------------------------------------
+  // Navigation: locate file in tree (feat-file-tree-navigation)
+  // -----------------------------------------------------------------------
+
+  /** Collect all ancestor directory paths for a given file path */
+  const collectAncestorDirs = useCallback((filePath: string): string[] => {
+    const parts = filePath.split('/');
+    const dirs: string[] = [];
+    for (let i = 1; i < parts.length; i++) {
+      dirs.push(parts.slice(0, i).join('/'));
+    }
+    return dirs;
+  }, []);
+
+  /** Locate the currently active file in the file tree: expand ancestors, scroll, highlight */
+  const locateInFileTree = useCallback(() => {
+    if (!activeFilePath) return;
+
+    // Expand all ancestor directories
+    const ancestors = collectAncestorDirs(activeFilePath);
+    setExpandedDirs(prev => {
+      const next = new Set(prev);
+      ancestors.forEach(dir => next.add(dir));
+      return next;
+    });
+
+    // Set highlight and auto-clear after animation
+    setHighlightedPath(activeFilePath);
+    setTimeout(() => setHighlightedPath(null), 2000);
+
+    // Scroll to the element after a short delay (wait for expand to render)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = fileTreeContainerRef.current?.querySelector(`[data-tree-path="${CSS.escape(activeFilePath)}"]`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    });
+  }, [activeFilePath, collectAncestorDirs]);
+
+  // Keyboard shortcut: Cmd/Ctrl+Shift+E to locate in tree
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'E') {
+        e.preventDefault();
+        locateInFileTree();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [locateInFileTree]);
+
+  // -----------------------------------------------------------------------
+  // Navigation: copy path / copy relative path (feat-file-tree-navigation)
+  // -----------------------------------------------------------------------
+
+  /** Copy absolute path to system clipboard */
+  const copyAbsolutePath = useCallback(async (path: string) => {
+    try {
+      await navigator.clipboard.writeText(path);
+      setStatusMessage(t('editor.pathCopied'));
+    } catch {
+      // Fallback for non-HTTPS or older browsers
+      const ta = document.createElement('textarea');
+      ta.value = path;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setStatusMessage(t('editor.pathCopied'));
+    }
+  }, [t]);
+
+  /** Copy relative path (relative to workspace root) to system clipboard */
+  const copyRelativePath = useCallback(async (path: string) => {
+    const relativePath = workspacePath ? path.substring(workspacePath.length + 1) : path;
+    try {
+      await navigator.clipboard.writeText(relativePath);
+      setStatusMessage(t('editor.relativePathCopied'));
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = relativePath;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setStatusMessage(t('editor.relativePathCopied'));
+    }
+  }, [workspacePath, t]);
+
+  /** Reveal in system file manager (Finder/Explorer) */
+  const revealInFileManager = useCallback(async (path: string) => {
+    if (isTauri) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('reveal_in_file_manager', { path });
+      } catch {
+        // If the Tauri command is not yet available, show a message
+        setStatusMessage(t('editor.revealNotAvailable'));
+      }
+    } else {
+      // Web prototype fallback — copy the path
+      await copyAbsolutePath(path);
+    }
+  }, [isTauri, copyAbsolutePath, t]);
+
+  // -----------------------------------------------------------------------
+  // Context menu handlers (feat-file-tree-context-menu) — extended for navigation
+  // -----------------------------------------------------------------------
+
   /** Handle right-click on a file tree node */
   const handleNodeContextMenu = useCallback((e: React.MouseEvent, node: WSFileNode) => {
     e.preventDefault();
@@ -897,7 +1018,55 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
           icon: <ClipboardCopy size={14} />,
           shortcut: '',
           onClick: () => {
-            navigator.clipboard.writeText(node.path).catch(() => {});
+            copyAbsolutePath(node.path);
+          },
+        },
+        {
+          key: 'copy-relative-path',
+          label: t('editor.contextCopyRelativePath'),
+          icon: <ClipboardCopy size={14} />,
+          shortcut: '',
+          onClick: () => {
+            copyRelativePath(node.path);
+          },
+        },
+        {
+          key: 'reveal-in-finder',
+          label: t('editor.contextRevealInFinder'),
+          icon: <ExternalLink size={14} />,
+          shortcut: '',
+          onClick: () => {
+            revealInFileManager(node.path);
+          },
+        },
+        { key: 'div-4', type: 'divider' },
+        {
+          key: 'locate-in-tree',
+          label: t('editor.contextLocateInTree'),
+          icon: <Crosshair size={14} />,
+          shortcut: 'Ctrl+Shift+E',
+          onClick: () => {
+            if (!node.isDir) {
+              // For files: set as active and locate
+              openFile(node.path);
+            }
+            // Expand ancestors and highlight
+            const ancestors = collectAncestorDirs(node.path);
+            setExpandedDirs(prev => {
+              const next = new Set(prev);
+              ancestors.forEach(dir => next.add(dir));
+              return next;
+            });
+            setHighlightedPath(node.path);
+            setTimeout(() => setHighlightedPath(null), 2000);
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                const el = fileTreeContainerRef.current?.querySelector(`[data-tree-path="${CSS.escape(node.path)}"]`);
+                if (el) {
+                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              });
+            });
           },
         },
       );
@@ -949,7 +1118,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
     }
 
     return items;
-  }, [contextMenu, expandedDirs, t, workspacePath, refreshFileTree, clipboard, handleCopy, handleCut, handlePaste]);
+  }, [contextMenu, expandedDirs, t, workspacePath, refreshFileTree, clipboard, handleCopy, handleCut, handlePaste, copyAbsolutePath, copyRelativePath, revealInFileManager, locateInFileTree, openFile, collectAncestorDirs]);
 
   /** Handle inline edit submission (Enter key or blur) */
   const handleInlineEditSubmit = useCallback(async () => {
@@ -1122,6 +1291,9 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
       // Drag & drop: whether this directory is a current drop target
       const isDropTarget = dragOverPath === node.path;
 
+      // Navigation highlight (feat-file-tree-navigation)
+      const isHighlighted = highlightedPath === node.path;
+
       return (
         <div key={node.path}>
           {isRenaming ? (
@@ -1168,6 +1340,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
           ) : (
             <div
               draggable
+              data-tree-path={node.path}
               onDragStart={(e) => {
                 e.dataTransfer.setData('text/plain', node.path);
                 e.dataTransfer.effectAllowed = 'move';
@@ -1199,7 +1372,8 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                 "flex items-center gap-2 py-1 px-2 hover:bg-surface-container-high rounded cursor-pointer transition-colors group",
                 isActive && "bg-surface-container-highest/50 text-on-surface",
                 isCut && "opacity-50",
-                isDropTarget && "bg-primary/10 ring-1 ring-primary/30"
+                isDropTarget && "bg-primary/10 ring-1 ring-primary/30",
+                isHighlighted && "bg-primary/15 ring-2 ring-primary/40 animate-pulse"
               )}
               style={{ paddingLeft: `${depth * 12 + 8}px` }}
               onClick={() => {
@@ -1494,7 +1668,66 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
           </AnimatePresence>
         </div>
 
+        {/* Breadcrumb navigation for current file (feat-file-tree-navigation) */}
+        {activeFilePath && workspacePath && (
+          <div className="px-2 py-1 border-b border-outline-variant/10 bg-surface-container/50 flex items-center gap-0.5 overflow-x-auto scroll-hide shrink-0">
+            <span className="text-[9px] text-on-surface-variant/50 shrink-0 mr-1">
+              <Crosshair size={9} className="inline -mt-px" />
+            </span>
+            {(() => {
+              const relativePath = activeFilePath.substring(workspacePath.length + 1);
+              const parts = relativePath.split('/');
+              return parts.map((part, idx) => {
+                const isLast = idx === parts.length - 1;
+                const dirPath = workspacePath + '/' + parts.slice(0, idx + 1).join('/');
+                return (
+                  <React.Fragment key={idx}>
+                    {idx > 0 && (
+                      <span className="text-[8px] text-outline-variant/40 shrink-0">/</span>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (!isLast) {
+                          // Click directory in breadcrumb: expand and scroll
+                          setExpandedDirs(prev => {
+                            const next = new Set(prev);
+                            next.add(dirPath);
+                            // Also expand all ancestors
+                            const ancestors = collectAncestorDirs(dirPath);
+                            ancestors.forEach(d => next.add(d));
+                            return next;
+                          });
+                          setHighlightedPath(dirPath);
+                          setTimeout(() => setHighlightedPath(null), 2000);
+                          requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                              const el = fileTreeContainerRef.current?.querySelector(`[data-tree-path="${CSS.escape(dirPath)}"]`);
+                              if (el) {
+                                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              }
+                            });
+                          });
+                        }
+                      }}
+                      className={cn(
+                        "text-[9px] px-0.5 rounded transition-colors whitespace-nowrap shrink-0",
+                        isLast
+                          ? "text-primary font-bold"
+                          : "text-on-surface-variant hover:text-primary hover:bg-primary/10"
+                      )}
+                    >
+                      {part}
+                    </button>
+                  </React.Fragment>
+                );
+              });
+            })()
+            }
+          </div>
+        )}
+
         <div
+          ref={fileTreeContainerRef}
           className="flex-1 overflow-y-auto p-2 scroll-hide"
           onContextMenu={handleBlankAreaContextMenu}
           onDragOver={(e) => {
@@ -1786,6 +2019,20 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
               <div className="fixed inset-0 z-40" onClick={() => setShowOverflowMenu(false)} />
             )}
           </div>
+
+          {/* Locate in file tree button (feat-file-tree-navigation) */}
+          {activeFilePath && (
+            <button
+              onClick={locateInFileTree}
+              className={cn(
+                "h-full flex items-center justify-center w-8 shrink-0 transition-colors",
+                "text-on-surface-variant hover:text-primary hover:bg-primary/10"
+              )}
+              title={t('editor.locateInTree')}
+            >
+              <Crosshair size={14} />
+            </button>
+          )}
 
           {/* Save status indicator / button */}
           <div className="flex items-center px-4 shrink-0">
