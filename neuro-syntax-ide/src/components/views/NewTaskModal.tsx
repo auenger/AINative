@@ -14,11 +14,13 @@ import {
   RefreshCw,
   Send,
   MessageSquare,
+  RotateCcw,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { useAgentRuntimes } from '../../lib/useAgentRuntimes';
 import { useAgentChat } from '../../lib/useAgentChat';
+import { useSessionStore } from '../../lib/SessionStore';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import type { AgentRuntimeInfo, AgentRuntimeStatusType } from '../../types';
 
@@ -85,6 +87,9 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
   // Agent runtime detection
   const { runtimes, scanning, scan } = useAgentRuntimes();
 
+  // Session store for persisting state across close/reopen
+  const sessionStore = useSessionStore();
+
   // Agent chat for built-in PM Agent
   const {
     messages,
@@ -125,6 +130,10 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
   const [chatInput, setChatInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // Session resume indicator state
+  const [resumedSession, setResumedSession] = useState(false);
+  const resumedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Auto-scroll chat to bottom on new messages
   // (selectedAgentId is used instead of selectedAgent to avoid hoisting issues)
   const isBuiltInAgent = selectedAgentId === 'pm-agent';
@@ -150,6 +159,30 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
       }
     };
   }, []);
+
+  // Restore session when modal opens
+  useEffect(() => {
+    if (!open) return;
+    try {
+      const session = sessionStore.loadNewTaskSession();
+      if (session && session.step === 'input-requirement') {
+        setStep(session.step);
+        setSelectedAgentId(session.selectedAgentId);
+        setChatInput(session.chatInput);
+        setExtChatInput(session.extChatInput);
+        // Note: messages/extMessages are managed by useAgentChat and extMessages state
+        // We can only restore messages if the component hasn't unmounted
+        // PM Agent messages need to be injected via clearChat + manual set (not feasible)
+        // Instead, we restore what we can and show indicator
+        setResumedSession(true);
+        if (resumedTimerRef.current) clearTimeout(resumedTimerRef.current);
+        resumedTimerRef.current = setTimeout(() => setResumedSession(false), 3000);
+      }
+    } catch {
+      // Corrupted session: fallback to default state, clear silently
+      sessionStore.clearNewTaskSession();
+    }
+  }, [open, sessionStore]);
 
   // Modal drag state
   const [modalPos, setModalPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -517,6 +550,26 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
   }, [selectedAgent, selectedAgentId, extMessages, messages, generateFeaturePlan, createFeature]);
 
   const handleClose = useCallback(() => {
+    // Save session to SessionStore before resetting (only if in a meaningful state)
+    if (step === 'input-requirement' && !featureCreated) {
+      try {
+        sessionStore.saveNewTaskSession({
+          step,
+          selectedAgentId,
+          pmMessages: messages,
+          extMessages,
+          chatInput,
+          extChatInput,
+          savedAt: 0, // will be overwritten by SessionStore
+        });
+      } catch {
+        // Silently ignore save errors
+      }
+    } else {
+      // For completed/cancelled flows, clear the session
+      sessionStore.clearNewTaskSession();
+    }
+
     // Reset state
     setStep('select-agent');
     setSelectedAgentId(null);
@@ -544,8 +597,9 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
     if (featureCreated && onFeatureCreated) {
       onFeatureCreated();
     }
+    setResumedSession(false);
     onClose();
-  }, [featureCreated, onFeatureCreated, onClose, clearChat]);
+  }, [step, featureCreated, selectedAgentId, messages, extMessages, chatInput, extChatInput, onFeatureCreated, onClose, clearChat, sessionStore]);
 
   // -----------------------------------------------------------------------
   // Render helpers
@@ -632,7 +686,18 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
           )}
         >
           <div>
-            <h3 className="text-lg font-bold text-on-surface">Create New Feature</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-bold text-on-surface">Create New Feature</h3>
+              {resumedSession && (
+                <div
+                  onClick={() => setResumedSession(false)}
+                  className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-secondary/10 border border-secondary/20 cursor-pointer hover:bg-secondary/20 transition-all"
+                >
+                  <RotateCcw size={9} className="text-secondary" />
+                  <span className="text-[9px] font-bold text-secondary uppercase tracking-wider">Resumed</span>
+                </div>
+              )}
+            </div>
             <p className="text-[10px] text-on-surface-variant mt-0.5">
               Select an Agent to analyze requirements and generate feature documents
             </p>
