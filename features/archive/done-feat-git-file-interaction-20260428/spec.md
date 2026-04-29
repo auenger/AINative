@@ -34,7 +34,20 @@
 - feat-git-tab-page（前置依赖）
 
 ## Technical Solution
-<!-- To be filled during implementation -->
+- **Frontend**: GitView.tsx extended with FileRow component (selection + drag), BatchActionBar component, keyboard shortcut listeners
+- **Backend**: 3 new Tauri commands: `git_unstage_all`, `git_batch_stage_files`, `git_batch_unstage_files`
+- **Multi-select**: Set<string> state with Shift range, Ctrl/Cmd toggle, single click
+- **Drag & drop**: HTML5 DnD API with dataTransfer, drop zone highlighting per group
+- **Batch ops**: BatchActionBar renders at bottom of Changes tab with Stage/Unstage Selected and All buttons
+
+## Merge Record
+- **Completed**: 2026-04-28T16:30:00Z
+- **Merged Branch**: feature/feat-git-file-interaction
+- **Merge Commit**: f8c401d
+- **Archive Tag**: feat-git-file-interaction-20260428
+- **Conflicts**: None
+- **Verification**: All 6 Gherkin scenarios passed
+- **Files Changed**: 5 (GitView.tsx, lib.rs, task.md, checklist.md, verification-report.md)
 
 ## Acceptance Criteria (Gherkin)
 ### User Story

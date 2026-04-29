@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-29T10:05:00Z'
+  last_updated: '2026-04-28T16:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -42,12 +42,6 @@ pending:
   - feat-file-tree-context-menu
   - feat-file-tree-clipboard
   - feat-file-tree-navigation
-- id: feat-git-file-interaction
-  name: 文件变更交互增强
-  priority: 80
-  size: S
-  depends_on:
-  - feat-git-tab-page
 - id: feat-claude-session-history
   name: Claude Code 会话历史回看
   priority: 75
@@ -90,6 +84,10 @@ pending:
   - feat-file-tree-clipboard
 blocked: []
 completed:
+- id: feat-git-file-interaction
+  name: 文件变更交互增强
+  completed_at: '2026-04-28T16:30:00Z'
+  tag: feat-git-file-interaction-20260428
 - id: feat-file-tree-context-menu
   name: 文件树右键上下文菜单与基础操作
   completed_at: '2026-04-29T10:05:00Z'

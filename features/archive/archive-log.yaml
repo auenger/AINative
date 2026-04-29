@@ -1,10 +1,33 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-29T10:05:00Z"
+  last_updated: "2026-04-28T16:30:00Z"
   version: 1
-  total_completed: 97
+  total_completed: 98
 
 records:
+  - id: feat-git-file-interaction
+    name: "文件变更交互增强"
+    completed_at: "2026-04-28T16:30:00Z"
+    tag: feat-git-file-interaction-20260428
+    merge_commit: f8c401d
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-git-file-interaction
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-git-file-interaction
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 6
+      scenarios_passed: 6
+    stats:
+      started: "2026-04-28T16:00:00Z"
+      duration: "~30min"
+      commits: 2
+      files_changed: 5
+
   - id: feat-file-tree-context-menu
     name: "文件树右键上下文菜单与基础操作"
     completed_at: "2026-04-29T10:05:00Z"
