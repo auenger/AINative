@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import type { TaskExecutionOverlay, GhostCard, QueueName } from '../types';
 
 // ---------------------------------------------------------------------------
 // Types matching Rust QueueState / FeatureNode / FsChangeEvent
@@ -44,11 +45,8 @@ export interface FsChangeEvent {
   kind: string;
 }
 
-// ---------------------------------------------------------------------------
-// Queue status type for the board columns
-// ---------------------------------------------------------------------------
-
-export type QueueName = 'active' | 'pending' | 'blocked' | 'completed';
+// Re-export QueueName from types for backward compat
+export type { QueueName };
 
 // ---------------------------------------------------------------------------
 // Hook
@@ -62,6 +60,81 @@ export function useQueueData() {
   const [error, setError] = useState<string | null>(null);
   const [refreshInterval, setRefreshInterval] = useState<number>(0); // seconds, 0 = disabled
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ─── Overlay State (Layer A: execution overlays on existing cards) ───
+  const [overlayState, setOverlayState] = useState<Map<string, TaskExecutionOverlay>>(new Map());
+  const overlayCleanupTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // ─── Ghost Card State (Layer B: new feature placeholders) ───
+  const [ghostCards, setGhostCards] = useState<GhostCard[]>([]);
+
+  /** Set or merge-update an overlay for a feature. */
+  const setOverlay = useCallback((featureId: string, partial: Partial<TaskExecutionOverlay> & { action: TaskExecutionOverlay['action'] }) => {
+    setOverlayState(prev => {
+      const next = new Map(prev);
+      const existing = next.get(featureId);
+      const overlay: TaskExecutionOverlay = existing
+        ? { ...existing, ...partial }
+        : { featureId, status: partial.status ?? 'dispatching', startedAt: Date.now(), action: partial.action, ...partial };
+      next.set(featureId, overlay);
+      return next;
+    });
+  }, []);
+
+  /** Clear overlay for a feature. */
+  const clearOverlay = useCallback((featureId: string) => {
+    // Clear any cleanup timer
+    const timer = overlayCleanupTimers.current.get(featureId);
+    if (timer) {
+      clearTimeout(timer);
+      overlayCleanupTimers.current.delete(featureId);
+    }
+    setOverlayState(prev => {
+      const next = new Map(prev);
+      next.delete(featureId);
+      return next;
+    });
+  }, []);
+
+  /** Set overlay to error status with auto-cleanup after 30s. */
+  const setOverlayError = useCallback((featureId: string) => {
+    setOverlay(featureId, { status: 'error', action: 'review' } as Partial<TaskExecutionOverlay> & { action: TaskExecutionOverlay['action'] });
+
+    // Clear any existing timer
+    const existing = overlayCleanupTimers.current.get(featureId);
+    if (existing) clearTimeout(existing);
+
+    // Auto-cleanup error overlay after 30s
+    const timer = setTimeout(() => {
+      setOverlayState(prev => {
+        const next = new Map(prev);
+        const overlay = next.get(featureId);
+        if (overlay?.status === 'error') {
+          next.delete(featureId);
+        }
+        return next;
+      });
+      overlayCleanupTimers.current.delete(featureId);
+    }, 30000);
+    overlayCleanupTimers.current.set(featureId, timer);
+  }, [setOverlay]);
+
+  /** Add a ghost card. */
+  const addGhostCard = useCallback((ghost: Omit<GhostCard, 'startedAt'>) => {
+    const newGhost: GhostCard = { ...ghost, startedAt: Date.now() };
+    setGhostCards(prev => [...prev, newGhost]);
+    return newGhost.tempId;
+  }, []);
+
+  /** Update a ghost card by tempId (merge). */
+  const updateGhostCard = useCallback((tempId: string, partial: Partial<GhostCard>) => {
+    setGhostCards(prev => prev.map(g => g.tempId === tempId ? { ...g, ...partial } : g));
+  }, []);
+
+  /** Remove a ghost card by tempId. */
+  const removeGhostCard = useCallback((tempId: string) => {
+    setGhostCards(prev => prev.filter(g => g.tempId !== tempId));
+  }, []);
 
   /** Fetch the latest queue state from Rust backend. */
   const refresh = useCallback(async () => {
@@ -153,6 +226,31 @@ export function useQueueData() {
       const { invoke } = await import('@tauri-apps/api/core');
       const state: QueueState = await invoke('fetch_queue_state');
       setQueueState(state);
+
+      // ─── Auto-cleanup overlays and ghost cards after refresh ───
+      // Clean "done" overlays (the real data is now in queueState)
+      setOverlayState(prev => {
+        const next = new Map(prev);
+        for (const [key, overlay] of next) {
+          if (overlay.status === 'done') {
+            next.delete(key);
+          }
+        }
+        return next;
+      });
+
+      // Remove ghost cards whose real featureId now exists in queueState
+      setGhostCards(prev => {
+        if (prev.length === 0) return prev;
+        const allIds = new Set<string>();
+        if (state) {
+          for (const f of state.active) allIds.add(f.id);
+          for (const f of state.pending) allIds.add(f.id);
+          for (const f of state.blocked) allIds.add(f.id);
+          for (const f of state.completed) allIds.add(f.id);
+        }
+        return prev.filter(g => !g.featureId || !allIds.has(g.featureId));
+      });
     } catch (e: any) {
       setError(e?.toString() ?? 'Failed to fetch queue state');
     } finally {
@@ -270,6 +368,16 @@ export function useQueueData() {
     };
   }, [refreshInterval, refresh]);
 
+  // Cleanup overlay timers on unmount
+  useEffect(() => {
+    return () => {
+      for (const timer of overlayCleanupTimers.current.values()) {
+        clearTimeout(timer);
+      }
+      overlayCleanupTimers.current.clear();
+    };
+  }, []);
+
   return {
     queueState,
     loading,
@@ -279,5 +387,15 @@ export function useQueueData() {
     readDetail,
     refreshInterval,
     setRefreshInterval,
+    // Overlay state (Layer A)
+    overlayState,
+    setOverlay,
+    clearOverlay,
+    setOverlayError,
+    // Ghost card state (Layer B)
+    ghostCards,
+    addGhostCard,
+    updateGhostCard,
+    removeGhostCard,
   };
 }

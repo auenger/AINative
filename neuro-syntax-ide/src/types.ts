@@ -838,3 +838,36 @@ export interface ClaudeHistorySessionDetail {
   /** Whether there are more messages to load */
   has_more: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Task Execution Overlay types (feat-task-execution-overlay)
+// ---------------------------------------------------------------------------
+
+/** Status of a task execution overlay on an existing feature card. */
+export type TaskExecutionOverlayStatus = 'dispatching' | 'streaming' | 'writing' | 'done' | 'error';
+
+/** Overlay state for an existing feature card during AI execution. */
+export interface TaskExecutionOverlay {
+  featureId: string;
+  status: TaskExecutionOverlayStatus;
+  startedAt: number;
+  action: AgentActionType;
+  outputPreview?: string;
+}
+
+/** Status of a ghost card for a newly created feature. */
+export type GhostCardStatus = 'creating' | 'created' | 'syncing' | 'error';
+
+/** Ghost card representing a feature being created (not yet in filesystem). */
+export interface GhostCard {
+  tempId: string;
+  featureId: string | null;
+  name: string;
+  targetQueue: QueueName;
+  status: GhostCardStatus;
+  startedAt: number;
+  preview?: string;
+}
+
+/** Queue column name for board rendering. */
+export type QueueName = 'active' | 'pending' | 'blocked' | 'completed';
