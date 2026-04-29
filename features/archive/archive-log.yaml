@@ -1,10 +1,36 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-23T13:00:00Z"
+  last_updated: "2026-04-28T12:00:00Z"
   version: 1
-  total_completed: 94
+  total_completed: 95
 
 records:
+  - id: feat-modal-session-store
+    name: "Modal 会话持久化层（SessionStore）"
+    completed_at: "2026-04-28T12:00:00Z"
+    tag: feat-modal-session-store-20260428
+    merge_commit: b0e1787
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/modal-session-store
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-modal-session-store
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 8
+      scenarios_passed: 8
+    stats:
+      started: "2026-04-28T12:00:00Z"
+      duration: "~session"
+      commits: 1
+      files_changed: 5
+      insertions: 379
+      deletions: 14
+    archive_path: features/archive/done-feat-modal-session-store-20260428
+
   - id: feat-task-graph-timeline
     name: "Task Graph Timeline View（时间轴依赖图谱视图）"
     completed_at: "2026-04-23T13:00:00Z"
