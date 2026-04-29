@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-28T13:00:00Z'
+  last_updated: '2026-04-29T09:40:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -35,10 +35,6 @@ parents:
   - feat-git-display-enhance
 active: []
 pending:
-- id: feat-git-tab-page
-  name: Git 独立 Tab 页
-  priority: 85
-  size: S
 - id: feat-file-tree-ops
   name: 文件树编辑器操作增强
   split: true
@@ -98,6 +94,10 @@ pending:
   - feat-file-tree-clipboard
 blocked: []
 completed:
+- id: feat-git-tab-page
+  name: Git 独立 Tab 页
+  completed_at: '2026-04-29T09:40:00Z'
+  tag: feat-git-tab-page-20260429
 - id: feat-modal-session-store
   name: Modal 会话持久化层（SessionStore）
   completed_at: '2026-04-28T13:00:00Z'

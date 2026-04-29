@@ -39,7 +39,34 @@
 - feat-git-tag-expand（已完成）— Tag 展开功能
 
 ## Technical Solution
-<!-- To be filled during implementation -->
+1. `types.ts`: Added `'git'` to `ViewType` union
+2. `SideNav.tsx`: Added Git navigation item with Github icon between Editor and Mission Control
+3. `App.tsx`: Registered GitView component with workspace path prop; passed `onNavigateToGit` callback to ProjectView
+4. `GitView.tsx`: New component (~700 lines) extracting all Git functionality from ProjectView:
+   - Full-screen layout with top tab bar (7 sub-tabs)
+   - Overview: larger stat cards (3-column grid), up to 8 recent commits
+   - Changes: left-right split layout (file list | commit+sync operation panel)
+   - History: wider commit cards with larger avatars
+   - All other tabs (Branches, Tags, Features, Graph) adapted to full width
+   - Reuses `useGitStatus` and `useGitDetail` hooks
+   - Includes `CommitGraphTab` component (copied from ProjectView)
+5. `ProjectView.tsx`: Cleaned up (~860 lines removed):
+   - Added `onNavigateToGit` optional prop
+   - Git button now calls `onNavigateToGit` instead of `setShowGitModal`
+   - Removed Git Modal state (showGitModal, gitModalTab, position, size, drag/resize refs)
+   - Removed Git operation handlers (push, pull, stage, unstage, commit)
+   - Removed Git Modal rendering block (entire AnimatePresence)
+   - Removed CommitGraphTab component
+   - Cleaned unused imports
+
+## Merge Record
+- **Completed**: 2026-04-29
+- **Merged Branch**: feature/git-tab-page
+- **Merge Commit**: f9b6796
+- **Archive Tag**: feat-git-tab-page-20260429
+- **Conflicts**: None
+- **Verification**: All 4 Gherkin scenarios passed (code analysis)
+- **Development Stats**: 1 commit, 6 files changed, +956/-1024 lines
 
 ## Acceptance Criteria (Gherkin)
 ### User Story
