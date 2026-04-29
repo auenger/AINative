@@ -46,6 +46,15 @@
 4. `src/components/views/EditorView.tsx` — Integrated context menu, inline editing, refresh
 5. `src/i18n.ts` — Added EN + ZH translations for menu items
 
+## Merge Record
+- **Completed**: 2026-04-29
+- **Branch**: feature/feat-file-tree-context-menu
+- **Merge Commit**: ccf4b9f
+- **Archive Tag**: feat-file-tree-context-menu-20260429
+- **Conflicts**: none
+- **Verification**: passed (code analysis, 6/6 Gherkin scenarios)
+- **Stats**: 11 files changed, 971 insertions, 94 deletions
+
 ## Acceptance Criteria (Gherkin)
 
 ### User Story
