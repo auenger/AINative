@@ -144,7 +144,7 @@ export function useWorkflowConfig() {
 
     try {
       if (isTauri) {
-        const yaml = await invoke<string>('read_text_file', {
+        const yaml = await invoke<string>('read_file', {
           path: 'feature-workflow/config.yaml',
         });
         if (signal?.aborted) return;
@@ -184,7 +184,7 @@ export function useWorkflowConfig() {
     try {
       if (isTauri) {
         const yaml = serializeWorkflowConfig(config);
-        await invoke('write_text_file', {
+        await invoke('write_file', {
           path: 'feature-workflow/config.yaml',
           content: yaml,
         });
