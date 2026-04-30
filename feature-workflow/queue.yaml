@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-29T20:20:00Z'
+  last_updated: '2026-04-30T10:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -33,8 +33,22 @@ parents:
   - feat-git-tab-page
   - feat-git-file-interaction
   - feat-git-display-enhance
+- id: feat-universal-agent-runtime
+  name: 通用 Agent Runtime Stdio 通信层（Pipe + ACP）
+  split: true
+  features:
+  - feat-agent-stdio-core
+  - feat-agent-pipe-adapter
+  - feat-agent-acp-adapter
 active: []
 pending:
+- id: feat-reveal-in-file-manager
+  name: 文件树「在文件管理器中显示」Tauri 后端实现
+  priority: 70
+- id: feat-universal-agent-runtime
+  name: 通用 Agent Runtime Stdio 通信层（Pipe + ACP）
+  priority: 70
+  split: true
 - id: feat-file-tree-ops
   name: 文件树编辑器操作增强
   split: true
