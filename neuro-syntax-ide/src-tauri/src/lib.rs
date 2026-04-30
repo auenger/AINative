@@ -7915,6 +7915,22 @@ async fn move_entry(source_path: String, target_dir: String) -> Result<CopyMoveR
 }
 
 // ===========================================================================
+// Tauri commands - Reveal in File Manager (feat-reveal-in-file-manager)
+// ===========================================================================
+
+/// Reveal a file or directory in the system file manager (Finder/Explorer).
+/// Uses tauri-plugin-opener for cross-platform support.
+#[tauri::command]
+async fn reveal_in_file_manager(path: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    if !p.exists() {
+        return Err(format!("Path does not exist: {}", path));
+    }
+    tauri_plugin_opener::reveal_item_in_dir(&p)
+        .map_err(|e| format!("Failed to reveal '{}' in file manager: {}", path, e))
+}
+
+// ===========================================================================
 // Tauri commands - Settings & LLM Provider (feat-settings-llm-config)
 // ===========================================================================
 
@@ -9114,6 +9130,8 @@ pub fn run() {
             // File tree clipboard (feat-file-tree-clipboard)
             copy_entry,
             move_entry,
+            // Reveal in file manager (feat-reveal-in-file-manager)
+            reveal_in_file_manager,
             // Image metadata (feat-file-preview-image-enhance)
             read_image_meta,
             // MD Explorer (feat-project-md-explorer)
