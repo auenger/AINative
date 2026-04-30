@@ -1,10 +1,71 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-29T20:20:00Z"
+  last_updated: "2026-04-30T14:30:00Z"
   version: 1
-  total_completed: 106
+  total_completed: 109
 
 records:
+  - id: feat-agent-stdio-core
+    name: "Agent Stdio 通信核心抽象层"
+    completed_at: "2026-04-30T14:30:00Z"
+    tag: feat-agent-stdio-core-20260430
+    merge_commit: fdd4948
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/agent-stdio-core
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-agent-stdio-core
+    parent: feat-universal-agent-runtime
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 5
+      scenarios_passed: 5
+    stats:
+      started: "2026-04-30T14:00:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 2
+      insertions: 1322
+      deletions: 0
+    archive_path: features/archive/done-feat-agent-stdio-core-20260430
+
+  - id: feat-file-tree-ops
+    name: "文件树编辑器操作增强"
+    completed_at: "2026-04-30T12:00:00Z"
+    split: true
+    children:
+      - feat-file-tree-context-menu
+      - feat-file-tree-clipboard
+      - feat-file-tree-navigation
+  - id: feat-reveal-in-file-manager
+    name: "文件树「在文件管理器中显示」Tauri 后端实现"
+    completed_at: "2026-04-30T11:30:00Z"
+    tag: feat-reveal-in-file-manager-20260430
+    merge_commit: c3e1113
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/reveal-in-file-manager
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-reveal-in-file-manager
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-04-30T11:00:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 1
+      insertions: 18
+      deletions: 0
+    archive_path: features/archive/done-feat-reveal-in-file-manager-20260430
+
   - id: feat-modal-safe-close
     name: "Modal 安全关闭保护"
     completed_at: "2026-04-29T20:20:00Z"

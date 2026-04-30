@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-30T10:00:00Z'
+  last_updated: '2026-04-30T14:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -42,22 +42,37 @@ parents:
   - feat-agent-acp-adapter
 active: []
 pending:
-- id: feat-reveal-in-file-manager
-  name: 文件树「在文件管理器中显示」Tauri 后端实现
+- id: feat-agent-pipe-adapter
+  name: NDJSON Pipe Adapter（Claude Code / Cursor / OpenCode）
   priority: 70
-- id: feat-universal-agent-runtime
-  name: 通用 Agent Runtime Stdio 通信层（Pipe + ACP）
+  parent: feat-universal-agent-runtime
+  depends_on:
+  - feat-agent-stdio-core
+- id: feat-agent-acp-adapter
+  name: ACP JSON-RPC 2.0 Adapter（Codex / Hermes / Kiro / Kimi / Pi）
   priority: 70
-  split: true
+  parent: feat-universal-agent-runtime
+  depends_on:
+  - feat-agent-stdio-core
+blocked: []
+completed:
+- id: feat-agent-stdio-core
+  name: Agent Stdio 通信核心抽象层
+  completed_at: '2026-04-30T14:30:00Z'
+  tag: feat-agent-stdio-core-20260430
+  parent: feat-universal-agent-runtime
 - id: feat-file-tree-ops
   name: 文件树编辑器操作增强
+  completed_at: '2026-04-30T12:00:00Z'
   split: true
-  features:
+  children:
   - feat-file-tree-context-menu
   - feat-file-tree-clipboard
   - feat-file-tree-navigation
-blocked: []
-completed:
+- id: feat-reveal-in-file-manager
+  name: 文件树「在文件管理器中显示」Tauri 后端实现
+  completed_at: '2026-04-30T11:30:00Z'
+  tag: feat-reveal-in-file-manager-20260430
 - id: feat-modal-safe-close
   name: Modal 安全关闭保护
   completed_at: '2026-04-29T20:20:00Z'
