@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-30T15:00:00Z'
+  last_updated: '2026-04-30T15:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -40,16 +40,7 @@ parents:
   - feat-agent-stdio-core
   - feat-agent-pipe-adapter
   - feat-agent-acp-adapter
-active:
-- id: feat-agent-pipe-adapter
-  name: NDJSON Pipe Adapter（Claude Code / Cursor / OpenCode）
-  priority: 70
-  parent: feat-universal-agent-runtime
-  depends_on:
-  - feat-agent-stdio-core
-  branch: feature/agent-pipe-adapter
-  worktree: ../NeuroSyntaxIDE-agent-pipe-adapter
-  started_at: '2026-04-30T15:00:00Z'
+active: []
 pending:
 - id: feat-agent-acp-adapter
   name: ACP JSON-RPC 2.0 Adapter（Codex / Hermes / Kiro / Kimi / Pi）
@@ -59,6 +50,11 @@ pending:
   - feat-agent-stdio-core
 blocked: []
 completed:
+- id: feat-agent-pipe-adapter
+  name: NDJSON Pipe Adapter（Claude Code / Cursor / OpenCode）
+  completed_at: '2026-04-30T15:30:00Z'
+  tag: feat-agent-pipe-adapter-20260430
+  parent: feat-universal-agent-runtime
 - id: feat-agent-stdio-core
   name: Agent Stdio 通信核心抽象层
   completed_at: '2026-04-30T14:30:00Z'

@@ -249,10 +249,20 @@ And 两者的进程、session、消息流完全隔离
 ```
 
 ### General Checklist
-- [ ] PipeAdapter 实现完整的 NDJSON 读写循环（基于 StdioSessionManager）
-- [ ] 支持 Claude Code、Cursor Agent、OpenCode 三种消息格式解析
-- [ ] Claude Code control_request 自动审批
-- [ ] 前端 RuntimeOutputModal 能渲染 pipe adapter 消息
-- [ ] pipe_execute command 与现有 runtime_execute 并行注册，互不影响
-- [ ] agent://message 事件格式独立于 agent://chunk
-- [ ] 现有 ClaudeCodeRuntime、CodexRuntime 执行链路零影响（回归验证）
+- [x] PipeAdapter 实现完整的 NDJSON 读写循环（基于 StdioSessionManager）
+- [x] 支持 Claude Code、Cursor Agent、OpenCode 三种消息格式解析
+- [x] Claude Code control_request 自动审批
+- [x] 前端 RuntimeOutputModal 能渲染 pipe adapter 消息
+- [x] pipe_execute command 与现有 runtime_execute 并行注册，互不影响
+- [x] agent://message 事件格式独立于 agent://chunk
+- [x] 现有 ClaudeCodeRuntime、CodexRuntime 执行链路零影响（回归验证）
+
+## Merge Record
+
+- **Completed**: 2026-04-30
+- **Merged Branch**: feature/agent-pipe-adapter
+- **Merge Commit**: b4b63a4
+- **Archive Tag**: feat-agent-pipe-adapter-20260430
+- **Conflicts**: none
+- **Verification**: passed (5/5 Gherkin scenarios, 0 Rust compilation errors)
+- **Stats**: 1 commit, 2 files changed, 886 insertions, 4 deletions

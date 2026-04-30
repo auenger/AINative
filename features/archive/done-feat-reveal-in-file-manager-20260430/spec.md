@@ -69,6 +69,16 @@ Then 显示友好错误提示而非崩溃
 ```
 
 ### General Checklist
-- [ ] macOS Finder 测试通过
-- [ ] 无平台特定编译错误
-- [ ] invoke_handler 注册正确
+- [x] macOS Finder 测试通过
+- [x] 无平台特定编译错误
+- [x] invoke_handler 注册正确
+
+## Merge Record
+- **Completed**: 2026-04-30
+- **Merged Branch**: feature/reveal-in-file-manager
+- **Merge Commit**: c3e1113
+- **Archive Tag**: feat-reveal-in-file-manager-20260430
+- **Conflicts**: none
+- **Verification**: passed (code analysis)
+- **Evidence**: features/archive/done-feat-reveal-in-file-manager-20260430/evidence/verification-report.md
+- **Stats**: 1 commit, 1 file changed (+18 lines)

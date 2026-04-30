@@ -1,10 +1,37 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-30T14:30:00Z"
+  last_updated: "2026-04-30T15:30:00Z"
   version: 1
-  total_completed: 109
+  total_completed: 110
 
 records:
+  - id: feat-agent-pipe-adapter
+    name: "NDJSON Pipe Adapter（Claude Code / Cursor / OpenCode）"
+    completed_at: "2026-04-30T15:30:00Z"
+    tag: feat-agent-pipe-adapter-20260430
+    merge_commit: b4b63a4
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/agent-pipe-adapter
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-agent-pipe-adapter
+    parent: feat-universal-agent-runtime
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 5
+      scenarios_passed: 5
+    stats:
+      started: "2026-04-30T15:00:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 2
+      insertions: 886
+      deletions: 4
+    archive_path: features/archive/done-feat-agent-pipe-adapter-20260430
+
   - id: feat-agent-stdio-core
     name: "Agent Stdio 通信核心抽象层"
     completed_at: "2026-04-30T14:30:00Z"
