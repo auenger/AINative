@@ -28,6 +28,14 @@ const DEFAULT_CONFIG: WorkflowConfig = {
 };
 
 const STORAGE_KEY = 'neuro-syntax-ide:workflow-config';
+const CONFIG_REL_PATH = 'feature-workflow/config.yaml';
+
+/** Resolve the absolute config path using the stored workspace. */
+async function resolveConfigPath(): Promise<string | null> {
+  if (!isTauri) return null;
+  const ws = await invoke<{ path: string; valid: boolean }>('get_stored_workspace');
+  return ws?.valid && ws.path ? `${ws.path}/${CONFIG_REL_PATH}` : null;
+}
 
 // ---------------------------------------------------------------------------
 // Simple YAML parser for the config fields we care about
@@ -144,8 +152,10 @@ export function useWorkflowConfig() {
 
     try {
       if (isTauri) {
+        const configPath = await resolveConfigPath();
+        if (!configPath) throw new Error('Workspace not configured');
         const yaml = await invoke<string>('read_file', {
-          path: 'feature-workflow/config.yaml',
+          path: configPath,
         });
         if (signal?.aborted) return;
         const parsed = parseWorkflowConfig(yaml);
@@ -183,9 +193,11 @@ export function useWorkflowConfig() {
 
     try {
       if (isTauri) {
+        const configPath = await resolveConfigPath();
+        if (!configPath) throw new Error('Workspace not configured');
         const yaml = serializeWorkflowConfig(config);
         await invoke('write_file', {
-          path: 'feature-workflow/config.yaml',
+          path: configPath,
           content: yaml,
         });
       } else {
