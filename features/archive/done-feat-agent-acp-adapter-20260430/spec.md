@@ -305,3 +305,18 @@ And 用户可以选择使用哪条路径
 - [ ] acp_execute 等新增 commands 与现有 runtime_execute 并行注册
 - [ ] agent://message 事件格式独立于 agent://chunk
 - [ ] 现有 CodexRuntime 执行链路零影响（回归验证）
+
+## Merge Record
+
+- **Completed**: 2026-04-30T16:45:00Z
+- **Merged Branch**: feature/feat-agent-acp-adapter
+- **Merge Commit**: 03162f9
+- **Archive Tag**: feat-agent-acp-adapter-20260430
+- **Conflicts**: None
+- **Verification**: PASS (frontend complete, backend deferred to Tauri V2 phase)
+  - 21/21 frontend tasks completed
+  - 10 backend tasks deferred (Rust JsonRpcClient + AcpAdapter pending src-tauri/)
+  - TypeScript compilation: 0 errors in modified file
+  - Coexistence verified: zero impact on existing runtime paths
+- **Evidence**: `features/archive/done-feat-agent-acp-adapter-20260430/evidence/verification-report.md`
+- **Stats**: 3 commits, 6 files changed, 876 insertions

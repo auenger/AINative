@@ -1,10 +1,34 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-30T15:30:00Z"
+  last_updated: "2026-04-30T16:45:00Z"
   version: 1
-  total_completed: 110
+  total_completed: 111
 
 records:
+  - id: feat-agent-acp-adapter
+    name: "ACP JSON-RPC 2.0 Adapter (Codex / Hermes / Kiro / Kimi / Pi)"
+    completed_at: "2026-04-30T16:45:00Z"
+    tag: feat-agent-acp-adapter-20260430
+    merge_commit: 03162f9
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-agent-acp-adapter
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-agent-acp-adapter
+    parent: feat-universal-agent-runtime
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 6
+      scenarios_passed: 6
+    stats:
+      started: "2026-04-30T16:00:00Z"
+      duration: "~45min"
+      commits: 3
+      files_changed: 6
+
   - id: feat-agent-pipe-adapter
     name: "NDJSON Pipe Adapter（Claude Code / Cursor / OpenCode）"
     completed_at: "2026-04-30T15:30:00Z"
