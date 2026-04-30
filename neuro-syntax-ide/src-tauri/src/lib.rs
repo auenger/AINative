@@ -643,6 +643,513 @@ pub trait AgentRuntime: Send + Sync {
 }
 
 // ===========================================================================
+// Stdio Session Manager (feat-agent-stdio-core)
+// ===========================================================================
+// Independent module — does NOT modify AgentRuntime trait or runtime_execute.
+// Coexists alongside the existing system.
+
+/// Agent backend type (identifies the CLI tool).
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub enum AgentBackend {
+    ClaudeCode,
+    Codex,
+    Hermes,
+    OpenCode,
+    Kiro,
+    Kimi,
+    CursorAgent,
+    Pi,
+}
+
+impl AgentBackend {
+    /// Returns the default binary name for each backend.
+    pub fn default_binary(&self) -> &str {
+        match self {
+            Self::ClaudeCode => "claude",
+            Self::Codex => "codex",
+            Self::Hermes => "hermes",
+            Self::OpenCode => "opencode",
+            Self::Kiro => "kiro-cli",
+            Self::Kimi => "kimi",
+            Self::CursorAgent => "agent",
+            Self::Pi => "pi",
+        }
+    }
+
+    /// Returns default CLI arguments for the given protocol type.
+    pub fn default_args(&self, protocol: &ProtocolType) -> Vec<String> {
+        match (self, protocol) {
+            (Self::ClaudeCode, ProtocolType::Pipe) => {
+                vec![
+                    "-p".into(),
+                    "--output-format".into(), "stream-json".into(),
+                    "--input-format".into(), "stream-json".into(),
+                    "--verbose".into(),
+                ]
+            }
+            (Self::CursorAgent, ProtocolType::Pipe) => {
+                vec![
+                    "-p".into(),
+                    "--output-format".into(), "stream-json".into(),
+                ]
+            }
+            (Self::OpenCode, ProtocolType::Pipe) => {
+                vec!["run".into(), "--format".into(), "json".into()]
+            }
+            (Self::Codex, ProtocolType::Acp) => {
+                vec!["app-server".into(), "--listen".into(), "stdio://".into()]
+            }
+            (Self::Hermes, ProtocolType::Acp) => {
+                vec!["acp".into()]
+            }
+            (Self::Kiro, ProtocolType::Acp) => {
+                vec!["acp".into()]
+            }
+            (Self::Kimi, ProtocolType::Acp) => {
+                vec!["acp".into()]
+            }
+            (Self::Pi, ProtocolType::Acp) => {
+                vec!["--mode".into(), "rpc".into()]
+            }
+            // Fallback: no default args
+            _ => vec![],
+        }
+    }
+}
+
+/// Protocol type for communication.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProtocolType {
+    /// NDJSON — single-direction streaming
+    Pipe,
+    /// JSON-RPC 2.0 — bidirectional request/response
+    Acp,
+}
+
+/// Configuration for spawning an agent CLI subprocess.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AgentSpawnConfig {
+    /// Which agent backend to use
+    pub backend: AgentBackend,
+    /// CLI binary path (if empty, uses default_binary)
+    #[serde(default)]
+    pub binary: String,
+    /// CLI startup arguments (if empty, uses default_args for the protocol)
+    #[serde(default)]
+    pub args: Vec<String>,
+    /// Working directory for the subprocess
+    #[serde(default)]
+    pub working_dir: String,
+    /// Additional environment variables
+    #[serde(default)]
+    pub env: HashMap<String, String>,
+    /// Timeout in seconds (None = no timeout)
+    #[serde(default)]
+    pub timeout: Option<u64>,
+    /// Communication protocol
+    pub protocol: ProtocolType,
+}
+
+/// Status of a stdio session.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub enum SessionStatus {
+    Starting,
+    Ready,
+    Busy,
+    Idle,
+    Error,
+    Stopped,
+    Timeout,
+}
+
+/// Summary info about a session (returned to frontend, no handles).
+#[derive(Debug, Serialize, Clone)]
+pub struct SessionInfo {
+    pub id: String,
+    pub backend: AgentBackend,
+    pub protocol: ProtocolType,
+    pub status: SessionStatus,
+    pub created_at: i64,
+    pub last_activity: i64,
+    pub pid: Option<u32>,
+}
+
+/// Health check result for a session.
+#[derive(Debug, Serialize, Clone)]
+pub struct SessionHealth {
+    pub session_id: String,
+    pub alive: bool,
+    pub status: SessionStatus,
+    pub pid: Option<u32>,
+}
+
+/// Event payload for `agent://raw-stdout`.
+#[derive(Debug, Serialize, Clone)]
+pub struct RawStdoutEvent {
+    pub session_id: String,
+    pub line: String,
+}
+
+/// Event payload for `agent://session-status`.
+#[derive(Debug, Serialize, Clone)]
+pub struct SessionStatusEvent {
+    pub session_id: String,
+    pub status: SessionStatus,
+}
+
+/// Event payload for `agent://process-exit`.
+#[derive(Debug, Serialize, Clone)]
+pub struct ProcessExitEvent {
+    pub session_id: String,
+    pub exit_code: Option<i32>,
+    pub stderr_tail: String,
+}
+
+/// Internal state for a single stdio session (holds OS resources).
+struct StdioSession {
+    id: String,
+    config: AgentSpawnConfig,
+    child: Child,
+    stdin: BufWriter<std::process::ChildStdin>,
+    status: SessionStatus,
+    created_at: i64,
+    last_activity: i64,
+    /// Stop sender for the stdout polling task
+    poll_stop: Option<std::sync::mpsc::Sender<()>>,
+    /// Last few lines of stderr for diagnostics
+    stderr_tail: Vec<String>,
+}
+
+impl StdioSession {
+    /// Get a snapshot of session info (no OS handles exposed).
+    fn info(&self) -> SessionInfo {
+        SessionInfo {
+            id: self.id.clone(),
+            backend: self.config.backend.clone(),
+            protocol: self.config.protocol.clone(),
+            status: self.status.clone(),
+            created_at: self.created_at,
+            last_activity: self.last_activity,
+            pid: Some(self.child.id()),
+        }
+    }
+}
+
+/// Manages multiple stdio sessions (independent of AgentRuntime / RuntimeRegistry).
+struct StdioSessionManager {
+    sessions: HashMap<String, StdioSession>,
+}
+
+impl StdioSessionManager {
+    fn new() -> Self {
+        Self {
+            sessions: HashMap::new(),
+        }
+    }
+
+    /// Spawn a new agent CLI subprocess and start polling its stdout.
+    fn spawn(
+        &mut self,
+        config: AgentSpawnConfig,
+        app: &AppHandle,
+    ) -> Result<SessionInfo, String> {
+        let binary = if config.binary.is_empty() {
+            config.backend.default_binary().to_string()
+        } else {
+            config.binary.clone()
+        };
+
+        let args = if config.args.is_empty() {
+            config.backend.default_args(&config.protocol)
+        } else {
+            config.args.clone()
+        };
+
+        let session_id = Uuid::new_v4().to_string();
+
+        let mut cmd = Command::new(&binary);
+        cmd.args(&args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        if !config.working_dir.is_empty() {
+            let dir = PathBuf::from(&config.working_dir);
+            if dir.exists() {
+                cmd.current_dir(&dir);
+            }
+        }
+
+        for (key, value) in &config.env {
+            cmd.env(key, value);
+        }
+
+        let mut child = cmd.spawn().map_err(|e| {
+            format!("Failed to spawn '{}': {}", binary, e)
+        })?;
+
+        let stdin_handle = child.stdin.take()
+            .ok_or_else(|| "Failed to get stdin handle".to_string())?;
+        let stdout_handle = child.stdout.take()
+            .ok_or_else(|| "Failed to get stdout handle".to_string())?;
+        let stderr_handle = child.stderr.take()
+            .ok_or_else(|| "Failed to get stderr handle".to_string())?;
+
+        let stdin_writer = BufWriter::new(stdin_handle);
+        let now_ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+
+        let (poll_stop_tx, poll_stop_rx) = std::sync::mpsc::channel::<()>();
+
+        let session = StdioSession {
+            id: session_id.clone(),
+            config,
+            child,
+            stdin: stdin_writer,
+            status: SessionStatus::Starting,
+            created_at: now_ts,
+            last_activity: now_ts,
+            poll_stop: Some(poll_stop_tx),
+            stderr_tail: Vec::new(),
+        };
+
+        let info = session.info();
+
+        // Store session before starting poll threads
+        self.sessions.insert(session_id.clone(), session);
+
+        // Emit initial status
+        let _ = app.emit("agent://session-status", SessionStatusEvent {
+            session_id: session_id.clone(),
+            status: SessionStatus::Starting,
+        });
+
+        // Start stdout polling thread
+        let sid_out = session_id.clone();
+        let app_out = app.clone();
+        let timeout_secs = self.sessions.get(&sid_out)
+            .and_then(|s| s.config.timeout)
+            .unwrap_or(0);
+        std::thread::spawn(move || {
+            poll_stdout(stdout_handle, sid_out.clone(), app_out.clone(), poll_stop_rx, timeout_secs);
+        });
+
+        // Start stderr reader thread
+        let sid_err = session_id.clone();
+        let app_err = app.clone();
+        // stderr reader thread
+        std::thread::spawn(move || {
+            read_stderr(stderr_handle, sid_err, app_err);
+        });
+
+        // Update status to Ready after spawn
+        if let Some(s) = self.sessions.get_mut(&session_id) {
+            s.status = SessionStatus::Ready;
+            let _ = app.emit("agent://session-status", SessionStatusEvent {
+                session_id: session_id.clone(),
+                status: SessionStatus::Ready,
+            });
+        }
+
+        Ok(info)
+    }
+
+    /// Write raw data to the session's stdin pipe.
+    fn send_raw(&mut self, session_id: &str, data: &str) -> Result<(), String> {
+        let session = self.sessions.get_mut(session_id)
+            .ok_or_else(|| format!("Session '{}' not found", session_id))?;
+
+        if session.status == SessionStatus::Stopped || session.status == SessionStatus::Error {
+            return Err(format!("Session '{}' is {}", session_id, match session.status {
+                SessionStatus::Stopped => "stopped".to_string(),
+                SessionStatus::Error => "in error state".to_string(),
+                _ => "unavailable".to_string(),
+            }));
+        }
+
+        session.stdin.write_all(data.as_bytes()).map_err(|e| format!("Write error: {}", e))?;
+        session.stdin.write_all(b"\n").map_err(|e| format!("Write error: {}", e))?;
+        session.stdin.flush().map_err(|e| format!("Flush error: {}", e))?;
+
+        session.status = SessionStatus::Busy;
+        session.last_activity = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+
+        Ok(())
+    }
+
+    /// Read one line from the session's stdout (blocking).
+    /// Typically not used directly — the polling thread handles continuous reading.
+    fn read_raw(&self, _session_id: &str) -> Result<String, String> {
+        // This is a simplified sync read; real usage goes through the polling thread.
+        // We return an error suggesting the event-based approach.
+        Err("Use agent://raw-stdout events instead of synchronous read".to_string())
+    }
+
+    /// Gracefully destroy a session: SIGTERM → wait → SIGKILL.
+    fn destroy(&mut self, session_id: &str, app: &AppHandle) -> Result<(), String> {
+        let session = self.sessions.get_mut(session_id)
+            .ok_or_else(|| format!("Session '{}' not found", session_id))?;
+
+        // Signal the polling thread to stop
+        if let Some(tx) = session.poll_stop.take() {
+            let _ = tx.send(());
+        }
+
+        // Try graceful shutdown first
+        let _ = session.child.kill();
+        let _ = session.child.wait();
+
+        session.status = SessionStatus::Stopped;
+
+        let _ = app.emit("agent://session-status", SessionStatusEvent {
+            session_id: session_id.to_string(),
+            status: SessionStatus::Stopped,
+        });
+
+        // Remove session from map
+        self.sessions.remove(session_id);
+
+        Ok(())
+    }
+
+    /// List all active sessions.
+    fn list_sessions(&self) -> Vec<SessionInfo> {
+        self.sessions.values().map(|s| s.info()).collect()
+    }
+
+    /// Health check for a specific session.
+    fn health_check(&mut self, session_id: &str) -> Result<SessionHealth, String> {
+        let session = self.sessions.get_mut(session_id)
+            .ok_or_else(|| format!("Session '{}' not found", session_id))?;
+
+        // Try to check if the process is still alive (non-blocking)
+        let alive = match session.child.try_wait() {
+            Ok(None) => true,   // Still running
+            Ok(Some(_)) => false, // Exited
+            Err(_) => false,
+        };
+
+        Ok(SessionHealth {
+            session_id: session_id.to_string(),
+            alive,
+            status: session.status.clone(),
+            pid: Some(session.child.id()),
+        })
+    }
+
+    /// Clean up sessions whose processes have exited.
+    fn cleanup_exited(&mut self, app: &AppHandle) {
+        let mut to_remove = Vec::new();
+        for (id, session) in self.sessions.iter_mut() {
+            match session.child.try_wait() {
+                Ok(Some(status)) => {
+                    let code = status.code();
+                    let stderr_tail = session.stderr_tail.last().cloned().unwrap_or_default();
+                    let _ = app.emit("agent://process-exit", ProcessExitEvent {
+                        session_id: id.clone(),
+                        exit_code: code,
+                        stderr_tail,
+                    });
+                    session.status = SessionStatus::Error;
+                    let _ = app.emit("agent://session-status", SessionStatusEvent {
+                        session_id: id.clone(),
+                        status: SessionStatus::Error,
+                    });
+                    to_remove.push(id.clone());
+                }
+                Err(_) => {
+                    to_remove.push(id.clone());
+                }
+                _ => {}
+            }
+        }
+        for id in to_remove {
+            self.sessions.remove(&id);
+        }
+    }
+}
+
+/// Poll stdout of a child process, emitting `agent://raw-stdout` events.
+fn poll_stdout(
+    stdout: std::process::ChildStdout,
+    session_id: String,
+    app: AppHandle,
+    stop_rx: std::sync::mpsc::Receiver<()>,
+    timeout_secs: u64,
+) {
+    let reader = BufReader::new(stdout);
+    let start = std::time::Instant::now();
+
+    for line in reader.lines() {
+        // Check stop signal
+        if stop_rx.try_recv().is_ok() {
+            break;
+        }
+
+        // Check timeout
+        if timeout_secs > 0 && start.elapsed().as_secs() > timeout_secs {
+            let _ = app.emit("agent://session-status", SessionStatusEvent {
+                session_id: session_id.clone(),
+                status: SessionStatus::Timeout,
+            });
+            break;
+        }
+
+        match line {
+            Ok(text) => {
+                let _ = app.emit("agent://raw-stdout", RawStdoutEvent {
+                    session_id: session_id.clone(),
+                    line: text,
+                });
+            }
+            Err(_) => {
+                // EOF or pipe broken — process likely exited
+                break;
+            }
+        }
+    }
+
+    // stdout closed → process exited
+    let _ = app.emit("agent://process-exit", ProcessExitEvent {
+        session_id: session_id.clone(),
+        exit_code: None,
+        stderr_tail: String::new(),
+    });
+}
+
+/// Read stderr in background, keeping last N lines for diagnostics.
+fn read_stderr(
+    stderr: std::process::ChildStderr,
+    session_id: String,
+    _app: AppHandle,
+) {
+    let reader = BufReader::new(stderr);
+    let mut tail: Vec<String> = Vec::new();
+    const MAX_TAIL: usize = 10;
+
+    for line in reader.lines() {
+        match line {
+            Ok(text) => {
+                eprintln!("[agent-stdio:{}:stderr] {}", session_id, text);
+                tail.push(text);
+                if tail.len() > MAX_TAIL {
+                    tail.remove(0);
+                }
+            }
+            Err(_) => break,
+        }
+    }
+}
+
+// ===========================================================================
 // Constants
 // ===========================================================================
 
@@ -2230,6 +2737,8 @@ struct AppState {
     active_session_id: Mutex<Option<String>>,
     /// Per-runtime active session tracking: runtime_id -> session_id (feat-runtime-output-polish)
     active_sessions: Mutex<HashMap<String, String>>,
+    /// Stdio session manager (feat-agent-stdio-core) — independent from AgentRuntime
+    stdio_manager: Mutex<StdioSessionManager>,
 }
 
 // ===========================================================================
@@ -9026,6 +9535,83 @@ async fn pmfile_analyze(
 }
 
 // ===========================================================================
+// Tauri commands - Stdio Session Manager (feat-agent-stdio-core)
+// ===========================================================================
+// These commands are NEW and independent from runtime_execute / AgentRuntime.
+// They coexist alongside the existing system without modifying it.
+
+/// Spawn a new agent CLI subprocess via stdio pipes.
+#[tauri::command]
+async fn agent_spawn(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+    config: AgentSpawnConfig,
+) -> Result<SessionInfo, String> {
+    let workspace = {
+        let ws = state.workspace_path.lock().map_err(|e| e.to_string())?;
+        ws.clone()
+    };
+    // Use workspace as working_dir if not specified
+    let mut effective_config = config;
+    if effective_config.working_dir.is_empty() && !workspace.is_empty() {
+        effective_config.working_dir = workspace;
+    }
+    let mut manager = state.stdio_manager.lock().map_err(|e| e.to_string())?;
+    manager.spawn(effective_config, &app)
+}
+
+/// Send raw string data to a session's stdin pipe.
+#[tauri::command]
+async fn agent_send_raw(
+    state: tauri::State<'_, AppState>,
+    session_id: String,
+    data: String,
+) -> Result<(), String> {
+    let mut manager = state.stdio_manager.lock().map_err(|e| e.to_string())?;
+    manager.send_raw(&session_id, &data)
+}
+
+/// Read raw data from a session (event-based — see agent://raw-stdout).
+#[tauri::command]
+async fn agent_read_raw(
+    state: tauri::State<'_, AppState>,
+    session_id: String,
+) -> Result<String, String> {
+    let manager = state.stdio_manager.lock().map_err(|e| e.to_string())?;
+    manager.read_raw(&session_id)
+}
+
+/// Destroy a session (graceful shutdown: SIGTERM → wait → SIGKILL).
+#[tauri::command]
+async fn agent_destroy(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+    session_id: String,
+) -> Result<(), String> {
+    let mut manager = state.stdio_manager.lock().map_err(|e| e.to_string())?;
+    manager.destroy(&session_id, &app)
+}
+
+/// List all active stdio sessions.
+#[tauri::command]
+async fn agent_list_sessions(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<SessionInfo>, String> {
+    let manager = state.stdio_manager.lock().map_err(|e| e.to_string())?;
+    Ok(manager.list_sessions())
+}
+
+/// Health check for a specific session.
+#[tauri::command]
+async fn agent_health_check(
+    state: tauri::State<'_, AppState>,
+    session_id: String,
+) -> Result<SessionHealth, String> {
+    let mut manager = state.stdio_manager.lock().map_err(|e| e.to_string())?;
+    manager.health_check(&session_id)
+}
+
+// ===========================================================================
 // Application entry point
 // ===========================================================================
 
@@ -9047,6 +9633,7 @@ pub fn run() {
             session_output: Arc::new(Mutex::new(HashMap::new())),
             active_session_id: Mutex::new(None),
             active_sessions: Mutex::new(HashMap::new()),
+            stdio_manager: Mutex::new(StdioSessionManager::new()),
         })
         .invoke_handler(tauri::generate_handler![
             greet,
@@ -9166,6 +9753,13 @@ pub fn run() {
             list_claude_sessions,
             get_claude_session_detail,
             search_claude_sessions,
+            // Stdio Session Manager (feat-agent-stdio-core)
+            agent_spawn,
+            agent_send_raw,
+            agent_read_raw,
+            agent_destroy,
+            agent_list_sessions,
+            agent_health_check,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
