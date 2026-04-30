@@ -1150,6 +1150,732 @@ fn read_stderr(
 }
 
 // ===========================================================================
+// PipeAdapter — NDJSON Pipe Protocol Adapter (feat-agent-pipe-adapter)
+// Coexistence: Uses StdioSessionManager, does NOT modify AgentRuntime/ClaudeCodeRuntime.
+// Emits agent://message events (independent from agent://chunk).
+// ===========================================================================
+
+/// Parsed message from a pipe agent, sent to the frontend via `agent://message`.
+#[derive(Debug, Serialize, Clone)]
+pub struct PipeMessage {
+    /// Session ID from StdioSessionManager
+    pub session_id: String,
+    /// Message type: "system" | "assistant" | "user" | "result" | "tool_use" | "tool_result" |
+    ///              "control_request" | "control_response" | "thinking" | "error"
+    pub msg_type: String,
+    /// Optional subtype (e.g. "init", "success", "started", "completed")
+    pub subtype: Option<String>,
+    /// Text content (assistant text, result text, etc.)
+    pub text: Option<String>,
+    /// Tool name (for tool_use / tool_result / control_request)
+    pub tool_name: Option<String>,
+    /// Tool input as JSON (for tool_use / control_request)
+    pub tool_input: Option<serde_json::Value>,
+    /// Tool result content (for tool_result)
+    pub tool_result: Option<String>,
+    /// Tool state: "started" | "completed" (Cursor Agent)
+    pub tool_state: Option<String>,
+    /// Cost in USD (Claude Code result)
+    pub cost_usd: Option<f64>,
+    /// Duration in ms
+    pub duration_ms: Option<u64>,
+    /// Session ID from the agent itself (Claude Code session_id)
+    pub agent_session_id: Option<String>,
+    /// Model name (from system init)
+    pub model: Option<String>,
+    /// Whether this is the final message (process done)
+    pub is_final: bool,
+    /// Raw JSON line for debugging
+    pub raw: Option<String>,
+}
+
+/// Result of a pipe execution session.
+#[derive(Debug, Serialize, Clone)]
+pub struct PipeSession {
+    /// StdioSessionManager session ID
+    pub session_id: String,
+    /// Agent backend used
+    pub backend: AgentBackend,
+    /// Final result text (if available)
+    pub result: Option<String>,
+    /// Cost in USD
+    pub cost_usd: Option<f64>,
+    /// Duration in ms
+    pub duration_ms: Option<u64>,
+}
+
+/// Build stdin input for a pipe agent based on backend type.
+fn build_prompt_input(backend: &AgentBackend, prompt: &str) -> String {
+    match backend {
+        AgentBackend::ClaudeCode => {
+            serde_json::json!({
+                "type": "user",
+                "message": {
+                    "role": "user",
+                    "content": [{"type": "text", "text": prompt}]
+                }
+            }).to_string()
+        }
+        _ => prompt.to_string(),
+    }
+}
+
+/// Build CLI args for a pipe agent, including optional model/resume/system-prompt.
+fn build_pipe_args(
+    backend: &AgentBackend,
+    model: Option<&str>,
+    resume_session: Option<&str>,
+    system_prompt: Option<&str>,
+) -> Vec<String> {
+    let mut args = backend.default_args(&ProtocolType::Pipe);
+
+    match backend {
+        AgentBackend::ClaudeCode => {
+            args.push("--permission-mode".into());
+            args.push("bypassPermissions".into());
+            if let Some(m) = model {
+                args.push("--model".into());
+                args.push(m.into());
+            }
+            if let Some(s) = resume_session {
+                args.push("--resume".into());
+                args.push(s.into());
+            }
+            if let Some(sp) = system_prompt {
+                args.push("--append-system-prompt".into());
+                args.push(sp.into());
+            }
+        }
+        AgentBackend::CursorAgent => {
+            args.push("--force".into());
+        }
+        _ => {}
+    }
+
+    args
+}
+
+/// Parse a single NDJSON line from Claude Code into a PipeMessage.
+fn parse_claude_message(session_id: &str, json: serde_json::Value, raw: &str) -> Option<PipeMessage> {
+    let msg_type = json.get("type")?.as_str()?.to_string();
+
+    match msg_type.as_str() {
+        "system" => Some(PipeMessage {
+            session_id: session_id.to_string(),
+            msg_type: "system".into(),
+            subtype: json.get("subtype").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            text: None,
+            tool_name: None,
+            tool_input: None,
+            tool_result: None,
+            tool_state: None,
+            cost_usd: None,
+            duration_ms: None,
+            agent_session_id: json.get("session_id").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            model: None,
+            is_final: false,
+            raw: Some(raw.to_string()),
+        }),
+        "assistant" => {
+            let content_arr = json.get("message")
+                .and_then(|m| m.get("content"))
+                .and_then(|c| c.as_array());
+
+            // Check for tool_use blocks first (highest priority)
+            if let Some(blocks) = content_arr {
+                if let Some(tool) = blocks.iter().find(|b| {
+                    b.get("type").and_then(|t| t.as_str()) == Some("tool_use")
+                }) {
+                    return Some(PipeMessage {
+                        session_id: session_id.to_string(),
+                        msg_type: "tool_use".into(),
+                        subtype: None,
+                        text: None,
+                        tool_name: tool.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                        tool_input: tool.get("input").cloned(),
+                        tool_result: None,
+                        tool_state: None,
+                        cost_usd: None,
+                        duration_ms: None,
+                        agent_session_id: None,
+                        model: None,
+                        is_final: false,
+                        raw: Some(raw.to_string()),
+                    });
+                }
+            }
+
+            // Check for thinking blocks
+            if let Some(blocks) = content_arr {
+                if let Some(think_text) = blocks.iter().find_map(|b| {
+                    if b.get("type").and_then(|t| t.as_str()) == Some("thinking") {
+                        b.get("thinking").and_then(|t| t.as_str()).map(|s| s.to_string())
+                    } else { None }
+                }) {
+                    return Some(PipeMessage {
+                        session_id: session_id.to_string(),
+                        msg_type: "thinking".into(),
+                        subtype: None,
+                        text: Some(think_text),
+                        tool_name: None,
+                        tool_input: None,
+                        tool_result: None,
+                        tool_state: None,
+                        cost_usd: None,
+                        duration_ms: None,
+                        agent_session_id: None,
+                        model: None,
+                        is_final: false,
+                        raw: Some(raw.to_string()),
+                    });
+                }
+            }
+
+            // Regular text
+            let text = content_arr.and_then(|blocks| {
+                blocks.iter().find_map(|b| {
+                    if b.get("type").and_then(|t| t.as_str()) == Some("text") {
+                        b.get("text").and_then(|t| t.as_str()).map(|s| s.to_string())
+                    } else { None }
+                })
+            });
+
+            Some(PipeMessage {
+                session_id: session_id.to_string(),
+                msg_type: "assistant".into(),
+                subtype: None,
+                text,
+                tool_name: None,
+                tool_input: None,
+                tool_result: None,
+                tool_state: None,
+                cost_usd: None,
+                duration_ms: None,
+                agent_session_id: None,
+                model: None,
+                is_final: false,
+                raw: Some(raw.to_string()),
+            })
+        }
+        "user" => {
+            let tool_result = json.get("message")
+                .and_then(|m| m.get("content"))
+                .and_then(|c| c.as_array())
+                .and_then(|blocks| {
+                    blocks.iter().find_map(|b| {
+                        if b.get("type").and_then(|t| t.as_str()) == Some("tool_result") {
+                            b.get("content").and_then(|c| {
+                                if let Some(s) = c.as_str() {
+                                    Some(s.to_string())
+                                } else {
+                                    c.as_array().map(|arr| {
+                                        arr.iter()
+                                            .filter_map(|bl| bl.get("text").and_then(|t| t.as_str()))
+                                            .collect::<Vec<_>>()
+                                            .join("\n")
+                                    })
+                                }
+                            })
+                        } else { None }
+                    })
+                });
+
+            Some(PipeMessage {
+                session_id: session_id.to_string(),
+                msg_type: "tool_result".into(),
+                subtype: None,
+                text: None,
+                tool_name: None,
+                tool_input: None,
+                tool_result,
+                tool_state: None,
+                cost_usd: None,
+                duration_ms: None,
+                agent_session_id: None,
+                model: None,
+                is_final: false,
+                raw: Some(raw.to_string()),
+            })
+        }
+        "result" => Some(PipeMessage {
+            session_id: session_id.to_string(),
+            msg_type: "result".into(),
+            subtype: json.get("subtype").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            text: json.get("result").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            tool_name: None,
+            tool_input: None,
+            tool_result: None,
+            tool_state: None,
+            cost_usd: json.get("cost_usd").and_then(|v| v.as_f64()),
+            duration_ms: json.get("duration_ms").and_then(|v| v.as_u64()),
+            agent_session_id: None,
+            model: None,
+            is_final: true,
+            raw: Some(raw.to_string()),
+        }),
+        "control_request" => Some(PipeMessage {
+            session_id: session_id.to_string(),
+            msg_type: "control_request".into(),
+            subtype: None,
+            text: None,
+            tool_name: json.get("tool").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            tool_input: json.get("input").cloned(),
+            tool_result: None,
+            tool_state: None,
+            cost_usd: None,
+            duration_ms: None,
+            agent_session_id: None,
+            model: None,
+            is_final: false,
+            raw: Some(raw.to_string()),
+        }),
+        _ => Some(PipeMessage {
+            session_id: session_id.to_string(),
+            msg_type: msg_type.clone(),
+            subtype: None,
+            text: None,
+            tool_name: None,
+            tool_input: None,
+            tool_result: None,
+            tool_state: None,
+            cost_usd: None,
+            duration_ms: None,
+            agent_session_id: None,
+            model: None,
+            is_final: false,
+            raw: Some(raw.to_string()),
+        }),
+    }
+}
+
+/// Parse a single NDJSON line from Cursor Agent into a PipeMessage.
+fn parse_cursor_message(session_id: &str, json: serde_json::Value, raw: &str) -> Option<PipeMessage> {
+    let msg_type = json.get("type")?.as_str()?.to_string();
+
+    match msg_type.as_str() {
+        "system" => Some(PipeMessage {
+            session_id: session_id.to_string(),
+            msg_type: "system".into(),
+            subtype: None,
+            text: None,
+            tool_name: None,
+            tool_input: None,
+            tool_result: None,
+            tool_state: None,
+            cost_usd: None,
+            duration_ms: None,
+            agent_session_id: None,
+            model: json.get("model").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            is_final: false,
+            raw: Some(raw.to_string()),
+        }),
+        "assistant" => Some(PipeMessage {
+            session_id: session_id.to_string(),
+            msg_type: "assistant".into(),
+            subtype: None,
+            text: json.get("text_delta").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            tool_name: None,
+            tool_input: None,
+            tool_result: None,
+            tool_state: None,
+            cost_usd: None,
+            duration_ms: None,
+            agent_session_id: None,
+            model: None,
+            is_final: false,
+            raw: Some(raw.to_string()),
+        }),
+        "tool_call" => {
+            let tool_state = json.get("state").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let is_completed = tool_state.as_deref() == Some("completed");
+            Some(PipeMessage {
+                session_id: session_id.to_string(),
+                msg_type: if is_completed { "tool_result" } else { "tool_use" }.into(),
+                subtype: None,
+                text: None,
+                tool_name: json.get("tool").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                tool_input: None,
+                tool_result: if is_completed {
+                    json.get("result").and_then(|v| v.as_str()).map(|s| s.to_string())
+                } else { None },
+                tool_state,
+                cost_usd: None,
+                duration_ms: None,
+                agent_session_id: None,
+                model: None,
+                is_final: false,
+                raw: Some(raw.to_string()),
+            })
+        }
+        "result" => Some(PipeMessage {
+            session_id: session_id.to_string(),
+            msg_type: "result".into(),
+            subtype: None,
+            text: None,
+            tool_name: None,
+            tool_input: None,
+            tool_result: None,
+            tool_state: None,
+            cost_usd: None,
+            duration_ms: json.get("duration_ms").and_then(|v| v.as_u64()),
+            agent_session_id: None,
+            model: None,
+            is_final: true,
+            raw: Some(raw.to_string()),
+        }),
+        _ => None,
+    }
+}
+
+/// Parse a single JSON line from OpenCode into a PipeMessage.
+fn parse_opencode_message(session_id: &str, json: &serde_json::Value, raw: &str) -> Option<PipeMessage> {
+    let event = json.get("event")?.as_str()?.to_string();
+
+    match event.as_str() {
+        "message" => Some(PipeMessage {
+            session_id: session_id.to_string(),
+            msg_type: "assistant".into(),
+            subtype: None,
+            text: json.get("content").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            tool_name: None,
+            tool_input: None,
+            tool_result: None,
+            tool_state: None,
+            cost_usd: None,
+            duration_ms: None,
+            agent_session_id: None,
+            model: None,
+            is_final: false,
+            raw: Some(raw.to_string()),
+        }),
+        "tool_use" => Some(PipeMessage {
+            session_id: session_id.to_string(),
+            msg_type: "tool_use".into(),
+            subtype: None,
+            text: None,
+            tool_name: json.get("tool").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            tool_input: json.get("input").cloned(),
+            tool_result: None,
+            tool_state: None,
+            cost_usd: None,
+            duration_ms: None,
+            agent_session_id: None,
+            model: None,
+            is_final: false,
+            raw: Some(raw.to_string()),
+        }),
+        "tool_result" => Some(PipeMessage {
+            session_id: session_id.to_string(),
+            msg_type: "tool_result".into(),
+            subtype: None,
+            text: None,
+            tool_name: json.get("tool").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            tool_input: None,
+            tool_result: json.get("output").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            tool_state: None,
+            cost_usd: None,
+            duration_ms: None,
+            agent_session_id: None,
+            model: None,
+            is_final: false,
+            raw: Some(raw.to_string()),
+        }),
+        "complete" => Some(PipeMessage {
+            session_id: session_id.to_string(),
+            msg_type: "result".into(),
+            subtype: json.get("status").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            text: None,
+            tool_name: None,
+            tool_input: None,
+            tool_result: None,
+            tool_state: None,
+            cost_usd: None,
+            duration_ms: None,
+            agent_session_id: None,
+            model: None,
+            is_final: true,
+            raw: Some(raw.to_string()),
+        }),
+        _ => None,
+    }
+}
+
+/// Parse a raw NDJSON line from any pipe agent into a unified PipeMessage.
+fn parse_pipe_line(session_id: &str, backend: &AgentBackend, line: &str) -> Option<PipeMessage> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let json: serde_json::Value = match serde_json::from_str(trimmed) {
+        Ok(v) => v,
+        Err(_) => {
+            // Not valid JSON — emit as raw text
+            return Some(PipeMessage {
+                session_id: session_id.to_string(),
+                msg_type: "assistant".into(),
+                subtype: None,
+                text: Some(trimmed.to_string()),
+                tool_name: None,
+                tool_input: None,
+                tool_result: None,
+                tool_state: None,
+                cost_usd: None,
+                duration_ms: None,
+                agent_session_id: None,
+                model: None,
+                is_final: false,
+                raw: Some(trimmed.to_string()),
+            });
+        }
+    };
+
+    match backend {
+        AgentBackend::ClaudeCode => parse_claude_message(session_id, json, trimmed),
+        AgentBackend::CursorAgent => parse_cursor_message(session_id, json, trimmed),
+        AgentBackend::OpenCode => parse_opencode_message(session_id, &json, trimmed),
+        _ => {
+            let msg_type = json.get("type")
+                .or_else(|| json.get("event"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+            Some(PipeMessage {
+                session_id: session_id.to_string(),
+                msg_type,
+                subtype: None,
+                text: None,
+                tool_name: None,
+                tool_input: None,
+                tool_result: None,
+                tool_state: None,
+                cost_usd: None,
+                duration_ms: None,
+                agent_session_id: None,
+                model: None,
+                is_final: false,
+                raw: Some(trimmed.to_string()),
+            })
+        }
+    }
+}
+
+/// Poll stdout of a pipe child process, parsing NDJSON and emitting `agent://message` events.
+/// Unlike `poll_stdout` which emits raw lines, this one parses each line according to the backend
+/// and handles control_request auto-approval for Claude Code.
+fn poll_pipe_stdout(
+    stdout: std::process::ChildStdout,
+    session_id: String,
+    backend: AgentBackend,
+    app: AppHandle,
+    stop_rx: std::sync::mpsc::Receiver<()>,
+    timeout_secs: u64,
+    stdin_writer: std::sync::mpsc::Sender<String>,
+) {
+    let reader = BufReader::new(stdout);
+    let start = std::time::Instant::now();
+
+    for line in reader.lines() {
+        if stop_rx.try_recv().is_ok() {
+            break;
+        }
+
+        if timeout_secs > 0 && start.elapsed().as_secs() > timeout_secs {
+            let _ = app.emit("agent://message", PipeMessage {
+                session_id: session_id.clone(),
+                msg_type: "error".into(),
+                subtype: Some("timeout".into()),
+                text: Some(format!("Pipe execution timed out after {}s", timeout_secs)),
+                tool_name: None,
+                tool_input: None,
+                tool_result: None,
+                tool_state: None,
+                cost_usd: None,
+                duration_ms: Some(timeout_secs * 1000),
+                agent_session_id: None,
+                model: None,
+                is_final: true,
+                raw: None,
+            });
+            let _ = app.emit("agent://session-status", SessionStatusEvent {
+                session_id: session_id.clone(),
+                status: SessionStatus::Timeout,
+            });
+            break;
+        }
+
+        match line {
+            Ok(text) => {
+                if let Some(msg) = parse_pipe_line(&session_id, &backend, &text) {
+                    // Auto-approve Claude Code control_requests
+                    if msg.msg_type == "control_request" {
+                        if let Some(raw) = &msg.raw {
+                            if let Ok(json) = serde_json::from_str::<serde_json::Value>(raw) {
+                                let request_id = json.get("id")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .to_string();
+                                let response = serde_json::json!({
+                                    "type": "control_response",
+                                    "id": request_id,
+                                    "behavior": "allow"
+                                }).to_string();
+                                let _ = stdin_writer.send(response);
+                            }
+                        }
+                    }
+
+                    let is_final = msg.is_final;
+                    let _ = app.emit("agent://message", msg);
+
+                    if is_final {
+                        break;
+                    }
+                }
+            }
+            Err(_) => break, // EOF
+        }
+    }
+
+    let _ = app.emit("agent://process-exit", ProcessExitEvent {
+        session_id: session_id.clone(),
+        exit_code: None,
+        stderr_tail: String::new(),
+    });
+}
+
+/// Tauri command: Execute a pipe-mode agent task.
+/// This is a high-level command that handles the full lifecycle:
+/// spawn → write prompt → close stdin → parse NDJSON → emit agent://message → return session.
+///
+/// Unlike the low-level agent_spawn/agent_send_raw commands, this is a single-call API.
+#[tauri::command]
+async fn pipe_execute(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+    agent_type: String,
+    prompt: String,
+    working_dir: String,
+    timeout: Option<u64>,
+    model: Option<String>,
+    resume_session: Option<String>,
+    system_prompt: Option<String>,
+) -> Result<PipeSession, String> {
+    let backend: AgentBackend = match agent_type.as_str() {
+        "claude-code" => AgentBackend::ClaudeCode,
+        "cursor-agent" => AgentBackend::CursorAgent,
+        "opencode" => AgentBackend::OpenCode,
+        _ => return Err(format!("Unsupported pipe agent type: {}", agent_type)),
+    };
+
+    let args = build_pipe_args(
+        &backend,
+        model.as_deref(),
+        resume_session.as_deref(),
+        system_prompt.as_deref(),
+    );
+
+    let workspace = {
+        let ws = state.workspace_path.lock().map_err(|e| e.to_string())?;
+        ws.clone()
+    };
+    let effective_working_dir = if working_dir.is_empty() { workspace } else { working_dir };
+
+    let binary = backend.default_binary().to_string();
+    let session_id = Uuid::new_v4().to_string();
+
+    // Build and spawn the child process
+    let mut cmd = Command::new(&binary);
+    cmd.args(&args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    if !effective_working_dir.is_empty() {
+        let dir = PathBuf::from(&effective_working_dir);
+        if dir.exists() {
+            cmd.current_dir(&dir);
+        }
+    }
+
+    let mut child = cmd.spawn().map_err(|e| {
+        format!("Failed to spawn '{}': {}", binary, e)
+    })?;
+
+    // Take handles
+    let stdin_handle = child.stdin.take()
+        .ok_or_else(|| "Failed to get stdin handle".to_string())?;
+    let stdout_handle = child.stdout.take()
+        .ok_or_else(|| "Failed to get stdout handle".to_string())?;
+    let stderr_handle = child.stderr.take()
+        .ok_or_else(|| "Failed to get stderr handle".to_string())?;
+
+    let now_ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+
+    // Write prompt to stdin and close it immediately (pipe mode signal)
+    {
+        let mut writer = BufWriter::new(stdin_handle);
+        let prompt_input = build_prompt_input(&backend, &prompt);
+        writer.write_all(prompt_input.as_bytes()).map_err(|e| format!("Write error: {}", e))?;
+        writer.write_all(b"\n").map_err(|e| format!("Write error: {}", e))?;
+        writer.flush().map_err(|e| format!("Flush error: {}", e))?;
+        // Drop closes stdin — tells the agent "no more input"
+    }
+
+    // Emit initial status
+    let _ = app.emit("agent://session-status", SessionStatusEvent {
+        session_id: session_id.clone(),
+        status: SessionStatus::Busy,
+    });
+
+    // Control response channel (for potential future bidirectional agents)
+    let (stdin_tx, stdin_rx) = std::sync::mpsc::channel::<String>();
+    std::thread::spawn(move || { while stdin_rx.recv().is_ok() {} });
+
+    // Start stderr reader thread
+    let sid_err = session_id.clone();
+    let app_err = app.clone();
+    std::thread::spawn(move || {
+        read_stderr(stderr_handle, sid_err, app_err);
+    });
+
+    // Start pipe stdout polling thread (with NDJSON parsing)
+    let sid_out = session_id.clone();
+    let backend_out = backend.clone();
+    let app_out = app.clone();
+    let (poll_stop_tx, poll_stop_rx) = std::sync::mpsc::channel::<()>();
+    let timeout_secs = timeout.unwrap_or(0);
+    std::thread::spawn(move || {
+        poll_pipe_stdout(
+            stdout_handle, sid_out, backend_out, app_out,
+            poll_stop_rx, timeout_secs, stdin_tx,
+        );
+    });
+
+    // Store session in StdioSessionManager (without stdin — use a dummy approach)
+    // We need to register the session so the frontend can track it.
+    // Create a minimal session entry for tracking purposes.
+    {
+        let mut manager = state.stdio_manager.lock().map_err(|e| e.to_string())?;
+        // We can't easily create a StdioSession without a valid stdin handle.
+        // Instead, we just track the session ID and PID separately.
+        // For now, the session is tracked via events only (not in StdioSessionManager).
+        // The frontend uses session_id from the returned PipeSession.
+    }
+
+    Ok(PipeSession {
+        session_id,
+        backend,
+        result: None,
+        cost_usd: None,
+        duration_ms: None,
+    })
+}
+
+// ===========================================================================
 // Constants
 // ===========================================================================
 
@@ -9760,6 +10486,8 @@ pub fn run() {
             agent_destroy,
             agent_list_sessions,
             agent_health_check,
+            // Pipe Adapter (feat-agent-pipe-adapter)
+            pipe_execute,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

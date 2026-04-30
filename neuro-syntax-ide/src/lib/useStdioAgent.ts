@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 
 // ---------------------------------------------------------------------------
-// Types matching Rust types (feat-agent-stdio-core)
+// Types matching Rust types (feat-agent-stdio-core + feat-agent-pipe-adapter)
 // ---------------------------------------------------------------------------
 
 export type AgentBackend =
@@ -69,6 +69,74 @@ export interface ProcessExitEvent {
 }
 
 // ---------------------------------------------------------------------------
+// Pipe Adapter types (feat-agent-pipe-adapter)
+// ---------------------------------------------------------------------------
+
+/** Parsed message from a pipe agent, emitted via `agent://message` events. */
+export interface PipeMessage {
+  /** Session ID */
+  session_id: string;
+  /** Message type: system | assistant | result | tool_use | tool_result | control_request | thinking | error */
+  msg_type: string;
+  /** Optional subtype (e.g. "init", "success", "started", "completed") */
+  subtype?: string;
+  /** Text content */
+  text?: string;
+  /** Tool name */
+  tool_name?: string;
+  /** Tool input as JSON */
+  tool_input?: unknown;
+  /** Tool result content */
+  tool_result?: string;
+  /** Tool state: "started" | "completed" (Cursor Agent) */
+  tool_state?: string;
+  /** Cost in USD (Claude Code result) */
+  cost_usd?: number;
+  /** Duration in ms */
+  duration_ms?: number;
+  /** Session ID from the agent itself (Claude Code session_id) */
+  agent_session_id?: string;
+  /** Model name (from system init) */
+  model?: string;
+  /** Whether this is the final message */
+  is_final: boolean;
+  /** Raw JSON line for debugging */
+  raw?: string;
+}
+
+/** Result of a pipe execution session. */
+export interface PipeSession {
+  /** Session ID */
+  session_id: string;
+  /** Agent backend used */
+  backend: AgentBackend;
+  /** Final result text */
+  result?: string;
+  /** Cost in USD */
+  cost_usd?: number;
+  /** Duration in ms */
+  duration_ms?: number;
+}
+
+/** Options for pipe execution. */
+export interface PipeExecuteOptions {
+  /** Agent type: 'claude-code' | 'cursor-agent' | 'opencode' */
+  agentType: AgentBackend;
+  /** The prompt/task to send */
+  prompt: string;
+  /** Working directory for the agent */
+  workingDir?: string;
+  /** Timeout in seconds */
+  timeout?: number;
+  /** Model to use (Claude Code only) */
+  model?: string;
+  /** Resume a previous session (Claude Code only) */
+  resumeSession?: string;
+  /** System prompt to append (Claude Code only) */
+  systemPrompt?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
@@ -91,6 +159,8 @@ export interface UseStdioAgentOptions {
  * - spawn/destroy sessions
  * - send raw data via stdin
  * - receive raw stdout lines via events
+ * - execute pipe agents (high-level API)
+ * - receive parsed pipe messages via agent://message events
  * - track session status and process exits
  */
 export function useStdioAgent(options: UseStdioAgentOptions = {}) {
@@ -104,12 +174,17 @@ export function useStdioAgent(options: UseStdioAgentOptions = {}) {
   const [lastExit, setLastExit] = useState<ProcessExitEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // --- Pipe adapter state ---
+  const [pipeMessages, setPipeMessages] = useState<Map<string, PipeMessage[]>>(new Map());
+  const [isPipeExecuting, setIsPipeExecuting] = useState(false);
+  const [activePipeSessionId, setActivePipeSessionId] = useState<string | null>(null);
+
   // Unlisten refs for event listeners
   const unlistenRefs = useRef<Array<() => void>>([]);
 
   // --- Event Listeners ---
 
-  /** Register all three event listeners (raw-stdout, session-status, process-exit). */
+  /** Register all event listeners (raw-stdout, session-status, process-exit, message). */
   const startListening = useCallback(async () => {
     if (!isTauri) return;
 
@@ -150,10 +225,29 @@ export function useStdioAgent(options: UseStdioAgentOptions = {}) {
             : s
         )
       );
+      // Clear pipe executing state if this was the active pipe session
+      if (event.payload.session_id === activePipeSessionId) {
+        setIsPipeExecuting(false);
+      }
     });
 
-    unlistenRefs.current = [unlistenStdout, unlistenStatus, unlistenExit];
-  }, []);
+    // agent://message (pipe adapter parsed messages)
+    const unlistenMessage = await listen<PipeMessage>('agent://message', (event) => {
+      const msg = event.payload;
+      setPipeMessages((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(msg.session_id) ?? [];
+        next.set(msg.session_id, [...existing, msg]);
+        return next;
+      });
+      // Clear executing state on final message
+      if (msg.is_final) {
+        setIsPipeExecuting(false);
+      }
+    });
+
+    unlistenRefs.current = [unlistenStdout, unlistenStatus, unlistenExit, unlistenMessage];
+  }, [activePipeSessionId]);
 
   /** Remove all event listeners. */
   const stopListening = useCallback(() => {
@@ -266,6 +360,58 @@ export function useStdioAgent(options: UseStdioAgentOptions = {}) {
   }, []);
 
   // ---------------------------------------------------------------------------
+  // Pipe Adapter Commands (feat-agent-pipe-adapter)
+  // ---------------------------------------------------------------------------
+
+  /** Execute a pipe-mode agent task (high-level API).
+   *  Spawns the agent, writes prompt, parses NDJSON, emits agent://message events.
+   *  Returns the PipeSession info; listen to agent://message for real-time updates.
+   */
+  const executePipeAgent = useCallback(async (opts: PipeExecuteOptions): Promise<PipeSession | null> => {
+    if (!isTauri) return null;
+    setError(null);
+    setIsPipeExecuting(true);
+    setPipeMessages((prev) => {
+      const next = new Map(prev);
+      next.delete(''); // clear any stale empty-key messages
+      return next;
+    });
+
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const session: PipeSession = await invoke('pipe_execute', {
+        agentType: opts.agentType,
+        prompt: opts.prompt,
+        workingDir: opts.workingDir ?? '',
+        timeout: opts.timeout,
+        model: opts.model,
+        resumeSession: opts.resumeSession,
+        systemPrompt: opts.systemPrompt,
+      });
+      setActivePipeSessionId(session.session_id);
+      return session;
+    } catch (e: any) {
+      setError(e?.toString() ?? 'Failed to execute pipe agent');
+      setIsPipeExecuting(false);
+      return null;
+    }
+  }, []);
+
+  /** Get pipe messages for a specific session. */
+  const getPipeMessages = useCallback((sessionId: string): PipeMessage[] => {
+    return pipeMessages.get(sessionId) ?? [];
+  }, [pipeMessages]);
+
+  /** Clear pipe messages for a session. */
+  const clearPipeMessages = useCallback((sessionId: string) => {
+    setPipeMessages((prev) => {
+      const next = new Map(prev);
+      next.delete(sessionId);
+      return next;
+    });
+  }, []);
+
+  // ---------------------------------------------------------------------------
   // Return
   // ---------------------------------------------------------------------------
 
@@ -289,6 +435,14 @@ export function useStdioAgent(options: UseStdioAgentOptions = {}) {
     // Helpers
     getStdoutLines,
     clearStdout,
+
+    // Pipe adapter (feat-agent-pipe-adapter)
+    pipeMessages,
+    isPipeExecuting,
+    activePipeSessionId,
+    executePipeAgent,
+    getPipeMessages,
+    clearPipeMessages,
 
     // Event listener control
     startListening,
