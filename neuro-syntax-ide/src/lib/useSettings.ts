@@ -39,6 +39,9 @@ const DEFAULT_SETTINGS: AppSettings = {
     email: '',
     avatar_base64: '',
   },
+  terminal: {
+    default_shell: '',
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -71,6 +74,7 @@ export function useSettings() {
         llm: { ...DEFAULT_SETTINGS.llm, ...loaded.llm },
         app: { ...DEFAULT_SETTINGS.app, ...loaded.app },
         user: { ...DEFAULT_SETTINGS.user, ...loaded.user },
+        terminal: { ...DEFAULT_SETTINGS.terminal, ...loaded.terminal },
       });
       setDirty(false);
     } catch (e: unknown) {
@@ -113,6 +117,7 @@ export function useSettings() {
       if (patch.llm !== undefined) next.llm = { ...prev.llm, ...patch.llm };
       if (patch.app !== undefined) next.app = { ...prev.app, ...patch.app };
       if (patch.user !== undefined) next.user = { ...prev.user, ...patch.user };
+      if (patch.terminal !== undefined) next.terminal = { ...prev.terminal, ...patch.terminal };
       return next;
     });
     setDirty(true);

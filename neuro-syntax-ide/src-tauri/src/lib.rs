@@ -770,6 +770,15 @@ pub struct UserProfile {
     pub avatar_base64: String,
 }
 
+/// Terminal settings stored in settings.yaml.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct TerminalConfigYaml {
+    /// The user-selected default shell path (e.g. "/bin/zsh", "/usr/local/bin/fish").
+    /// Empty string means "use system default" (auto-detected).
+    #[serde(default)]
+    pub default_shell: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AppSettings {
     #[serde(default)]
@@ -780,6 +789,8 @@ pub struct AppSettings {
     pub app: AppConfigYaml,
     #[serde(default)]
     pub user: UserProfile,
+    #[serde(default)]
+    pub terminal: TerminalConfigYaml,
 }
 
 impl Default for AppSettings {
@@ -797,6 +808,7 @@ impl Default for AppSettings {
                 auto_refresh_interval: default_auto_refresh(),
             },
             user: UserProfile::default(),
+            terminal: TerminalConfigYaml::default(),
         }
     }
 }
