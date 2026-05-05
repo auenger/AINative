@@ -374,6 +374,119 @@ fn shell_priority(st: &ShellType) -> u8 {
     }
 }
 
+// ===========================================================================
+// Shell command builder (feat-windows-pty)
+// ===========================================================================
+
+/// Build a `CommandBuilder` with platform-appropriate arguments for the given
+/// shell. On Windows this handles PowerShell, cmd, Git Bash, and WSL launching.
+/// On Unix it simply passes through the shell path and any caller-supplied args.
+fn build_shell_command(shell: &str, caller_args: &[String]) -> CommandBuilder {
+    // Determine shell type from the path for special handling.
+    let shell_path = PathBuf::from(shell);
+    let file_name = shell_path
+        .file_name()
+        .map(|f| f.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+
+    // -----------------------------------------------------------------------
+    // Windows-specific command construction
+    // -----------------------------------------------------------------------
+    #[cfg(target_os = "windows")]
+    {
+        // WSL: the shell string looks like "wsl -d <distro>" or "wsl"
+        if shell.starts_with("wsl") {
+            return build_wsl_command(shell, caller_args);
+        }
+
+        let mut cmd = CommandBuilder::new(shell);
+
+        // PowerShell / pwsh: add -NoLogo to suppress the copyright banner
+        if file_name == "pwsh.exe" || file_name == "powershell.exe" || file_name == "pwsh" || file_name == "powershell" {
+            if !caller_args.iter().any(|a| a == "-NoLogo" || a == "-nologo") {
+                cmd.arg("-NoLogo");
+            }
+        }
+        // Git Bash: pass --login -i for interactive login shell
+        else if file_name == "bash.exe" || file_name == "bash" {
+            let has_login = caller_args.iter().any(|a| a == "--login" || a == "-l");
+            let has_interactive = caller_args.iter().any(|a| a == "-i");
+            if !has_login {
+                cmd.arg("--login");
+            }
+            if !has_interactive {
+                cmd.arg("-i");
+            }
+        }
+        // cmd.exe: no special arguments needed
+
+        // Apply caller args on top
+        if !caller_args.is_empty() {
+            cmd.args(caller_args);
+        }
+
+        // Set TERM for proper terminal emulation support
+        cmd.env("TERM", "xterm-256color");
+
+        cmd
+    }
+
+    // -----------------------------------------------------------------------
+    // Unix: straightforward passthrough
+    // -----------------------------------------------------------------------
+    #[cfg(not(target_os = "windows"))]
+    {
+        let mut cmd = CommandBuilder::new(shell);
+        if !caller_args.is_empty() {
+            cmd.args(caller_args);
+        }
+        cmd
+    }
+}
+
+/// Build a CommandBuilder for launching a WSL distribution.
+///
+/// `shell` can be:
+///   - `"wsl"` → default distro, default shell
+///   - `"wsl -d <distro>"` → specific distro, default shell
+///
+/// The command uses `wsl.exe` as the binary and translates the parts into
+/// proper arguments.
+#[cfg(target_os = "windows")]
+fn build_wsl_command(shell: &str, caller_args: &[String]) -> CommandBuilder {
+    let parts: Vec<&str> = shell.split_whitespace().collect();
+    let mut args: Vec<String> = Vec::new();
+
+    // Parse "wsl -d <distro>"
+    let mut i = 1; // skip "wsl" itself
+    while i < parts.len() {
+        match parts[i] {
+            "-d" | "--distribution" => {
+                if i + 1 < parts.len() {
+                    args.push("-d".to_string());
+                    args.push(parts[i + 1].to_string());
+                    i += 2;
+                } else {
+                    i += 1;
+                }
+            }
+            _ => {
+                i += 1;
+            }
+        }
+    }
+
+    // Append any caller-provided extra args (e.g. a specific shell to run)
+    args.extend(caller_args.iter().cloned());
+
+    let mut cmd = CommandBuilder::new("wsl");
+    if !args.is_empty() {
+        cmd.args(&args);
+    }
+    cmd.env("TERM", "xterm-256color");
+    cmd
+}
+
 /// Helper: get WindowsApps pwsh path (may not exist).
 #[cfg(target_os = "windows")]
 fn dirs_windowsapps_pwsh() -> Option<PathBuf> {
@@ -3674,6 +3787,25 @@ impl PtyManager {
         config: &PtyConfig,
         app_handle: AppHandle,
     ) -> Result<(), String> {
+        // Validate that the shell path exists on the filesystem before attempting
+        // PTY creation. For special wrappers like `wsl` the binary itself must exist.
+        {
+            let shell_path = PathBuf::from(&config.shell);
+            // On Windows, some shells are launched via a wrapper command (e.g. "wsl")
+            // that may not be a full path. Only validate if it looks like an absolute path.
+            let needs_validation = if cfg!(target_os = "windows") {
+                config.shell.contains('\\') || config.shell.contains(':')
+            } else {
+                config.shell.starts_with('/')
+            };
+            if needs_validation && !shell_path.exists() {
+                return Err(format!(
+                    "Shell '{}' not found. Please check Settings → Terminal → Default Shell.",
+                    config.shell
+                ));
+            }
+        }
+
         let pty_system = native_pty_system();
         let size = PtySize {
             rows: config.rows,
@@ -3686,10 +3818,8 @@ impl PtyManager {
             .openpty(size)
             .map_err(|e| format!("Failed to open pty: {}", e))?;
 
-        let mut cmd = CommandBuilder::new(&config.shell);
-        if !config.args.is_empty() {
-            cmd.args(&config.args);
-        }
+        // Build the command, applying platform-specific and shell-type-specific logic.
+        let mut cmd = build_shell_command(&config.shell, &config.args);
 
         // Set working directory if provided
         if let Some(ref cwd) = config.cwd {
@@ -3704,7 +3834,15 @@ impl PtyManager {
         let _child = pair
             .slave
             .spawn_command(cmd)
-            .map_err(|e| format!("Failed to spawn command: {}", e))?;
+            .map_err(|e| {
+                let os_name = if cfg!(target_os = "windows") { "Windows" }
+                    else if cfg!(target_os = "macos") { "macOS" }
+                    else { "Linux" };
+                format!(
+                    "Failed to spawn command: {}. Shell: '{}', Platform: {}. Please check Settings → Terminal.",
+                    e, config.shell, os_name
+                )
+            })?;
 
         let reader = pair
             .master

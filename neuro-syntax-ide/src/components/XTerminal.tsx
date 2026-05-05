@@ -59,6 +59,41 @@ async function detectShells(): Promise<DetectedShell[]> {
   }
 }
 
+/**
+ * Determine appropriate launch arguments for a shell based on its type.
+ * - Unix shells (zsh, bash, fish) get `-l` (login shell).
+ * - Windows shells (PowerShell, cmd, Git Bash, WSL) get no frontend args —
+ *   the Rust backend applies the correct platform-specific flags.
+ */
+function shellArgsForPath(shellPath: string): string[] {
+  const lower = shellPath.toLowerCase();
+
+  // WSL wrapper (e.g. "wsl -d Ubuntu") — backend handles everything
+  if (lower.startsWith('wsl')) {
+    return [];
+  }
+  // Windows paths with backslashes or drive letters
+  if (lower.includes('\\') || /^\w:/.test(lower)) {
+    // PowerShell / pwsh — backend adds -NoLogo
+    if (lower.includes('pwsh') || lower.includes('powershell')) {
+      return [];
+    }
+    // cmd.exe — no special args
+    if (lower.includes('cmd')) {
+      return [];
+    }
+    // Git Bash (bash.exe on Windows) — backend adds --login -i
+    if (lower.includes('bash')) {
+      return [];
+    }
+    // Other Windows shells — no args
+    return [];
+  }
+
+  // Unix shells — login flag
+  return ['-l'];
+}
+
 async function shellForKind(kind: TerminalKind): Promise<{ shell: string; args: string[] }> {
   switch (kind) {
     case 'claude':
@@ -76,7 +111,7 @@ async function shellForKind(kind: TerminalKind): Promise<{ shell: string; args: 
           const shells = await detectShells();
           const found = shells.find(s => s.path === userShell);
           if (found) {
-            return { shell: found.path, args: ['-l'] };
+            return { shell: found.path, args: shellArgsForPath(found.path) };
           }
           // Shell configured but not found — warn and fall through
           console.warn(
@@ -91,11 +126,11 @@ async function shellForKind(kind: TerminalKind): Promise<{ shell: string; args: 
       const shells = await detectShells();
       const defaultShell = shells.find((s) => s.is_default);
       if (defaultShell) {
-        return { shell: defaultShell.path, args: ['-l'] };
+        return { shell: defaultShell.path, args: shellArgsForPath(defaultShell.path) };
       }
       // Fallback: first detected shell
       if (shells.length > 0) {
-        return { shell: shells[0].path, args: ['-l'] };
+        return { shell: shells[0].path, args: shellArgsForPath(shells[0].path) };
       }
       // Final fallback when detection yields nothing (e.g. browser mode)
       return { shell: '/bin/sh', args: ['-l'] };
