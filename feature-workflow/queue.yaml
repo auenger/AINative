@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-05-05T15:00:00Z'
+  last_updated: '2026-05-05T15:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -47,14 +47,7 @@ parents:
   - feat-shell-detect
   - feat-shell-settings-ui
   - feat-windows-pty
-active:
-- id: feat-task-exec-button
-  name: Task Board Pending Task 执行按钮（Run Feature 一键触发）
-  priority: 70
-  created_at: '2026-04-30T19:00:00Z'
-  branch: feature/feat-task-exec-button
-  worktree: ../NeuroSyntaxIDE-feat-task-exec-button
-  started_at: '2026-05-05T15:00:00Z'
+active: []
 pending:
 - id: feat-task-board-search-sort
   name: Task Board 模糊搜索与时间排序
@@ -75,6 +68,10 @@ pending:
   created_at: '2026-04-30T17:30:00Z'
 blocked: []
 completed:
+- id: feat-task-exec-button
+  name: Task Board Pending Task 执行按钮（Run Feature 一键触发）
+  completed_at: '2026-05-05T15:30:00Z'
+  tag: feat-task-exec-button-20260505
 - id: feat-windows-pty
   name: Windows PTY 兼容
   completed_at: '2026-05-05T14:30:00Z'
