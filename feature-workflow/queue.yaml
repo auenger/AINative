@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-04-30T16:45:00Z'
+  last_updated: '2026-05-05T13:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -40,10 +40,60 @@ parents:
   - feat-agent-stdio-core
   - feat-agent-pipe-adapter
   - feat-agent-acp-adapter
+- id: feat-cross-platform-terminal
+  name: 跨平台终端 Shell 配置
+  split: true
+  features:
+  - feat-shell-detect
+  - feat-shell-settings-ui
+  - feat-windows-pty
 active: []
-pending: []
+pending:
+- id: feat-task-board-search-sort
+  name: Task Board 模糊搜索与时间排序
+  priority: 65
+  created_at: '2026-05-05T12:00:00Z'
+- id: feat-task-exec-button
+  name: Task Board Pending Task 执行按钮（Run Feature 一键触发）
+  priority: 70
+  created_at: '2026-04-30T19:00:00Z'
+- id: feat-cross-platform-terminal
+  name: 跨平台终端 Shell 配置
+  priority: 70
+  created_at: '2026-04-30T18:00:00Z'
+  split: true
+  children:
+  - feat-shell-detect
+  - feat-shell-settings-ui
+  - feat-windows-pty
+- id: feat-windows-pty
+  name: Windows PTY 兼容
+  priority: 70
+  created_at: '2026-04-30T18:00:00Z'
+  parent: feat-cross-platform-terminal
+  depends_on:
+  - feat-shell-detect
+  - feat-shell-settings-ui
+- id: feat-task-scheduler
+  name: Task 定时调度服务（一次性定时器 + 自动驱动 /run-feature 或 /dev-agent）
+  priority: 60
+  created_at: '2026-04-30T17:30:00Z'
 blocked: []
 completed:
+- id: feat-shell-settings-ui
+  name: Settings Shell 切换 UI
+  completed_at: '2026-05-05T13:30:00Z'
+  tag: feat-shell-settings-ui-20260505
+  parent: feat-cross-platform-terminal
+- id: feat-shell-detect
+  name: Shell 自动发现与检测
+  completed_at: '2026-05-05T12:30:00Z'
+  tag: feat-shell-detect-20260505
+  parent: feat-cross-platform-terminal
+- id: fix-settings-workflow-tab
+  name: 修复 Settings Workflow Tab 加载报错（Command read_text_file not found）
+  completed_at: '2026-04-30T20:05:00Z'
+  tag: fix-settings-workflow-tab-20260430
 - id: feat-agent-acp-adapter
   name: ACP JSON-RPC 2.0 Adapter（Codex / Hermes / Kiro / Kimi / Pi）
   completed_at: '2026-04-30T16:45:00Z'

@@ -1,10 +1,79 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-04-30T16:45:00Z"
+  last_updated: "2026-05-05T13:30:00Z"
   version: 1
-  total_completed: 111
+  total_completed: 114
 
 records:
+  - id: feat-shell-settings-ui
+    name: "Settings Shell 切换 UI"
+    completed_at: "2026-05-05T13:30:00Z"
+    tag: feat-shell-settings-ui-20260505
+    merge_commit: c7f6df7
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-shell-settings-ui
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-shell-settings-ui
+    parent: feat-cross-platform-terminal
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-05-05T13:00:00Z"
+      duration: "30m"
+      commits: 1
+      files_changed: 6
+
+  - id: feat-shell-detect
+    name: "Shell 自动发现与检测"
+    completed_at: "2026-05-05T12:30:00Z"
+    tag: feat-shell-detect-20260505
+    merge_commit: 87c6104
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-shell-detect
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-shell-detect
+    parent: feat-cross-platform-terminal
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-05-05T12:00:00Z"
+      duration: "30m"
+      commits: 1
+      files_changed: 6
+
+  - id: fix-settings-workflow-tab
+    name: "修复 Settings Workflow Tab 加载报错（Command read_text_file not found）"
+    completed_at: "2026-04-30T20:00:00Z"
+    tag: fix-settings-workflow-tab-20260430
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/fix-settings-workflow-tab
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-fix-settings-workflow-tab
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 2
+      scenarios_passed: 2
+    stats:
+      started: "2026-04-30T20:00:00Z"
+      duration: "~5min"
+      commits: 1
+      files_changed: 1
   - id: feat-agent-acp-adapter
     name: "ACP JSON-RPC 2.0 Adapter (Codex / Hermes / Kiro / Kimi / Pi)"
     completed_at: "2026-04-30T16:45:00Z"
