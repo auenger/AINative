@@ -1,10 +1,34 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-05-05T15:30:00Z"
+  last_updated: "2026-05-05T16:30:00Z"
   version: 1
-  total_completed: 116
+  total_completed: 117
 
 records:
+  - id: feat-task-board-search-sort
+    name: "Task Board 模糊搜索与时间排序"
+    completed_at: "2026-05-05T16:30:00Z"
+    tag: feat-task-board-search-sort-20260505
+    merge_commit: ba6c16d
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-task-board-search-sort
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-task-board-search-sort
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 6
+      scenarios_passed: 6
+    stats:
+      started: "2026-05-05T16:00:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 3
+    archive_path: features/archive/done-feat-task-board-search-sort-20260505
+
   - id: feat-task-exec-button
     name: "Task Board Pending Task 执行按钮（Run Feature 一键触发）"
     completed_at: "2026-05-05T15:30:00Z"

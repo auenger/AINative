@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-05-05T16:00:00Z'
+  last_updated: '2026-05-05T16:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -47,14 +47,7 @@ parents:
   - feat-shell-detect
   - feat-shell-settings-ui
   - feat-windows-pty
-active:
-- id: feat-task-board-search-sort
-  name: Task Board 模糊搜索与时间排序
-  priority: 65
-  created_at: '2026-05-05T12:00:00Z'
-  started_at: '2026-05-05T16:00:00Z'
-  branch: feature/feat-task-board-search-sort
-  worktree: ../NeuroSyntaxIDE-feat-task-board-search-sort
+active: []
 pending:
 - id: feat-task-scheduler
   name: Task 定时调度服务（一次性定时器 + 自动驱动 /run-feature 或 /dev-agent）
@@ -62,6 +55,10 @@ pending:
   created_at: '2026-04-30T17:30:00Z'
 blocked: []
 completed:
+- id: feat-task-board-search-sort
+  name: Task Board 模糊搜索与时间排序
+  completed_at: '2026-05-05T16:30:00Z'
+  tag: feat-task-board-search-sort-20260505
 - id: feat-cross-platform-terminal
   name: 跨平台终端 Shell 配置
   completed_at: '2026-05-05T15:30:00Z'

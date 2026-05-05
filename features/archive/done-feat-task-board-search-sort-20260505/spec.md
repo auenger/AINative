@@ -147,3 +147,13 @@ Then 过滤后的结果仍按时间降序排列
 - [ ] 搜索逻辑不引入外部依赖
 - [ ] i18n key 添加中英文翻译
 - [ ] 不影响拖拽等现有功能
+
+## Merge Record
+- **Completed**: 2026-05-05
+- **Branch**: feature/feat-task-board-search-sort (cherry-picked to main)
+- **Merge Commit**: ba6c16d
+- **Archive Tag**: feat-task-board-search-sort-20260505
+- **Conflicts**: none
+- **Verification**: PASSED (6/6 Gherkin scenarios)
+- **Files Changed**: 3 (TaskBoard.tsx, useQueueData.ts, i18n.ts)
+- **Duration**: ~30min
