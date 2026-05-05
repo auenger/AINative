@@ -36,6 +36,14 @@ interface DetectedShell {
   is_default: boolean;
 }
 
+interface SettingsTerminal {
+  default_shell: string;
+}
+
+interface SettingsPayload {
+  terminal?: SettingsTerminal;
+}
+
 // Module-level cache so all terminal instances share the same detection result.
 let detectedShellsCache: DetectedShell[] | null = null;
 
@@ -59,7 +67,27 @@ async function shellForKind(kind: TerminalKind): Promise<{ shell: string; args: 
       return { shell: 'gemini', args: [] };
     case 'bash':
     default: {
-      // Ask the Rust backend for the detected default shell
+      // 1. Check if user has configured a default shell in settings
+      try {
+        const settings = await invoke<SettingsPayload>('read_settings');
+        const userShell = settings?.terminal?.default_shell;
+        if (userShell) {
+          // Validate the shell still exists in detected shells
+          const shells = await detectShells();
+          const found = shells.find(s => s.path === userShell);
+          if (found) {
+            return { shell: found.path, args: ['-l'] };
+          }
+          // Shell configured but not found — warn and fall through
+          console.warn(
+            `[XTerminal] Configured shell '${userShell}' not found in detected shells, falling back to system default.`
+          );
+        }
+      } catch {
+        // Settings read failed — continue to auto-detect
+      }
+
+      // 2. Auto-detect from system
       const shells = await detectShells();
       const defaultShell = shells.find((s) => s.is_default);
       if (defaultShell) {

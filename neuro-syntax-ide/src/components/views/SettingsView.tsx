@@ -14,6 +14,8 @@ import {
   RefreshCw,
   User,
   Layers,
+  Terminal as TerminalIcon,
+  ChevronDown,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
@@ -26,7 +28,7 @@ import type { AppSettings, ProviderConfig } from '../../types';
 // Constants
 // ---------------------------------------------------------------------------
 
-type SettingsTab = 'general' | 'llm' | 'profile' | 'workflow';
+type SettingsTab = 'general' | 'llm' | 'profile' | 'workflow' | 'terminal';
 
 const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
@@ -142,6 +144,208 @@ function GeneralPanel({
               <span>150s</span>
               <span>300s</span>
             </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Terminal Settings Panel
+// ---------------------------------------------------------------------------
+
+interface DetectedShell {
+  shell_type: string;
+  name: string;
+  path: string;
+  is_default: boolean;
+}
+
+function TerminalPanel({
+  settings,
+  onUpdate,
+}: {
+  settings: AppSettings;
+  onUpdate: (patch: Partial<AppSettings>) => void;
+}) {
+  const { t } = useTranslation();
+  const [shells, setShells] = useState<DetectedShell[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  // Load detected shells on mount
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await invoke<DetectedShell[]>('detect_shells');
+        if (!cancelled) {
+          setShells(result);
+          setLoading(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+          setLoading(false);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const currentShell = settings.terminal.default_shell;
+  const currentLabel = currentShell
+    ? (shells.find(s => s.path === currentShell)?.name ?? currentShell)
+    : t('settings.terminal.autoDetect');
+
+  return (
+    <div className="space-y-6">
+      <div className="config-card">
+        <h3 className="text-sm font-headline font-bold text-on-surface mb-1 flex items-center gap-2">
+          <TerminalIcon size={14} className="text-primary" />
+          {t('settings.terminal.defaultShell')}
+        </h3>
+        <p className="text-xs text-on-surface-variant opacity-60 mb-4">
+          {t('settings.terminal.defaultShellDesc')}
+        </p>
+
+        {loading && (
+          <div className="flex items-center gap-2 text-xs text-on-surface-variant">
+            <Loader2 size={14} className="animate-spin" />
+            {t('settings.terminal.loadingShells')}
+          </div>
+        )}
+
+        {error && (
+          <div className="text-xs text-error mb-2">
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && shells.length === 0 && (
+          <div className="text-xs text-on-surface-variant opacity-50">
+            {t('settings.terminal.noShells')}
+          </div>
+        )}
+
+        {!loading && shells.length > 0 && (
+          <div className="relative">
+            {/* Dropdown trigger */}
+            <button
+              type="button"
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className={cn(
+                'w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm',
+                'bg-surface-container-highest border border-outline-variant/20',
+                'hover:border-primary/40 transition-colors text-left',
+              )}
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <TerminalIcon size={14} className="text-primary shrink-0" />
+                <span className="truncate">{currentLabel}</span>
+                {currentShell && shells.find(s => s.path === currentShell)?.is_default && (
+                  <span className="text-[10px] text-primary font-bold shrink-0">
+                    ({t('settings.terminal.currentDefault')})
+                  </span>
+                )}
+              </span>
+              <ChevronDown size={14} className={cn(
+                'text-on-surface-variant shrink-0 transition-transform',
+                dropdownOpen && 'rotate-180',
+              )} />
+            </button>
+
+            {/* Dropdown menu */}
+            {dropdownOpen && (
+              <div className={cn(
+                'absolute z-50 top-full left-0 right-0 mt-1',
+                'bg-surface-container border border-outline-variant/20 rounded-lg shadow-lg',
+                'max-h-60 overflow-y-auto',
+              )}>
+                {/* Auto-detect option */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onUpdate({ terminal: { default_shell: '' } });
+                    setDropdownOpen(false);
+                  }}
+                  className={cn(
+                    'w-full flex items-center gap-3 px-3 py-2 text-sm text-left',
+                    'hover:bg-primary/10 transition-colors',
+                    !currentShell && 'bg-primary/5',
+                  )}
+                >
+                  <span className={cn(
+                    'shrink-0 w-3 h-3 rounded-full border-2',
+                    !currentShell ? 'border-primary bg-primary' : 'border-outline-variant/40',
+                  )} />
+                  <span className="flex-1 min-w-0">
+                    <span className="block truncate">{t('settings.terminal.autoDetect')}</span>
+                  </span>
+                  {!currentShell && (
+                    <CheckCircle2 size={12} className="text-primary shrink-0" />
+                  )}
+                </button>
+
+                {/* Shell options */}
+                {shells.map((shell) => {
+                  const isSelected = currentShell === shell.path;
+                  return (
+                    <button
+                      key={shell.path}
+                      type="button"
+                      onClick={() => {
+                        onUpdate({ terminal: { default_shell: shell.path } });
+                        setDropdownOpen(false);
+                      }}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-3 py-2 text-sm text-left',
+                        'hover:bg-primary/10 transition-colors',
+                        isSelected && 'bg-primary/5',
+                      )}
+                    >
+                      <span className={cn(
+                        'shrink-0 w-3 h-3 rounded-full border-2',
+                        isSelected ? 'border-primary bg-primary' : 'border-outline-variant/40',
+                      )} />
+                      <span className="flex-1 min-w-0">
+                        <span className="block truncate font-medium">{shell.name}</span>
+                        <span className="block text-[10px] text-on-surface-variant opacity-60 font-mono truncate">
+                          {shell.path}
+                        </span>
+                      </span>
+                      {shell.is_default && (
+                        <span className="text-[10px] text-primary font-bold shrink-0">
+                          {t('settings.terminal.systemDefault')}
+                        </span>
+                      )}
+                      {isSelected && (
+                        <CheckCircle2 size={12} className="text-primary shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Click outside to close */}
+            {dropdownOpen && (
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setDropdownOpen(false)}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Shell detection summary */}
+        {!loading && shells.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-outline-variant/10">
+            <p className="text-[10px] text-on-surface-variant opacity-50">
+              {shells.length} {t('settings.terminal.detected')}
+            </p>
           </div>
         )}
       </div>
@@ -461,6 +665,7 @@ export const SettingsView: React.FC = () => {
     { id: 'general', label: t('settings.general'), icon: <SettingsIcon size={14} /> },
     { id: 'llm', label: t('settings.llmProviders'), icon: <Zap size={14} /> },
     { id: 'workflow', label: t('settings.workflow.title'), icon: <Layers size={14} /> },
+    { id: 'terminal', label: t('settings.terminal.title'), icon: <TerminalIcon size={14} /> },
     { id: 'profile', label: t('settings.profile.title'), icon: <User size={14} /> },
   ];
 
@@ -542,6 +747,9 @@ export const SettingsView: React.FC = () => {
         )}
         {activeTab === 'workflow' && (
           <WorkflowPanel />
+        )}
+        {activeTab === 'terminal' && (
+          <TerminalPanel settings={settings} onUpdate={update} />
         )}
       </div>
     </div>

@@ -250,6 +250,12 @@ export interface UserProfile {
   avatar_base64: string; // data:image/xxx;base64,xxx
 }
 
+/** Terminal configuration stored in settings.yaml. */
+export interface TerminalConfig {
+  /** The user-selected default shell path (empty = use system default). */
+  default_shell: string;
+}
+
 /** Git user info returned by read_git_user_info command. */
 export interface GitUserInfo {
   name: string | null;
@@ -262,6 +268,7 @@ export interface AppSettings {
   llm: LlmConfig;
   app: AppConfig;
   user: UserProfile;
+  terminal: TerminalConfig;
 }
 
 // ---------------------------------------------------------------------------
