@@ -31,6 +31,8 @@ import {
   PlayCircle,
   Search,
   ArrowUpDown,
+  Timer,
+  CalendarClock,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
@@ -38,7 +40,9 @@ import { cn } from '../../lib/utils';
 import { useQueueData, FeatureNode } from '../../lib/useQueueData';
 import { useAgentRuntimes } from '../../lib/useAgentRuntimes';
 import { useSessionStore } from '../../lib/SessionStore';
-import type { AgentActionType, TaskExecutionOverlay, GhostCard, QueueName, AgentRuntimeInfo } from '../../types';
+import type { AgentActionType, TaskExecutionOverlay, GhostCard, QueueName, AgentRuntimeInfo, TaskSchedule } from '../../types';
+import { useTaskScheduler } from '../../lib/useTaskScheduler';
+import { SchedulePickerModal } from './SchedulePickerModal';
 
 /** 智能时间格式化：返回相对时间与绝对时间 — 使用 i18n key */
 function useFormatUpdatedTime() {
@@ -217,9 +221,21 @@ interface FeatureCardProps {
   searchQuery?: string;
   /** Highlight matching text callback */
   onHighlight?: (text: string, query: string) => React.ReactNode;
+  /** Schedule for this feature, if any */
+  schedule?: TaskSchedule;
+  /** Callback when schedule clock button is clicked */
+  onScheduleClick?: (feature: FeatureNode) => void;
+  /** Callback to cancel a schedule */
+  onScheduleCancel?: (scheduleId: string) => void;
+  /** Callback to execute a missed schedule now */
+  onScheduleExecuteNow?: (scheduleId: string) => void;
+  /** Callback to delete a schedule */
+  onScheduleDelete?: (scheduleId: string) => void;
+  /** Format countdown text */
+  formatCountdown?: (triggerAt: string) => string;
 }
 
-const FeatureCard: React.FC<FeatureCardProps> = ({ feature, allFeatures, onClick, onDragStart, overlay, queueColumn, isSplitParent, onExecClick, searchQuery, onHighlight }) => {
+const FeatureCard: React.FC<FeatureCardProps> = ({ feature, allFeatures, onClick, onDragStart, overlay, queueColumn, isSplitParent, onExecClick, searchQuery, onHighlight, schedule, onScheduleClick, onScheduleCancel, onScheduleExecuteNow, onScheduleDelete, formatCountdown }) => {
   const [expanded, setExpanded] = useState(false);
   const hasDeps = feature.dependencies.length > 0;
   const isPending = queueColumn === 'pending';
@@ -336,6 +352,53 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ feature, allFeatures, onClick
         </div>
       )}
 
+      {/* Schedule badge (shown when feature has an active/missed schedule) */}
+      {schedule && schedule.status !== 'cancelled' && (
+        <div className="mb-2">
+          {schedule.status === 'pending' && (
+            <div className={cn(
+              "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8px] font-bold",
+              "bg-secondary/10 text-secondary border border-secondary/20"
+            )}>
+              <CalendarClock size={9} />
+              {formatCountdown ? formatCountdown(schedule.triggerAt) : new Date(schedule.triggerAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              <button
+                onClick={(e) => { e.stopPropagation(); onScheduleCancel?.(schedule.id); }}
+                className="ml-1 p-0.5 hover:bg-secondary/20 rounded-full transition-colors"
+                title="Cancel schedule"
+              >
+                <X size={7} />
+              </button>
+            </div>
+          )}
+          {schedule.status === 'triggered' && (
+            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8px] font-bold bg-tertiary/10 text-tertiary border border-tertiary/20">
+              <CheckCircle2 size={9} />
+              Triggered
+            </div>
+          )}
+          {schedule.status === 'missed' && (
+            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8px] font-bold bg-warning/10 text-warning border border-warning/20">
+              <AlertTriangle size={9} />
+              Missed
+              <button
+                onClick={(e) => { e.stopPropagation(); onScheduleExecuteNow?.(schedule.id); }}
+                className="ml-1 px-1 py-0 bg-warning/20 hover:bg-warning/30 rounded text-[7px] uppercase tracking-wider transition-colors"
+              >
+                Run Now
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onScheduleDelete?.(schedule.id); }}
+                className="p-0.5 hover:bg-warning/20 rounded-full transition-colors"
+                title="Delete schedule"
+              >
+                <X size={7} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Tags row: priority + deps + status */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -377,6 +440,23 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ feature, allFeatures, onClick
             >
               <PlayCircle size={11} />
               Run
+            </button>
+          )}
+
+          {/* Schedule clock button — only on pending cards without active schedule */}
+          {isPending && !schedule && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onScheduleClick?.(feature);
+              }}
+              title="Schedule trigger"
+              className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wider transition-all",
+                "text-secondary bg-secondary/5 hover:bg-secondary/15 hover:-translate-y-0.5 active:translate-y-0 border border-secondary/15"
+              )}
+            >
+              <Timer size={11} />
             </button>
           )}
 
@@ -661,6 +741,82 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
     ghostCards, addGhostCard, updateGhostCard, removeGhostCard,
   } = useQueueData();
   const sessionStore = useSessionStore();
+
+  // ─── Task Scheduler state ───
+  const {
+    schedules: allSchedules,
+    pendingSchedules,
+    getScheduleForFeature,
+    createSchedule,
+    cancelSchedule,
+    triggerNow,
+    deleteSchedule,
+    setOnTrigger,
+    formatCountdown,
+  } = useTaskScheduler();
+
+  // Schedule picker modal state
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleTargetFeature, setScheduleTargetFeature] = useState<FeatureNode | null>(null);
+  const [scheduleIsAllPending, setScheduleIsAllPending] = useState(false);
+
+  // Handle schedule trigger: dispatch execution
+  const handleScheduleTrigger = useCallback((schedule: TaskSchedule) => {
+    if (!isTauri) {
+      // Dev fallback: simulate execution
+      console.log(`[Scheduler] Triggered: ${schedule.action} for ${schedule.featureId}`);
+      return;
+    }
+
+    // Dispatch via Tauri runtime
+    (async () => {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        if (schedule.action === 'run-feature' && schedule.featureId !== 'all-pending') {
+          await invoke('runtime_session_start', { runtimeId: 'claude-code' });
+          await invoke('runtime_execute', {
+            runtimeId: 'claude-code',
+            message: `/run-feature ${schedule.featureId}`,
+            sessionId: null,
+            systemPrompt: null,
+          });
+        } else {
+          await invoke('runtime_session_start', { runtimeId: 'claude-code' });
+          await invoke('runtime_execute', {
+            runtimeId: 'claude-code',
+            message: '/dev-agent',
+            sessionId: null,
+            systemPrompt: null,
+          });
+        }
+      } catch (e) {
+        console.error('[Scheduler] Trigger failed:', e);
+      }
+    })();
+  }, []);
+
+  // Set trigger callback
+  useEffect(() => {
+    setOnTrigger(handleScheduleTrigger);
+  }, [handleScheduleTrigger, setOnTrigger]);
+
+  // Schedule click handler: open the schedule picker modal
+  const handleScheduleClick = useCallback((feature: FeatureNode) => {
+    setScheduleTargetFeature(feature);
+    setScheduleIsAllPending(false);
+    setShowScheduleModal(true);
+  }, []);
+
+  // Handle schedule confirmation
+  const handleScheduleConfirm = useCallback((params: {
+    featureId: string | 'all-pending';
+    triggerAt: string;
+    action: 'run-feature' | 'dev-agent';
+  }) => {
+    createSchedule(params);
+    setShowScheduleModal(false);
+    setScheduleTargetFeature(null);
+  }, [createSchedule]);
 
   // Auto-refresh when workspace becomes available or when switching to tasks tab
   useEffect(() => {
@@ -1312,6 +1468,12 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
                     onExecClick={handleExecButtonClick}
                     searchQuery={searchQuery}
                     onHighlight={highlightMatch}
+                    schedule={getScheduleForFeature(feature.id)}
+                    onScheduleClick={handleScheduleClick}
+                    onScheduleCancel={cancelSchedule}
+                    onScheduleExecuteNow={triggerNow}
+                    onScheduleDelete={deleteSchedule}
+                    formatCountdown={formatCountdown}
                   />
                 ))}
               </AnimatePresence>
@@ -1484,6 +1646,35 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
           <button onClick={refresh} className="ml-auto text-[10px] font-bold text-primary hover:underline">
             Retry
           </button>
+        </div>
+      )}
+
+      {/* Schedule statistics bar */}
+      {pendingSchedules.length > 0 && (
+        <div className="px-6 py-2 bg-secondary/5 border-b border-secondary/10 flex items-center gap-3">
+          <Timer size={14} className="text-secondary" />
+          <span className="text-[11px] text-secondary font-medium">
+            {t('scheduler.statsPending', { count: pendingSchedules.length, defaultValue: `${pendingSchedules.length} scheduled task(s)` })}
+          </span>
+          <div className="flex items-center gap-2 ml-auto">
+            {pendingSchedules.map(s => (
+              <span key={s.id} className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full bg-secondary/10 text-secondary font-bold">
+                <CalendarClock size={9} />
+                {s.featureId === 'all-pending' ? 'All' : s.featureId.replace(/^feat-/, '')}
+                {formatCountdown(s.triggerAt) && ` (${formatCountdown(s.triggerAt)})`}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Missed schedule alert */}
+      {allSchedules.filter(s => s.status === 'missed').length > 0 && (
+        <div className="px-6 py-2 bg-warning/5 border-b border-warning/10 flex items-center gap-3">
+          <AlertTriangle size={14} className="text-warning" />
+          <span className="text-[11px] text-warning font-medium">
+            {t('scheduler.missedAlert', { count: allSchedules.filter(s => s.status === 'missed').length, defaultValue: `${allSchedules.filter(s => s.status === 'missed').length} missed schedule(s)` })}
+          </span>
         </div>
       )}
 
@@ -2054,6 +2245,18 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
             onConfirm={handleExecConfirm}
             onCancel={() => { setShowExecDialog(false); setExecTargetFeature(null); }}
             docCheck={execDocCheck}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Schedule Picker Modal */}
+      <AnimatePresence>
+        {showScheduleModal && (
+          <SchedulePickerModal
+            feature={scheduleTargetFeature}
+            isAllPending={scheduleIsAllPending}
+            onConfirm={handleScheduleConfirm}
+            onCancel={() => { setShowScheduleModal(false); setScheduleTargetFeature(null); }}
           />
         )}
       </AnimatePresence>
