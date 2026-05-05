@@ -59,6 +59,338 @@ pub struct PtyOutputEvent {
 }
 
 // ===========================================================================
+// Data types - Shell detection (feat-shell-detect)
+// ===========================================================================
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum ShellType {
+    Zsh,
+    Bash,
+    Fish,
+    PowerShell,
+    Cmd,
+    GitBash,
+    Wsl(String),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DetectedShell {
+    pub shell_type: ShellType,
+    pub name: String,
+    pub path: String,
+    pub is_default: bool,
+}
+
+// ===========================================================================
+// Shell detection logic (feat-shell-detect)
+// ===========================================================================
+
+/// Detect all available shells on the current platform.
+fn detect_available_shells() -> Vec<DetectedShell> {
+    let mut shells = Vec::new();
+
+    #[cfg(target_os = "macos")]
+    {
+        shells.extend(detect_shells_macos());
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        shells.extend(detect_shells_linux());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        shells.extend(detect_shells_windows());
+    }
+
+    shells
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+fn detect_shells_unix() -> Vec<DetectedShell> {
+    let mut shells: Vec<DetectedShell> = Vec::new();
+    let default_shell = std::env::var("SHELL").unwrap_or_default();
+
+    // Parse /etc/shells for administrator-approved shells
+    let etc_shells = std::fs::read_to_string("/etc/shells").unwrap_or_default();
+    let mut seen_paths = std::collections::HashSet::new();
+
+    for line in etc_shells.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let path = PathBuf::from(line);
+        if path.exists() && is_executable(&path) {
+            let shell_type = shell_type_from_path(&path);
+            let is_default = line == default_shell;
+            let name = display_name_for_type(&shell_type);
+            seen_paths.insert(line.to_string());
+            shells.push(DetectedShell {
+                shell_type,
+                name,
+                path: line.to_string(),
+                is_default,
+            });
+        }
+    }
+
+    // Search additional common paths
+    let extra_dirs: Vec<&str> = if cfg!(target_os = "macos") {
+        vec![
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+        ]
+    } else {
+        vec!["/usr/local/bin", "/usr/bin"]
+    };
+
+    let search_names: Vec<(&str, ShellType)> = vec![
+        ("zsh", ShellType::Zsh),
+        ("bash", ShellType::Bash),
+        ("fish", ShellType::Fish),
+    ];
+
+    for dir in &extra_dirs {
+        for (name, st) in &search_names {
+            let p = PathBuf::from(dir).join(name);
+            let p_str = p.to_string_lossy().to_string();
+            if p.exists() && is_executable(&p) && !seen_paths.contains(&p_str) {
+                seen_paths.insert(p_str.clone());
+                shells.push(DetectedShell {
+                    shell_type: st.clone(),
+                    name: display_name_for_type(st),
+                    path: p_str.clone(),
+                    is_default: p_str == default_shell,
+                });
+            }
+        }
+    }
+
+    // If default shell was not found yet, add it directly
+    if !default_shell.is_empty() && !seen_paths.contains(&default_shell) {
+        let p = PathBuf::from(&default_shell);
+        if p.exists() && is_executable(&p) {
+            let shell_type = shell_type_from_path(&p);
+            let name = display_name_for_type(&shell_type);
+            shells.push(DetectedShell {
+                shell_type,
+                name,
+                path: default_shell.clone(),
+                is_default: true,
+            });
+        }
+    }
+
+    // Sort: default first, then by priority (zsh > bash > fish)
+    shells.sort_by(|a, b| {
+        b.is_default.cmp(&a.is_default)
+            .then_with(|| shell_priority(&a.shell_type).cmp(&shell_priority(&b.shell_type)))
+    });
+
+    shells
+}
+
+#[cfg(target_os = "macos")]
+fn detect_shells_macos() -> Vec<DetectedShell> {
+    detect_shells_unix()
+}
+
+#[cfg(target_os = "linux")]
+fn detect_shells_linux() -> Vec<DetectedShell> {
+    detect_shells_unix()
+}
+
+#[cfg(target_os = "windows")]
+fn detect_shells_windows() -> Vec<DetectedShell> {
+    let mut shells: Vec<DetectedShell> = Vec::new();
+    let mut seen_paths = std::collections::HashSet::new();
+
+    // Search PowerShell 7 (pwsh)
+    let pwsh_candidates: Vec<PathBuf> = vec![
+        // Program Files
+        PathBuf::from(r"C:\Program Files\PowerShell\7\pwsh.exe"),
+        // WindowsApps (Microsoft Store)
+        dirs_windowsapps_pwsh(),
+        // scoop
+        PathBuf::from(shell_home_dir()).join(r"scoop\shims\pwsh.exe"),
+        // dotnet tool
+        PathBuf::from(shell_home_dir()).join(r".dotnet\tools\pwsh.exe"),
+    ].into_iter().flatten().collect();
+
+    for p in pwsh_candidates {
+        let p_str = p.to_string_lossy().to_string();
+        if p.exists() && !seen_paths.contains(&p_str) {
+            seen_paths.insert(p_str.clone());
+            shells.push(DetectedShell {
+                shell_type: ShellType::PowerShell,
+                name: "PowerShell 7".to_string(),
+                path: p_str,
+                is_default: false, // will set later
+            });
+        }
+    }
+
+    // PowerShell 5 (Windows PowerShell)
+    let ps5 = PathBuf::from(
+        std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".to_string())
+    ).join(r"System32\WindowsPowerShell\v1.0\powershell.exe");
+    let ps5_str = ps5.to_string_lossy().to_string();
+    if ps5.exists() && !seen_paths.contains(&ps5_str) {
+        seen_paths.insert(ps5_str.clone());
+        shells.push(DetectedShell {
+            shell_type: ShellType::PowerShell,
+            name: "PowerShell 5".to_string(),
+            path: ps5_str,
+            is_default: false,
+        });
+    }
+
+    // cmd.exe
+    let cmd = PathBuf::from(
+        std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".to_string())
+    ).join(r"System32\cmd.exe");
+    let cmd_str = cmd.to_string_lossy().to_string();
+    if cmd.exists() && !seen_paths.contains(&cmd_str) {
+        seen_paths.insert(cmd_str.clone());
+        shells.push(DetectedShell {
+            shell_type: ShellType::Cmd,
+            name: "Command Prompt".to_string(),
+            path: cmd_str,
+            is_default: false,
+        });
+    }
+
+    // Git Bash
+    let git_bash_candidates: Vec<PathBuf> = vec![
+        PathBuf::from(r"C:\Program Files\Git\usr\bin\bash.exe"),
+        PathBuf::from(r"C:\Program Files (x86)\Git\usr\bin\bash.exe"),
+        PathBuf::from(shell_home_dir()).join(r"scoop\apps\git\current\usr\bin\bash.exe"),
+    ];
+    for p in git_bash_candidates {
+        let p_str = p.to_string_lossy().to_string();
+        if p.exists() && !seen_paths.contains(&p_str) {
+            seen_paths.insert(p_str.clone());
+            shells.push(DetectedShell {
+                shell_type: ShellType::GitBash,
+                name: "Git Bash".to_string(),
+                path: p_str,
+                is_default: false,
+            });
+            break; // only need one Git Bash
+        }
+    }
+
+    // WSL distributions
+    if let Ok(output) = std::process::Command::new("wsl")
+        .args(["--list", "--quiet"])
+        .output()
+    {
+        if output.status.success() {
+            let text = String::from_utf8_lossy(&output.stdout);
+            for line in text.lines() {
+                let distro = line.trim().to_string();
+                if distro.is_empty() {
+                    continue;
+                }
+                let wsl_path = format!("wsl -d {}", distro);
+                if !seen_paths.contains(&wsl_path) {
+                    seen_paths.insert(wsl_path.clone());
+                    shells.push(DetectedShell {
+                        shell_type: ShellType::Wsl(distro.clone()),
+                        name: format!("WSL ({})", distro),
+                        path: wsl_path,
+                        is_default: false,
+                    });
+                }
+            }
+        }
+    }
+
+    // Determine default: PowerShell 7 > PowerShell 5 > cmd
+    let default_idx = shells.iter().position(|s| matches!(s.shell_type, ShellType::PowerShell))
+        .or_else(|| shells.iter().position(|s| matches!(s.shell_type, ShellType::Cmd)));
+    if let Some(idx) = default_idx {
+        shells[idx].is_default = true;
+    } else if !shells.is_empty() {
+        shells[0].is_default = true;
+    }
+
+    shells
+}
+
+/// Helper: check if a path is executable (non-Windows).
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+fn is_executable(path: &Path) -> bool {
+    std::fs::metadata(path)
+        .map(|m| {
+            use std::os::unix::fs::PermissionsExt;
+            m.permissions().mode() & 0o111 != 0
+        })
+        .unwrap_or(false)
+}
+
+/// Helper: derive ShellType from a shell binary path.
+fn shell_type_from_path(path: &Path) -> ShellType {
+    match path
+        .file_name()
+        .map(|f| f.to_string_lossy().to_string())
+        .as_deref()
+    {
+        Some("zsh") => ShellType::Zsh,
+        Some("bash") => ShellType::Bash,
+        Some("fish") => ShellType::Fish,
+        Some("pwsh") | Some("powershell") => ShellType::PowerShell,
+        Some("cmd") | Some("cmd.exe") => ShellType::Cmd,
+        Some("nu") => ShellType::Bash, // fallback: treat unknown as bash-type
+        _ => ShellType::Bash,
+    }
+}
+
+/// Helper: human-readable display name.
+fn display_name_for_type(st: &ShellType) -> String {
+    match st {
+        ShellType::Zsh => "Zsh".to_string(),
+        ShellType::Bash => "Bash".to_string(),
+        ShellType::Fish => "Fish".to_string(),
+        ShellType::PowerShell => "PowerShell".to_string(),
+        ShellType::Cmd => "Command Prompt".to_string(),
+        ShellType::GitBash => "Git Bash".to_string(),
+        ShellType::Wsl(distro) => format!("WSL ({})", distro),
+    }
+}
+
+/// Helper: sort priority (lower = higher priority).
+fn shell_priority(st: &ShellType) -> u8 {
+    match st {
+        ShellType::Zsh => 0,
+        ShellType::Bash => 1,
+        ShellType::Fish => 2,
+        ShellType::PowerShell => 0,
+        ShellType::Cmd => 1,
+        ShellType::GitBash => 3,
+        ShellType::Wsl(_) => 4,
+    }
+}
+
+/// Helper: get WindowsApps pwsh path (may not exist).
+#[cfg(target_os = "windows")]
+fn dirs_windowsapps_pwsh() -> Option<PathBuf> {
+    let home = shell_home_dir();
+    let p = PathBuf::from(home)
+        .join(r"AppData\Local\Microsoft\WindowsApps\pwsh.exe");
+    if p.exists() { Some(p) } else { None }
+}
+
+/// Helper: user home directory (for shell detection module).
+fn shell_home_dir() -> String {
+    std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_else(|_| ".".to_string())
+}
+
+// ===========================================================================
 // Data types - FS-as-Database (Queue & Feature)
 // ===========================================================================
 
@@ -3465,6 +3797,8 @@ struct AppState {
     active_sessions: Mutex<HashMap<String, String>>,
     /// Stdio session manager (feat-agent-stdio-core) — independent from AgentRuntime
     stdio_manager: Mutex<StdioSessionManager>,
+    /// Cached shell detection result (feat-shell-detect)
+    detected_shells: Mutex<Option<Vec<DetectedShell>>>,
 }
 
 // ===========================================================================
@@ -3556,6 +3890,26 @@ async fn read_file_tree(path: String) -> Result<Vec<FileNode>, String> {
 // ===========================================================================
 // Tauri commands - Pty terminal
 // ===========================================================================
+
+#[tauri::command]
+fn detect_shells(state: tauri::State<'_, AppState>) -> Result<Vec<DetectedShell>, String> {
+    // Check cache first
+    {
+        let cache = state.detected_shells.lock().map_err(|e| e.to_string())?;
+        if let Some(ref shells) = *cache {
+            return Ok(shells.clone());
+        }
+    }
+
+    // Detect and cache
+    let shells = detect_available_shells();
+    {
+        let mut cache = state.detected_shells.lock().map_err(|e| e.to_string())?;
+        *cache = Some(shells.clone());
+    }
+
+    Ok(shells)
+}
 
 #[tauri::command]
 fn create_pty(
@@ -10360,6 +10714,7 @@ pub fn run() {
             active_session_id: Mutex::new(None),
             active_sessions: Mutex::new(HashMap::new()),
             stdio_manager: Mutex::new(StdioSessionManager::new()),
+            detected_shells: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
             greet,
@@ -10367,6 +10722,8 @@ pub fn run() {
             get_stored_workspace,
             read_file_tree,
             create_pty,
+            // Shell detection (feat-shell-detect)
+            detect_shells,
             write_to_pty,
             resize_pty,
             kill_pty,

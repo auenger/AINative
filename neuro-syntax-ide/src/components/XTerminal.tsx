@@ -29,16 +29,49 @@ export interface XTerminalProps {
 // Shell config helper
 // ---------------------------------------------------------------------------
 
-function shellForKind(kind: TerminalKind): { shell: string; args: string[] } {
+interface DetectedShell {
+  shell_type: string;
+  name: string;
+  path: string;
+  is_default: boolean;
+}
+
+// Module-level cache so all terminal instances share the same detection result.
+let detectedShellsCache: DetectedShell[] | null = null;
+
+async function detectShells(): Promise<DetectedShell[]> {
+  if (detectedShellsCache) return detectedShellsCache;
+  try {
+    const shells = await invoke<DetectedShell[]>('detect_shells');
+    detectedShellsCache = shells;
+    return shells;
+  } catch (err) {
+    console.warn('[XTerminal] shell detection failed, using fallback:', err);
+    return [];
+  }
+}
+
+async function shellForKind(kind: TerminalKind): Promise<{ shell: string; args: string[] }> {
   switch (kind) {
     case 'claude':
       return { shell: 'claude', args: [] };
     case 'gemini':
       return { shell: 'gemini', args: [] };
     case 'bash':
-    default:
-      // Use the user's default shell on macOS / Linux, or bash as fallback
-      return { shell: '/bin/zsh', args: ['-l'] };
+    default: {
+      // Ask the Rust backend for the detected default shell
+      const shells = await detectShells();
+      const defaultShell = shells.find((s) => s.is_default);
+      if (defaultShell) {
+        return { shell: defaultShell.path, args: ['-l'] };
+      }
+      // Fallback: first detected shell
+      if (shells.length > 0) {
+        return { shell: shells[0].path, args: ['-l'] };
+      }
+      // Final fallback when detection yields nothing (e.g. browser mode)
+      return { shell: '/bin/sh', args: ['-l'] };
+    }
   }
 }
 
@@ -173,13 +206,14 @@ export const XTerminal: React.FC<XTerminalProps> = ({
     // -------------------------------------------------------------------
     // Create pty on the Rust side
     // -------------------------------------------------------------------
-    const { shell, args } = shellForKind(kind);
     const cols = term.cols;
     const rows = term.rows;
 
-    invoke('create_pty', {
-      config: { shell, args, cols, rows, cwd: cwd || undefined },
-    })
+    // Shell detection is async — resolve the shell config before creating the pty.
+    shellForKind(kind).then(({ shell, args }) => {
+      invoke('create_pty', {
+        config: { shell, args, cols, rows, cwd: cwd || undefined },
+      })
       .then((returnedId) => {
         // The returned pty_id should match our prop; we pass ptyId via the
         // event filter below. The Rust side generates its own UUID.
@@ -232,6 +266,10 @@ export const XTerminal: React.FC<XTerminalProps> = ({
           });
         }
       });
+    }).catch((err) => {
+      console.error('[XTerminal] failed to detect shell:', err);
+      term.writeln('\x1b[31mFailed to detect shell.\x1b[0m');
+    });
 
     // -------------------------------------------------------------------
     // Cleanup on unmount
