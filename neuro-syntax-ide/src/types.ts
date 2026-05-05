@@ -878,3 +878,31 @@ export interface GhostCard {
 
 /** Queue column name for board rendering. */
 export type QueueName = 'active' | 'pending' | 'blocked' | 'completed';
+
+// ---------------------------------------------------------------------------
+// Task Scheduler types (feat-task-scheduler)
+// ---------------------------------------------------------------------------
+
+/** Action to perform when a schedule triggers. */
+export type ScheduleAction = 'run-feature' | 'dev-agent';
+
+/** Status of a task schedule. */
+export type ScheduleStatus = 'pending' | 'triggered' | 'missed' | 'cancelled';
+
+/** A one-shot schedule that triggers a feature execution at a specified time. */
+export interface TaskSchedule {
+  /** Unique schedule id (uuid). */
+  id: string;
+  /** Target feature ID, or 'all-pending' to execute all pending features. */
+  featureId: string | 'all-pending';
+  /** ISO 8601 timestamp when the schedule should fire. */
+  triggerAt: string;
+  /** Action to perform on trigger. */
+  action: ScheduleAction;
+  /** Current status of the schedule. */
+  status: ScheduleStatus;
+  /** ISO 8601 timestamp when the schedule was created. */
+  createdAt: string;
+  /** ISO 8601 timestamp when the schedule was actually triggered (if applicable). */
+  triggeredAt?: string;
+}
