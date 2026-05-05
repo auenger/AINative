@@ -29,6 +29,8 @@ import {
   RotateCcw,
   Sparkles,
   PlayCircle,
+  Search,
+  ArrowUpDown,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
@@ -211,9 +213,13 @@ interface FeatureCardProps {
   isSplitParent?: boolean;
   /** Callback when "Run" button is clicked */
   onExecClick?: (feature: FeatureNode) => void;
+  /** Current search query for highlighting matches */
+  searchQuery?: string;
+  /** Highlight matching text callback */
+  onHighlight?: (text: string, query: string) => React.ReactNode;
 }
 
-const FeatureCard: React.FC<FeatureCardProps> = ({ feature, allFeatures, onClick, onDragStart, overlay, queueColumn, isSplitParent, onExecClick }) => {
+const FeatureCard: React.FC<FeatureCardProps> = ({ feature, allFeatures, onClick, onDragStart, overlay, queueColumn, isSplitParent, onExecClick, searchQuery, onHighlight }) => {
   const [expanded, setExpanded] = useState(false);
   const hasDeps = feature.dependencies.length > 0;
   const isPending = queueColumn === 'pending';
@@ -279,7 +285,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ feature, allFeatures, onClick
           <div className="flex items-center gap-2">
             <div className={cn("rounded-full", getPriorityIndicator(feature.priority))} />
             <span className="text-[9px] font-bold text-outline uppercase tracking-tighter">
-              {feature.id}
+              {searchQuery && onHighlight ? onHighlight(feature.id, searchQuery) : feature.id}
             </span>
             <span className={cn(
               "text-[8px] font-bold uppercase px-1.5 py-0.5 rounded",
@@ -289,7 +295,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ feature, allFeatures, onClick
             </span>
           </div>
           <h3 className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors leading-tight">
-            {feature.name || feature.id}
+            {searchQuery && onHighlight ? onHighlight(feature.name || feature.id, searchQuery) : (feature.name || feature.id)}
           </h3>
         </div>
         <button className="p-1 hover:bg-surface-container-high rounded transition-colors opacity-0 group-hover:opacity-100">
@@ -637,6 +643,8 @@ const ExecutionDialog: React.FC<ExecutionDialogProps> = ({
 // TaskBoard Component
 // ---------------------------------------------------------------------------
 
+type SortMode = 'priority-desc' | 'priority-asc' | 'time-desc' | 'time-asc';
+
 interface TaskBoardProps {
   activeView: string;
   workspacePath: string;
@@ -666,6 +674,12 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
   const [selectedDetail, setSelectedDetail] = useState<Record<string, string> | null>(null);
   const [viewMode, setViewMode] = useState<'board' | 'list' | 'graph'>('board');
   const [detailTab, setDetailTab] = useState<'spec' | 'tasks' | 'checklist' | 'agent'>('spec');
+
+  // Search & Sort state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortMode, setSortMode] = useState<SortMode>('priority-desc');
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
 
   // Agent tab state
   const { runtimes, scanning, scan: scanRuntimes } = useAgentRuntimes();
@@ -1004,6 +1018,128 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
     return ids;
   }, [queueState]);
 
+  // ─── Search & Sort Logic ───
+
+  /** Fuzzy filter: multi-keyword AND match on id + name (case-insensitive) */
+  const filterFeatures = useCallback((features: FeatureNode[], query: string): FeatureNode[] => {
+    if (!query.trim()) return features;
+    const keywords = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    if (keywords.length === 0) return features;
+    return features.filter(f => {
+      const text = `${f.id} ${f.name}`.toLowerCase();
+      return keywords.every(kw => text.includes(kw));
+    });
+  }, []);
+
+  /** Sort features by current sortMode */
+  const sortFeatures = useCallback((features: FeatureNode[], queueKey: QueueName): FeatureNode[] => {
+    const sorted = [...features];
+    sorted.sort((a, b) => {
+      switch (sortMode) {
+        case 'priority-desc': return b.priority - a.priority;
+        case 'priority-asc': return a.priority - b.priority;
+        case 'time-desc': {
+          const timeA = queueKey === 'completed' ? a.completed_at : a.created_at;
+          const timeB = queueKey === 'completed' ? b.completed_at : b.created_at;
+          if (!timeA && !timeB) return 0;
+          if (!timeA) return 1;
+          if (!timeB) return -1;
+          return new Date(timeB).getTime() - new Date(timeA).getTime();
+        }
+        case 'time-asc': {
+          const timeA = queueKey === 'completed' ? a.completed_at : a.created_at;
+          const timeB = queueKey === 'completed' ? b.completed_at : b.created_at;
+          if (!timeA && !timeB) return 0;
+          if (!timeA) return 1;
+          if (!timeB) return -1;
+          return new Date(timeA).getTime() - new Date(timeB).getTime();
+        }
+        default: return 0;
+      }
+    });
+    return sorted;
+  }, [sortMode]);
+
+  /** Memoized filtered + sorted data per column */
+  const filteredSortedData = useMemo(() => {
+    if (!queueState) return { active: [], pending: [], blocked: [], completed: [] };
+    const result: Record<QueueName, FeatureNode[]> = {
+      active: [],
+      pending: [],
+      blocked: [],
+      completed: [],
+    };
+    for (const key of ['active', 'pending', 'blocked', 'completed'] as QueueName[]) {
+      const filtered = filterFeatures(queueState[key], searchQuery);
+      result[key] = sortFeatures(filtered, key);
+    }
+    return result;
+  }, [queueState, searchQuery, filterFeatures, sortFeatures]);
+
+  /** Total matched count across all columns */
+  const totalFilteredCount = useMemo(() => {
+    return filteredSortedData.active.length + filteredSortedData.pending.length +
+           filteredSortedData.blocked.length + filteredSortedData.completed.length;
+  }, [filteredSortedData]);
+
+  /** Highlight matching text in a string */
+  const highlightMatch = useCallback((text: string, query: string): React.ReactNode => {
+    if (!query.trim()) return text;
+    const keywords = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    if (keywords.length === 0) return text;
+
+    // Find all match ranges
+    const lower = text.toLowerCase();
+    const ranges: [number, number][] = [];
+    for (const kw of keywords) {
+      let start = 0;
+      while (true) {
+        const idx = lower.indexOf(kw, start);
+        if (idx === -1) break;
+        ranges.push([idx, idx + kw.length]);
+        start = idx + 1;
+      }
+    }
+    if (ranges.length === 0) return text;
+
+    // Sort ranges by start position
+    ranges.sort((a, b) => a[0] - b[0]);
+
+    // Merge overlapping ranges
+    const merged: [number, number][] = [ranges[0]];
+    for (let i = 1; i < ranges.length; i++) {
+      const last = merged[merged.length - 1];
+      if (ranges[i][0] <= last[1]) {
+        last[1] = Math.max(last[1], ranges[i][1]);
+      } else {
+        merged.push(ranges[i]);
+      }
+    }
+
+    // Build highlighted React nodes
+    const parts: React.ReactNode[] = [];
+    let prevEnd = 0;
+    for (const [s, e] of merged) {
+      if (s > prevEnd) parts.push(text.slice(prevEnd, s));
+      parts.push(<mark key={s} className="bg-primary/30 text-on-surface rounded-sm px-0.5">{text.slice(s, e)}</mark>);
+      prevEnd = e;
+    }
+    if (prevEnd < text.length) parts.push(text.slice(prevEnd));
+    return parts;
+  }, []);
+
+  // Close sort dropdown on outside click
+  useEffect(() => {
+    if (!sortDropdownOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target as Node)) {
+        setSortDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [sortDropdownOpen]);
+
   // ─── Run Feature exec button click handler ───
   const handleExecButtonClick = useCallback(async (feature: FeatureNode) => {
     // Check document completeness
@@ -1105,8 +1241,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
   const renderBoardView = () => (
     <div className="flex-1 flex gap-4 overflow-x-auto">
       {COLUMNS.map(col => {
-        const { ghosts, real } = getColumnItems(col.key);
-        const totalItems = ghosts.length + real.length;
+        const ghostsForColumn = ghostCards.filter(g => g.targetQueue === col.key);
+        const real = filteredSortedData[col.key];
+        const totalItems = ghostsForColumn.length + real.length;
         const Icon = col.icon;
         return (
           <div
@@ -1157,7 +1294,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
             <div className="flex-1 overflow-y-auto p-3 space-y-3 scroll-hide">
               <AnimatePresence mode="popLayout">
                 {/* Ghost cards first (top of column) */}
-                {ghosts.map(ghost => (
+                {ghostsForColumn.map(ghost => (
                   <GhostFeatureCard key={ghost.tempId} ghost={ghost} />
                 ))}
 
@@ -1173,6 +1310,8 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
                     queueColumn={col.key}
                     isSplitParent={splitParentIds.has(feature.id)}
                     onExecClick={handleExecButtonClick}
+                    searchQuery={searchQuery}
+                    onHighlight={highlightMatch}
                   />
                 ))}
               </AnimatePresence>
@@ -1209,17 +1348,21 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
           <tbody>
             {(['active', 'pending', 'blocked', 'completed'] as QueueName[]).flatMap(status => {
               const col = COLUMNS.find(c => c.key === status)!;
-              return queueState[status].map(f => (
+              return filteredSortedData[status].map(f => (
                 <tr
                   key={f.id}
                   className="border-b border-outline-variant/5 hover:bg-surface-container-high/20 transition-colors cursor-pointer"
                   onClick={() => handleFeatureClick(f)}
                 >
                   <td className="p-3">
-                    <span className="text-[10px] font-bold text-outline uppercase tracking-tighter font-mono">{f.id}</span>
+                    <span className="text-[10px] font-bold text-outline uppercase tracking-tighter font-mono">
+                      {searchQuery && highlightMatch ? highlightMatch(f.id, searchQuery) : f.id}
+                    </span>
                   </td>
                   <td className="p-3">
-                    <span className="text-xs font-medium text-on-surface">{f.name}</span>
+                    <span className="text-xs font-medium text-on-surface">
+                      {searchQuery && highlightMatch ? highlightMatch(f.name, searchQuery) : f.name}
+                    </span>
                   </td>
                   <td className="p-3">
                     <span className={cn(
@@ -1350,6 +1493,95 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
           <div className="flex flex-col items-center gap-3">
             <Loader2 size={24} className="text-primary animate-spin" />
             <span className="text-[10px] font-bold uppercase tracking-widest text-outline">Loading queue data...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Search & Sort Toolbar — visible in Board and List views only */}
+      {viewMode !== 'graph' && queueState && (
+        <div className="px-6 py-3 border-b border-outline-variant/10 bg-surface-container-low/50 backdrop-blur-sm shrink-0">
+          <div className="flex items-center gap-3">
+            {/* Search input */}
+            <div className="relative flex-1 max-w-md">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-outline pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t('tasks.searchPlaceholder')}
+                className={cn(
+                  "w-full pl-9 pr-8 py-1.5 rounded-lg text-[11px] bg-surface-container-high text-on-surface",
+                  "border border-outline-variant/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/30",
+                  "placeholder:text-on-surface-variant/40 outline-none transition-all"
+                )}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-surface-container-highest rounded transition-colors"
+                >
+                  <X size={12} className="text-outline" />
+                </button>
+              )}
+            </div>
+
+            {/* Search result count */}
+            {searchQuery && (
+              <span className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider whitespace-nowrap">
+                {t('tasks.searchResults', { count: totalFilteredCount })}
+              </span>
+            )}
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Sort dropdown */}
+            <div className="relative" ref={sortDropdownRef}>
+              <button
+                onClick={() => setSortDropdownOpen(prev => !prev)}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest",
+                  "border border-outline-variant/20 bg-surface-container-high hover:bg-surface-container-highest transition-all",
+                  sortDropdownOpen && "border-primary/50 ring-1 ring-primary/30"
+                )}
+              >
+                <ArrowUpDown size={12} className="text-outline" />
+                <span className="text-on-surface">
+                  {t(({ 'priority-desc': 'tasks.sortPriorityDesc', 'priority-asc': 'tasks.sortPriorityAsc', 'time-desc': 'tasks.sortTimeDesc', 'time-asc': 'tasks.sortTimeAsc' } as Record<SortMode, string>)[sortMode])}
+                </span>
+                <ChevronDown size={12} className={cn("text-outline transition-transform", sortDropdownOpen && "rotate-180")} />
+              </button>
+              <AnimatePresence>
+                {sortDropdownOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="absolute right-0 mt-1 w-48 bg-surface-container-low border border-outline-variant/20 rounded-lg shadow-xl z-20 overflow-hidden"
+                  >
+                    {([
+                      { mode: 'priority-desc' as SortMode, labelKey: 'tasks.sortPriorityDesc' },
+                      { mode: 'priority-asc' as SortMode, labelKey: 'tasks.sortPriorityAsc' },
+                      { mode: 'time-desc' as SortMode, labelKey: 'tasks.sortTimeDesc' },
+                      { mode: 'time-asc' as SortMode, labelKey: 'tasks.sortTimeAsc' },
+                    ]).map(opt => (
+                      <button
+                        key={opt.mode}
+                        onClick={() => { setSortMode(opt.mode); setSortDropdownOpen(false); }}
+                        className={cn(
+                          "w-full px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wider transition-all",
+                          sortMode === opt.mode
+                            ? "bg-primary/10 text-primary"
+                            : "text-on-surface hover:bg-surface-container-high"
+                        )}
+                      >
+                        {t(opt.labelKey)}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       )}

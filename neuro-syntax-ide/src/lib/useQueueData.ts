@@ -11,6 +11,7 @@ export interface FeatureNode {
   priority: number;
   size: string;
   dependencies: string[];
+  created_at?: string;
   completed_at?: string;
   tag?: string;
   details?: {
@@ -162,6 +163,7 @@ export function useQueueData() {
             priority: 75,
             size: 'L',
             dependencies: ['feat-workspace-loader'],
+            created_at: '2026-04-02T10:00:00Z',
           },
           {
             id: 'feat-editor-monaco',
@@ -169,6 +171,7 @@ export function useQueueData() {
             priority: 60,
             size: 'M',
             dependencies: ['feat-workspace-loader'],
+            created_at: '2026-04-02T11:00:00Z',
           },
           {
             id: 'feat-hardware-monitor',
@@ -176,6 +179,7 @@ export function useQueueData() {
             priority: 40,
             size: 'M',
             dependencies: ['feat-workspace-loader'],
+            created_at: '2026-04-03T09:00:00Z',
           },
           {
             id: 'feat-ai-agent-service',
@@ -183,6 +187,7 @@ export function useQueueData() {
             priority: 30,
             size: 'L',
             dependencies: ['feat-fs-database-engine'],
+            created_at: '2026-04-03T14:00:00Z',
           },
         ],
         blocked: [],
@@ -193,6 +198,7 @@ export function useQueueData() {
             priority: 100,
             size: 'S',
             dependencies: [],
+            created_at: '2026-03-30T08:00:00Z',
             completed_at: '2026-04-01T10:00:00Z',
             tag: 'feat-tauri-v2-init-20260401',
           },
@@ -202,6 +208,7 @@ export function useQueueData() {
             priority: 90,
             size: 'M',
             dependencies: [],
+            created_at: '2026-03-30T09:00:00Z',
             completed_at: '2026-04-01T11:10:00Z',
             tag: 'feat-workspace-loader-20260401',
           },
@@ -211,6 +218,7 @@ export function useQueueData() {
             priority: 70,
             size: 'M',
             dependencies: [],
+            created_at: '2026-03-31T08:00:00Z',
             completed_at: '2026-04-01T11:10:00Z',
             tag: 'feat-native-terminal-20260401',
           },

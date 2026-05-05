@@ -125,7 +125,13 @@ const resources = {
         stepDescribe: 'Describe',
         stepThinking: 'Thinking',
         stepReview: 'Review',
-        stepConfirm: 'Confirm'
+        stepConfirm: 'Confirm',
+        searchPlaceholder: 'Search feature name or ID...',
+        sortPriorityDesc: 'Priority (High)',
+        sortPriorityAsc: 'Priority (Low)',
+        sortTimeDesc: 'Time (Newest)',
+        sortTimeAsc: 'Time (Oldest)',
+        searchResults: '{{count}} results',
       },
       missionControl: {
         title: 'Mission Control',
@@ -369,7 +375,13 @@ const resources = {
         stepDescribe: '描述',
         stepThinking: '思考',
         stepReview: '审查',
-        stepConfirm: '确认'
+        stepConfirm: '确认',
+        searchPlaceholder: '搜索 feature 名称或 ID...',
+        sortPriorityDesc: '优先级（高到低）',
+        sortPriorityAsc: '优先级（低到高）',
+        sortTimeDesc: '时间（最新优先）',
+        sortTimeAsc: '时间（最早优先）',
+        searchResults: '{{count}} 个结果',
       },
       missionControl: {
         title: '主控看板',
