@@ -28,6 +28,7 @@ import {
   Network,
   RotateCcw,
   Sparkles,
+  PlayCircle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
@@ -35,7 +36,7 @@ import { cn } from '../../lib/utils';
 import { useQueueData, FeatureNode } from '../../lib/useQueueData';
 import { useAgentRuntimes } from '../../lib/useAgentRuntimes';
 import { useSessionStore } from '../../lib/SessionStore';
-import type { AgentActionType, TaskExecutionOverlay, GhostCard, QueueName } from '../../types';
+import type { AgentActionType, TaskExecutionOverlay, GhostCard, QueueName, AgentRuntimeInfo } from '../../types';
 
 /** 智能时间格式化：返回相对时间与绝对时间 — 使用 i18n key */
 function useFormatUpdatedTime() {
@@ -204,11 +205,18 @@ interface FeatureCardProps {
   onClick: (f: FeatureNode) => void;
   onDragStart: (e: React.DragEvent, id: string) => void;
   overlay?: TaskExecutionOverlay;
+  /** Which queue column this card is in */
+  queueColumn?: QueueName;
+  /** Whether this feature is a split parent (has split: true + children in queue) */
+  isSplitParent?: boolean;
+  /** Callback when "Run" button is clicked */
+  onExecClick?: (feature: FeatureNode) => void;
 }
 
-const FeatureCard: React.FC<FeatureCardProps> = ({ feature, allFeatures, onClick, onDragStart, overlay }) => {
+const FeatureCard: React.FC<FeatureCardProps> = ({ feature, allFeatures, onClick, onDragStart, overlay, queueColumn, isSplitParent, onExecClick }) => {
   const [expanded, setExpanded] = useState(false);
   const hasDeps = feature.dependencies.length > 0;
+  const isPending = queueColumn === 'pending';
 
   return (
     <motion.div
@@ -342,19 +350,44 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ feature, allFeatures, onClick
           )}
         </div>
 
-        {hasDeps && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded(prev => !prev);
-            }}
-            className="flex items-center gap-1 text-[10px] font-bold text-primary hover:bg-primary/10 px-2 py-1 rounded transition-all"
-          >
-            <Link2 size={12} />
-            {feature.dependencies.length}
-            {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Run Feature button — only on pending cards */}
+          {isPending && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!isSplitParent && onExecClick) {
+                  onExecClick(feature);
+                }
+              }}
+              disabled={isSplitParent}
+              title={isSplitParent ? 'Split parent task, execute sub-features instead' : 'Run Feature'}
+              className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wider transition-all",
+                isSplitParent
+                  ? "opacity-50 cursor-not-allowed text-on-surface-variant bg-surface-container-highest"
+                  : "text-primary bg-primary/10 hover:bg-primary/20 hover:-translate-y-0.5 active:translate-y-0 border border-primary/20"
+              )}
+            >
+              <PlayCircle size={11} />
+              Run
+            </button>
+          )}
+
+          {hasDeps && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpanded(prev => !prev);
+              }}
+              className="flex items-center gap-1 text-[10px] font-bold text-primary hover:bg-primary/10 px-2 py-1 rounded transition-all"
+            >
+              <Link2 size={12} />
+              {feature.dependencies.length}
+              {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Expanded dependencies */}
@@ -468,6 +501,139 @@ const GhostFeatureCard: React.FC<GhostFeatureCardProps> = ({ ghost, onClick }) =
 };
 
 // ---------------------------------------------------------------------------
+// Execution Dialog (Run Feature confirmation)
+// ---------------------------------------------------------------------------
+
+interface ExecutionDialogProps {
+  feature: FeatureNode;
+  runtimes: AgentRuntimeInfo[];
+  selectedRuntimeId: string;
+  onRuntimeChange: (id: string) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+  docCheck: { hasAllDocs: boolean; missingDocs: string[] } | null;
+}
+
+const ExecutionDialog: React.FC<ExecutionDialogProps> = ({
+  feature,
+  runtimes,
+  selectedRuntimeId,
+  onRuntimeChange,
+  onConfirm,
+  onCancel,
+  docCheck,
+}) => {
+  const availableRuntimes = runtimes.filter(r => r.status === 'available' || r.status === 'busy');
+  const canExecute = docCheck?.hasAllDocs;
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onCancel}
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+      />
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        onClick={(e) => e.stopPropagation()}
+        className="relative bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl max-w-md w-full p-6"
+      >
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 rounded-lg bg-primary/10 text-primary">
+            <PlayCircle size={20} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-on-surface">Run Feature</h3>
+            <p className="text-[10px] text-on-surface-variant">
+              Start automated feature execution lifecycle
+            </p>
+          </div>
+        </div>
+
+        {/* Feature info */}
+        <div className="mb-4 p-3 rounded-lg bg-surface-container-high/50 border border-outline-variant/5">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[9px] font-bold text-outline uppercase tracking-tighter">{feature.id}</span>
+            <span className={cn(
+              "text-[8px] font-bold uppercase px-1.5 py-0.5 rounded",
+              getSizeBadge(feature.size)
+            )}>
+              {feature.size}
+            </span>
+          </div>
+          <p className="text-xs font-medium text-on-surface">{feature.name}</p>
+        </div>
+
+        {/* Missing docs warning */}
+        {docCheck && !docCheck.hasAllDocs && (
+          <div className="mb-4 rounded-lg bg-[#ffb4ab]/10 border border-[#ffb4ab]/20 p-3">
+            <div className="flex items-start gap-2">
+              <AlertCircle size={14} className="text-[#ffb4ab] shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[11px] text-[#ffb4ab] font-medium">
+                  Missing required documents
+                </p>
+                <p className="text-[9px] text-on-surface-variant mt-1">
+                  {docCheck.missingDocs.join(', ')}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Runtime selector */}
+        <div className="mb-5 space-y-2">
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-outline">Runtime Agent</h4>
+          <select
+            value={selectedRuntimeId}
+            onChange={(e) => onRuntimeChange(e.target.value)}
+            className={cn(
+              "w-full px-3 py-2 rounded-lg text-[11px] bg-surface-container-high text-on-surface",
+              "border border-outline-variant/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/30",
+              "outline-none transition-all appearance-none cursor-pointer"
+            )}
+          >
+            {availableRuntimes.length === 0 && (
+              <option value="">No runtimes available</option>
+            )}
+            {availableRuntimes.map(r => (
+              <option key={r.id} value={r.id}>{r.name} ({r.id})</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 rounded-lg text-[11px] font-bold bg-surface-container-highest text-on-surface hover:bg-surface-variant transition-all border border-outline-variant/20"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={!canExecute}
+            className={cn(
+              'flex items-center gap-1.5 px-5 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all',
+              canExecute
+                ? 'bg-primary text-on-primary hover:bg-primary/90'
+                : 'bg-surface-container-highest text-outline cursor-not-allowed',
+            )}
+          >
+            <PlayCircle size={12} />
+            Confirm Execution
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // TaskBoard Component
 // ---------------------------------------------------------------------------
 
@@ -517,6 +683,12 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
 
   // Safe-close confirmation state
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+
+  // Execution dialog state (Run Feature button)
+  const [showExecDialog, setShowExecDialog] = useState(false);
+  const [execTargetFeature, setExecTargetFeature] = useState<FeatureNode | null>(null);
+  const [selectedRuntimeId, setSelectedRuntimeId] = useState<string>('claude-code');
+  const [execDocCheck, setExecDocCheck] = useState<{ hasAllDocs: boolean; missingDocs: string[] } | null>(null);
 
   // Drag state
   const draggedIdRef = useRef<string | null>(null);
@@ -814,6 +986,113 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
     addGhostCard(ghost);
   }, [addGhostCard]);
 
+  // ─── Build a set of split parent IDs from queue.yaml parents + pending entries with split:true ───
+  const splitParentIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (queueState) {
+      // Check parents array for features with split:true
+      for (const parent of queueState.parents) {
+        ids.add(parent.id);
+      }
+      // Also check pending entries that have split field
+      for (const f of queueState.pending) {
+        if ((f as any).split) {
+          ids.add(f.id);
+        }
+      }
+    }
+    return ids;
+  }, [queueState]);
+
+  // ─── Run Feature exec button click handler ───
+  const handleExecButtonClick = useCallback(async (feature: FeatureNode) => {
+    // Check document completeness
+    const detail = await readDetail(feature.id);
+    const requiredDocs = ['spec.md', 'task.md', 'checklist.md'];
+    const missingDocs: string[] = [];
+    for (const doc of requiredDocs) {
+      if (!detail || !detail[doc] || detail[doc].trim().length === 0) {
+        missingDocs.push(doc);
+      }
+    }
+    const hasAllDocs = missingDocs.length === 0;
+    setExecDocCheck({ hasAllDocs, missingDocs });
+
+    if (!hasAllDocs) {
+      // Still open dialog but user can see the issue
+      setExecTargetFeature(feature);
+      setShowExecDialog(true);
+      return;
+    }
+
+    setExecTargetFeature(feature);
+    setSelectedRuntimeId('claude-code');
+    setShowExecDialog(true);
+  }, [readDetail]);
+
+  // ─── Execute /run-feature dispatch ───
+  const handleExecConfirm = useCallback(async () => {
+    if (!execTargetFeature) return;
+
+    const featureId = execTargetFeature.id;
+    setShowExecDialog(false);
+
+    // Set overlay to dispatching
+    setOverlay(featureId, { status: 'dispatching', action: 'develop' });
+
+    try {
+      if (!isTauri) {
+        // Dev fallback: simulate execution
+        setOverlay(featureId, { status: 'streaming', action: 'develop', outputPreview: 'Starting /run-feature...' });
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setOverlay(featureId, { status: 'streaming', action: 'develop', outputPreview: `Executing /run-feature ${featureId}...` });
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        setOverlay(featureId, { status: 'done', action: 'develop' });
+        await refresh();
+        return;
+      }
+
+      const { invoke } = await import('@tauri-apps/api/core');
+      const { listen } = await import('@tauri-apps/api/event');
+
+      // Listen for streaming output
+      const unlisten = await listen<{ text: string; is_done: boolean; error?: string; type?: string }>(
+        'agent://chunk',
+        (event) => {
+          const chunk = event.payload;
+          if (chunk.error && chunk.type !== 'stderr') {
+            setOverlayError(featureId);
+            if (chunk.is_done) unlisten();
+            return;
+          }
+          if (chunk.text && (chunk.type === 'assistant' || chunk.type === 'system' || chunk.type === 'raw' || !chunk.type)) {
+            const lines = chunk.text.split('\n').filter(Boolean);
+            const lastLines = lines.slice(-2).join('\n');
+            setOverlay(featureId, { status: 'streaming', action: 'develop', outputPreview: lastLines });
+          }
+          if (chunk.is_done) {
+            unlisten();
+            setOverlay(featureId, { status: 'writing', action: 'develop' });
+            refresh();
+          }
+        }
+      );
+
+      // Start runtime session
+      await invoke('runtime_session_start', { runtimeId: selectedRuntimeId });
+
+      // Execute /run-feature
+      await invoke('runtime_execute', {
+        runtimeId: selectedRuntimeId,
+        message: `/run-feature ${featureId}`,
+        sessionId: null,
+        systemPrompt: null,
+      });
+    } catch (e: any) {
+      setOverlayError(featureId);
+    }
+  }, [execTargetFeature, selectedRuntimeId, setOverlay, setOverlayError, refresh]);
+
   // ---- Render helpers ----
 
   /** Compute merged column items: ghost cards prepended before real items. */
@@ -891,6 +1170,9 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
                     onClick={handleFeatureClick}
                     onDragStart={handleDragStart}
                     overlay={overlayState.get(feature.id)}
+                    queueColumn={col.key}
+                    isSplitParent={splitParentIds.has(feature.id)}
+                    onExecClick={handleExecButtonClick}
                   />
                 ))}
               </AnimatePresence>
@@ -1525,6 +1807,21 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
             onClose={() => setShowNewTaskModal(false)}
             onFeatureCreated={refresh}
             onGhostCardCreate={handleGhostCardCreate}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Execution Dialog — Run Feature confirmation */}
+      <AnimatePresence>
+        {showExecDialog && execTargetFeature && (
+          <ExecutionDialog
+            feature={execTargetFeature}
+            runtimes={runtimes}
+            selectedRuntimeId={selectedRuntimeId}
+            onRuntimeChange={setSelectedRuntimeId}
+            onConfirm={handleExecConfirm}
+            onCancel={() => { setShowExecDialog(false); setExecTargetFeature(null); }}
+            docCheck={execDocCheck}
           />
         )}
       </AnimatePresence>
