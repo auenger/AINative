@@ -1,0 +1,75 @@
+# Feature Workflow 配置
+# 由 init-project 自动生成，请根据项目需求修改
+
+# 项目信息
+project:
+  name: {{PROJECT_NAME}}          # 项目名称（init-project 时自动填充）
+  main_branch: main               # 默认合并目标分支
+  repo_path: .                    # Git 仓库路径
+
+  tech_stack: {{TECH_STACK}}      # 技术栈（如 python-311, node-20）
+
+  test_framework: {{TEST_FRAMEWORK}}  # 测试框架（如 pytest, jest）
+
+# 并行控制
+parallelism:
+  max_concurrent: 2               # 最大并行开发数
+
+# Git 设置
+git:
+  remote: origin                  # 远程仓库名称
+  auto_push: false                # 合并后自动推送 main
+  merge_strategy: "--no-ff"       # 合并策略
+  push_tags: true                 # 是否自动推送 tag
+
+# 分支策略
+branch_prefix: feature
+worktree_prefix: {{WORKTREE_PREFIX}}  # worktree 目录前缀
+worktree_base: ..                 # worktree 父目录
+
+# 工作流设置
+workflow:
+  auto_start: false               # 是否自动启动下一个 pending feature
+  auto_start_next: true           # 并行开发完成后自动启动下一个
+  require_checklist: true         # 完成前检查 checklist
+  subagent_timeout: 20            # SubAgent 超时阈值（分钟），超时后检查 git 状态决定是否继续
+
+  # 需求切分
+  splitting:
+    enabled: true                 # 启用需求切分功能
+    threshold: 3                  # 超过3个价值点自动拆分
+
+  # 测试配置
+  testing:
+    pytest_enabled: true          # 启用 pytest 测试
+    test_dir: tests               # 测试目录
+    coverage_enabled: true        # 启用覆盖率统计
+    coverage_target: 80           # 目标覆盖率
+
+# 归档配置
+completion:
+  archive:
+    create_tag: true              # 创建归档 tag
+    tag_format: "{id}-{date}"     # tag 格式
+    tag_date_format: "%Y%m%d"     # 日期格式
+
+  cleanup:
+    delete_worktree: true         # 删除 worktree
+    delete_branch: true           # 删除分支（可从 tag 恢复）
+
+  record:
+    update_spec: true             # 更新 spec.md
+    update_archive_log: true      # 更新 archive-log.yaml
+
+# 命名规则
+naming:
+  feature_prefix: feat            # feat-xxx
+  branch_prefix: feature          # feature/xxx
+  worktree_prefix: {{WORKTREE_PREFIX}}  # ../XXX-feat-xxx
+
+# 路径配置
+paths:
+  features_dir: features          # 需求目录
+  archive_dir: features/archive   # 归档目录
+  worktree_base: ..               # worktree 父目录
+  repo_path: .                    # Git 仓库相对路径

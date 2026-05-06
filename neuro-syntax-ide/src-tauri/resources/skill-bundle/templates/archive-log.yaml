@@ -1,0 +1,10 @@
+# Feature 归档日志
+# 记录所有已完成的特性
+
+meta:
+  last_updated: "{{DATE}}"
+  version: 1
+  total_completed: 0
+
+# 已完成的特性
+records: []

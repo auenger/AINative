@@ -43,6 +43,9 @@ import { useSessionStore } from '../../lib/SessionStore';
 import type { AgentActionType, TaskExecutionOverlay, GhostCard, QueueName, AgentRuntimeInfo, TaskSchedule } from '../../types';
 import { useTaskScheduler } from '../../lib/useTaskScheduler';
 import { SchedulePickerModal } from './SchedulePickerModal';
+import { SkillInitPrompt } from '../SkillInitPrompt';
+import { invoke } from '@tauri-apps/api/core';
+import type { ReadinessReport } from '../../types';
 
 /** 智能时间格式化：返回相对时间与绝对时间 — 使用 i18n key */
 function useFormatUpdatedTime() {
@@ -741,6 +744,15 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
     ghostCards, addGhostCard, updateGhostCard, removeGhostCard,
   } = useQueueData();
   const sessionStore = useSessionStore();
+
+  // ─── Skill readiness check ───
+  const [skillReport, setSkillReport] = useState<ReadinessReport | null>(null);
+  useEffect(() => {
+    if (!workspacePath) return;
+    invoke<ReadinessReport>('check_skill_readiness', { projectPath: workspacePath })
+      .then(setSkillReport)
+      .catch(() => {});
+  }, [workspacePath]);
 
   // ─── Task Scheduler state ───
   const {
@@ -1568,6 +1580,18 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
 
   return (
     <div className="flex-1 flex flex-col bg-surface overflow-hidden">
+      {/* Skill Init Prompt */}
+      {workspacePath && skillReport && !skillReport.ready && (
+        <SkillInitPrompt
+          workspacePath={workspacePath}
+          report={skillReport}
+          onInstalled={() => {
+            invoke<ReadinessReport>('check_skill_readiness', { projectPath: workspacePath })
+              .then(setSkillReport)
+              .catch(() => {});
+          }}
+        />
+      )}
       {/* Header */}
       <header className="h-14 bg-surface-container-low flex items-center justify-between px-6 border-b border-outline-variant/10 shrink-0">
         <div className="flex items-center gap-4">

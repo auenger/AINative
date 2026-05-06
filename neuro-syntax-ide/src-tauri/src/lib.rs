@@ -1,3 +1,5 @@
+mod skill_init;
+
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -10995,6 +10997,11 @@ pub fn run() {
             agent_health_check,
             // Pipe Adapter (feat-agent-pipe-adapter)
             pipe_execute,
+            // Skill Init (feat-skill-init)
+            skill_init::scan_installed_skills,
+            skill_init::get_bundled_plugin_info,
+            skill_init::check_skill_readiness,
+            skill_init::install_bundled_skills,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

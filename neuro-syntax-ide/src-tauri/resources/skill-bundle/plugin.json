@@ -1,0 +1,8 @@
+{
+  "name": "feature-workflow",
+  "description": "基于 Git Worktree 的 AI 辅助开发工作流系统。支持需求创建、并行开发、自动验证、归档管理的完整生命周期。",
+  "version": "3.0.0",
+  "author": {
+    "name": "AI Platform Team"
+  }
+}
