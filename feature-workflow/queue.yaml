@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-05-05T16:30:00Z'
+  last_updated: '2026-05-06T00:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -48,13 +48,17 @@ parents:
   - feat-shell-settings-ui
   - feat-windows-pty
 active: []
-pending:
-- id: feat-task-scheduler
-  name: Task 定时调度服务（一次性定时器 + 自动驱动 /run-feature 或 /dev-agent）
-  priority: 60
-  created_at: '2026-04-30T17:30:00Z'
+pending: []
 blocked: []
 completed:
+- id: feat-skill-init
+  name: IDE Skill 初始化能力（自动检测 + 一键安装）
+  completed_at: '2026-05-06T12:30:00Z'
+  tag: feat-skill-init-20260506
+- id: feat-task-scheduler
+  name: Task 定时调度服务（一次性定时器 + 自动驱动 /run-feature 或 /dev-agent）
+  completed_at: '2026-05-05T17:30:00Z'
+  tag: feat-task-scheduler-20260505
 - id: feat-task-board-search-sort
   name: Task Board 模糊搜索与时间排序
   completed_at: '2026-05-05T16:30:00Z'

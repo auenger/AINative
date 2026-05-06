@@ -1,10 +1,60 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-05-05T16:30:00Z"
+  last_updated: "2026-05-06T12:30:00Z"
   version: 1
-  total_completed: 117
+  total_completed: 119
 
 records:
+  - id: feat-skill-init
+    name: "IDE Skill 初始化能力（自动检测 + 一键安装）"
+    completed_at: "2026-05-06T12:30:00Z"
+    tag: feat-skill-init-20260506
+    merge_commit: 2f117dfc
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-skill-init
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-skill-init
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 6
+      scenarios_passed: 6
+    stats:
+      started: "2026-05-06T12:00:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 40
+      insertions: 5127
+
+  - id: feat-task-scheduler
+    name: "Task 定时调度服务（一次性定时器 + 自动驱动 /run-feature 或 /dev-agent）"
+    completed_at: "2026-05-05T17:30:00Z"
+    tag: feat-task-scheduler-20260505
+    merge_commit: 09a9335
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-task-scheduler
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-task-scheduler
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 6
+      scenarios_passed: 6
+    stats:
+      started: "2026-05-05T17:00:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 5
+      insertions: 809
+      deletions: 2
+    archive_path: features/archive/done-feat-task-scheduler-20260505
+
   - id: feat-task-board-search-sort
     name: "Task Board 模糊搜索与时间排序"
     completed_at: "2026-05-05T16:30:00Z"
