@@ -27,12 +27,14 @@ import {
   Paperclip,
   AtSign,
   FileSpreadsheet,
+  Wrench,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { useAgentStream } from '../../lib/useAgentStream';
+import type { ChatMessage } from '../../lib/useAgentStream';
 import { useSettings } from '../../lib/useSettings';
 import type { MdFileEntry, MdEditorMode } from '../../types';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
@@ -54,6 +56,75 @@ interface WorkspaceHook {
 interface ProjectViewProps {
   workspace: WorkspaceHook;
   onNavigateToGit?: () => void;
+}
+
+// ---------------------------------------------------------------------------
+// Tool Call Message Renderer (feat-agent-tool-ui)
+// ---------------------------------------------------------------------------
+
+/** Renders a tool call message with visual status indicator. */
+function ToolCallMessage({ msg }: { msg: ChatMessage }) {
+  const isRunning = msg.toolStatus === 'running';
+  const isSuccess = msg.toolStatus === 'success';
+  const isError = msg.toolStatus === 'error';
+
+  const statusConfig = {
+    running: {
+      bg: 'bg-yellow-500/10 border-yellow-400/30',
+      icon: <Loader2 size={11} className="animate-spin text-yellow-400" />,
+      label: 'text-yellow-400',
+      resultBg: '',
+    },
+    success: {
+      bg: 'bg-green-500/10 border-green-400/30',
+      icon: <CheckCircle2 size={11} className="text-green-400" />,
+      label: 'text-green-400',
+      resultBg: 'text-green-300',
+    },
+    error: {
+      bg: 'bg-red-500/10 border-red-400/30',
+      icon: <AlertTriangle size={11} className="text-red-400" />,
+      label: 'text-red-400',
+      resultBg: 'text-red-300',
+    },
+  };
+
+  const config = statusConfig[msg.toolStatus ?? 'running'];
+
+  return (
+    <div className={cn(
+      "flex flex-col gap-1 max-w-[85%] items-start",
+    )}>
+      <div className={cn(
+        "p-2.5 rounded-lg border text-xs leading-relaxed min-w-[200px]",
+        config.bg,
+      )}>
+        {/* Tool header */}
+        <div className="flex items-center gap-1.5 mb-1">
+          <Wrench size={10} className={config.label} />
+          <span className={cn("text-[9px] font-bold uppercase tracking-wider", config.label)}>
+            {msg.toolName ? msg.toolName : 'Tool'}
+          </span>
+          {isRunning && (
+            <span className="text-[8px] text-yellow-400/70 animate-pulse">running</span>
+          )}
+        </div>
+        {/* Tool summary / content */}
+        <div className="text-on-surface text-[10px] leading-relaxed">
+          {msg.content}
+        </div>
+        {/* Tool result (when completed) */}
+        {msg.toolResult && !isRunning && (
+          <div className={cn(
+            "mt-1.5 pt-1.5 border-t border-outline-variant/10 text-[9px] leading-relaxed",
+            config.resultBg,
+          )}>
+            {msg.toolResult}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 
@@ -642,6 +713,9 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
 
                   <div className="flex-1 overflow-y-auto p-4 space-y-4 scroll-hide">
                     {pmAgent.messages.map((msg, idx) => (
+                      msg.isToolCall ? (
+                        <ToolCallMessage key={idx} msg={msg} />
+                      ) : (
                       <div key={idx} className={cn(
                         "flex flex-col gap-1 max-w-[85%]",
                         msg.role === 'user' ? "ml-auto items-end" : "items-start"
@@ -664,6 +738,7 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
                           )}
                         </div>
                       </div>
+                      )
                     ))}
                     <div ref={chatEndRef} />
                   </div>
@@ -994,6 +1069,9 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
                   {(reqAgent.connectionState !== 'disconnected' || reqAgent.messages.length > 1) && (
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 scroll-hide">
                       {reqAgent.messages.map((msg, idx) => (
+                        msg.isToolCall ? (
+                          <ToolCallMessage key={idx} msg={msg} />
+                        ) : (
                         <div key={idx} className={cn(
                           "flex flex-col gap-1 max-w-[85%]",
                           msg.role === 'user' ? "ml-auto items-end" : "items-start"
@@ -1016,6 +1094,7 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
                             )}
                           </div>
                         </div>
+                        )
                       ))}
                       <div ref={chatEndRef} />
                     </div>
