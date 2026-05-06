@@ -51,6 +51,14 @@ export interface ChatMessage {
   content: string;
   /** Optional multimodal attachments (images, files) */
   attachments?: MessageAttachment[];
+  /** Whether this message is a tool call event (feat-agent-tool-ui) */
+  isToolCall?: boolean;
+  /** Tool name for tool call messages (feat-agent-tool-ui) */
+  toolName?: string;
+  /** Tool execution status (feat-agent-tool-ui) */
+  toolStatus?: 'running' | 'success' | 'error';
+  /** Tool result summary (feat-agent-tool-ui) */
+  toolResult?: string;
 }
 
 export type Connection_State = 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -279,29 +287,66 @@ export function useAgentStream(options: UseAgentStreamOptions) {
 
       // Handle tool_use and tool_result events from agentic tool execution loop
       // These are emitted when the backend executes file operations requested by the LLM.
-      // We append them to the streaming assistant message so the user sees tool activity.
+      // We create separate tool call messages with structured status for proper UI rendering.
       if (chunk.type === 'tool_use') {
-        streamingTextRef.current += `\n🔧 ${chunk.text}\n`;
+        // Extract tool name from the text (format: "tool_name: summary" or just "summary")
+        const toolText = chunk.text || '';
+        const colonIdx = toolText.indexOf(':');
+        const toolName = colonIdx > 0 ? toolText.slice(0, colonIdx).trim() : '';
+        const toolSummary = colonIdx > 0 ? toolText.slice(colonIdx + 1).trim() : toolText;
+
         setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          if (last && last.role === 'assistant') {
-            return [...prev.slice(0, -1), { ...last, content: streamingTextRef.current }];
-          }
-          return [...prev, { role: 'assistant', content: streamingTextRef.current }];
+          // Close any previous running tool call (mark as completed without explicit result)
+          const updated = prev.map((msg) =>
+            msg.isToolCall && msg.toolStatus === 'running'
+              ? { ...msg, toolStatus: 'success' as const, toolResult: '' }
+              : msg
+          );
+          return [
+            ...updated,
+            {
+              role: 'assistant' as const,
+              content: toolSummary || toolText || 'Executing tool...',
+              isToolCall: true,
+              toolName: toolName || undefined,
+              toolStatus: 'running' as const,
+            },
+          ];
         });
       }
 
       if (chunk.type === 'tool_result') {
-        const resultText = chunk.error
-          ? `  ❌ ${chunk.text}\n`
-          : `  ✅ ${chunk.text}\n`;
-        streamingTextRef.current += resultText;
+        const isSuccess = !chunk.error;
+        const resultText = chunk.text || '';
         setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          if (last && last.role === 'assistant') {
-            return [...prev.slice(0, -1), { ...last, content: streamingTextRef.current }];
+          // Find the last running tool call message and update it
+          let lastToolIdx = -1;
+          for (let i = prev.length - 1; i >= 0; i--) {
+            if (prev[i].isToolCall && prev[i].toolStatus === 'running') {
+              lastToolIdx = i;
+              break;
+            }
           }
-          return [...prev, { role: 'assistant', content: streamingTextRef.current }];
+          if (lastToolIdx >= 0) {
+            const updated = [...prev];
+            updated[lastToolIdx] = {
+              ...updated[lastToolIdx],
+              toolStatus: isSuccess ? 'success' : 'error',
+              toolResult: resultText || (isSuccess ? 'Done' : chunk.error || 'Failed'),
+            };
+            return updated;
+          }
+          // No running tool found — add a standalone result message
+          return [
+            ...prev,
+            {
+              role: 'assistant' as const,
+              content: resultText || (isSuccess ? 'Tool completed' : 'Tool failed'),
+              isToolCall: true,
+              toolStatus: (isSuccess ? 'success' : 'error') as 'success' | 'error',
+              toolResult: resultText,
+            },
+          ];
         });
       }
 
