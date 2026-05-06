@@ -906,3 +906,39 @@ export interface TaskSchedule {
   /** ISO 8601 timestamp when the schedule was actually triggered (if applicable). */
   triggeredAt?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Skill Init (feat-skill-init)
+// ---------------------------------------------------------------------------
+
+export type SkillReadinessLevel = 'ready' | 'partial' | 'none';
+
+export interface SkillStatus {
+  installed_skills: string[];
+  installed_commands: string[];
+  installed_agents: string[];
+}
+
+export interface PluginInfo {
+  name: string;
+  version: string;
+  description: string;
+  skill_count: number;
+  command_count: number;
+  agent_count: number;
+}
+
+export interface ReadinessReport {
+  ready: boolean;
+  installed: string[];
+  missing: string[];
+  total_required: number;
+}
+
+export interface InstallResult {
+  success: boolean;
+  installed: number;
+  skipped: number;
+  updated: number;
+  errors: string[];
+}

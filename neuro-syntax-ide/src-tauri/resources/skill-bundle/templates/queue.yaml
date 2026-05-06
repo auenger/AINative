@@ -1,0 +1,21 @@
+# Feature 调度队列
+# 此文件由 workflow 自动维护，请勿手动编辑（除非紧急修复）
+
+meta:
+  last_updated: "{{DATE}}"
+  version: 1
+
+# 父需求（用于分组追踪)
+parents: []
+
+# 正在开发的需求
+active: []
+
+# 等待中的需求（按优先级排序）
+pending: []
+
+# 阻塞中的需求
+blocked: []
+
+# 已完成的需求
+completed: []

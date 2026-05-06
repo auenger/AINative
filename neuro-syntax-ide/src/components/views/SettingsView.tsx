@@ -14,21 +14,24 @@ import {
   RefreshCw,
   User,
   Layers,
+  Package,
   Terminal as TerminalIcon,
   ChevronDown,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useSettings } from '../../lib/useSettings';
+import { useWorkspace } from '../../lib/useWorkspace';
 import { ProfilePanel } from '../common/ProfilePanel';
 import { WorkflowPanel } from '../common/WorkflowPanel';
+import { SkillPanel } from '../common/SkillPanel';
 import type { AppSettings, ProviderConfig } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-type SettingsTab = 'general' | 'llm' | 'profile' | 'workflow' | 'terminal';
+type SettingsTab = 'general' | 'llm' | 'profile' | 'workflow' | 'terminal' | 'skills';
 
 const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
@@ -652,6 +655,7 @@ function LlmPanel({
 export const SettingsView: React.FC = () => {
   const { t } = useTranslation();
   const { settings, loading, error, dirty, save, update } = useSettings();
+  const { workspacePath } = useWorkspace();
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -667,6 +671,7 @@ export const SettingsView: React.FC = () => {
     { id: 'workflow', label: t('settings.workflow.title'), icon: <Layers size={14} /> },
     { id: 'terminal', label: t('settings.terminal.title'), icon: <TerminalIcon size={14} /> },
     { id: 'profile', label: t('settings.profile.title'), icon: <User size={14} /> },
+    { id: 'skills', label: t('settings.skills.title', 'Skills'), icon: <Package size={14} /> },
   ];
 
   return (
@@ -750,6 +755,9 @@ export const SettingsView: React.FC = () => {
         )}
         {activeTab === 'terminal' && (
           <TerminalPanel settings={settings} onUpdate={update} />
+        )}
+        {activeTab === 'skills' && (
+          <SkillPanel workspacePath={workspacePath} />
         )}
       </div>
     </div>

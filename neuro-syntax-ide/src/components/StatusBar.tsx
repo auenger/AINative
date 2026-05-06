@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useAgentRuntimes } from '../lib/useAgentRuntimes';
 import { useRuntimeMonitor } from '../lib/useRuntimeMonitor';
 import { RuntimeOutputModal } from './RuntimeOutputModal';
+import { SkillStatusBar } from './SkillStatusBar';
 import type { AgentRuntimeInfo, RuntimeProcessInfo, ActiveSessionInfo } from '../types';
 
 interface StatusBarProps {
@@ -214,6 +215,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({ workspacePath, consoleVisi
         </div>
       </div>
       <div className="flex items-center gap-4">
+        {/* Skill Status */}
+        <SkillStatusBar workspacePath={workspacePath} />
         {/* Agent Runtime Status Indicator */}
         <div className="relative" ref={popoverRef}>
           <button
