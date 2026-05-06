@@ -314,7 +314,7 @@ pub async fn install_bundled_skills(
                 {
                     let child = child.map_err(|e| format!("Failed to read: {}", e))?;
                     let child_src = child.path();
-                    let child_dst = dst_dir.join(child.file_name());
+                    let child_dst = dst_path.join(child.file_name());
 
                     if child_dst.exists() {
                         let src_bytes = fs::read(&child_src).unwrap_or_default();
