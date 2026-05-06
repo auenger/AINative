@@ -75,10 +75,22 @@ pub struct InstallResult {
 // ---------------------------------------------------------------------------
 
 fn resolve_bundle_path(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .resource_dir()
-        .map(|p| p.join("skill-bundle"))
-        .map_err(|e| format!("Failed to resolve resource dir: {}", e))
+    // Production: use Tauri resource resolver
+    if let Ok(p) = app.path().resource_dir() {
+        let bundle = p.join("skill-bundle");
+        if bundle.exists() {
+            return Ok(bundle);
+        }
+    }
+
+    // Dev fallback: resolve relative to CARGO_MANIFEST_DIR (src-tauri/)
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let dev_path = PathBuf::from(manifest_dir).join("resources").join("skill-bundle");
+    if dev_path.exists() {
+        return Ok(dev_path);
+    }
+
+    Err("skill-bundle directory not found (tried resource dir and manifest dir)".into())
 }
 
 fn list_md_files(dir: &PathBuf) -> Vec<String> {
