@@ -143,11 +143,11 @@ Present Level 1 summary:
 ```
 Archive context for review:
 
-  [Score: 20] feat-auth | User Authentication | 2026-03-02
-    keywords: [auth, jwt, login] | verification issues: 2
+  [Score: {score}] {id} | {name} | {completed_date}
+    keywords: [{keywords}] | verification issues: {n}
 
-  [Score: 12] feat-rbac | Role-Based Access | 2026-03-10
-    keywords: [rbac, permission] | verification issues: 0
+  [Score: {score}] {id} | {name} | {completed_date}
+    keywords: [{keywords}] | verification issues: {n}
 
   → Deep-loading top 3 for historical lessons...
 ```

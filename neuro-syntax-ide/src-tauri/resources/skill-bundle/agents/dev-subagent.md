@@ -1,5 +1,5 @@
 ---
-description: "Feature development executor - completes one feature full lifecycle (start → implement → verify → complete) with full automation. Dispatched by /dev-agent command."
+description: "[DEPRECATED] Feature development executor - now launched as general-purpose agent with injected prompt from /dev-agent. This file is kept for reference only."
 allowed-tools:
   - Bash
   - Read
@@ -10,11 +10,13 @@ allowed-tools:
   - Skill
 ---
 
-# DevSubAgent
+# DevSubAgent [DEPRECATED]
 
-You are a Feature Development SubAgent. You complete one feature's entire lifecycle by chaining Skills in sequence via the Skill Tool.
+> ⚠️ **已废弃**: DevSubAgent 现在通过 `/dev-agent` 命令以 `general-purpose` 类型派发，行为由注入 prompt 定义。此文件保留仅供参考，不再被自动加载。
 
-**Core Principle: Full automation. Never pause for human intervention.**
+~~You are a Feature Development SubAgent. You complete one feature's entire lifecycle by chaining Skills in sequence via the Skill Tool.~~
+
+**变更原因**: 最新版 Claude Code 中自定义 SubAgent 有时不执行 Skill Tool，改用 `general-purpose` + 详细 prompt 强制 Skill 调用。
 
 ## Environment
 

@@ -86,14 +86,14 @@ Select **top 3-5** candidates for Level 2 deep-load. Present Level 1 summary:
 ```
 Archive context scan for {id}:
 
-  [Score: 20] feat-auth | User Authentication | 2026-03-02
-    keywords: [auth, jwt, login] | category: backend | overlap: 3 keywords
+  [Score: {score}] {id} | {name} | {completed_date}
+    keywords: [{keywords}] | category: {category} | overlap: {n} keywords
 
-  [Score: 12] feat-rbac | Role-Based Access | 2026-03-10
-    keywords: [rbac, permission] | category: backend | overlap: 2 keywords
+  [Score: {score}] {id} | {name} | {completed_date}
+    keywords: [{keywords}] | category: {category} | overlap: {n} keywords
 
-  [Score: 10] feat-session | Session Management | 2026-03-05
-    related: [feat-auth] | category: backend
+  [Score: {score}] {id} | {name} | {completed_date}
+    related: [{related_ids}] | category: {category}
 
   → Deep-loading top 3 for implementation patterns...
 ```
@@ -171,8 +171,8 @@ checklist.md:
   [ ] File missing — will create
 
 Archive context loaded:
-  feat-auth: JWT middleware pattern, src/api/auth/ structure
-  feat-rbac: decorator-based permission check pattern
+  {id}: {pattern_summary}
+  {id}: {pattern_summary}
 ```
 
 ### Step 5: Enrich spec.md
@@ -197,11 +197,11 @@ Extract the sub-feature's specific value points from the parent spec. Each value
 Example output:
 ```markdown
 ### Reference Code
-- src/api/auth/ — JWT middleware pattern (from feat-auth)
-- src/models/user.py — SQLAlchemy model example with timestamps
-- src/services/base_service.py — CRUD service base class to extend
-- src/api/rbac/ — Permission decorator pattern (from feat-rbac)
-- tests/test_auth.py — Test file naming and mock strategy
+- {dir}/ — {pattern_description} (from {archive_id})
+- {file} — {pattern_description}
+- {file} — {pattern_description} to extend
+- {dir}/ — {pattern_description} (from {archive_id})
+- {test_file} — Test file naming and mock strategy
 ```
 
 **Related Documents:**
@@ -216,9 +216,9 @@ Example output:
 Example output:
 ```markdown
 ### Related Features
-- feat-auth (completed 2026-03-02) — JWT pattern reused, extends user model
-- feat-rbac (completed 2026-03-10) — Permission system to integrate with
-- feat-session (completed 2026-03-05) — Session context for company scoping
+- {id} (completed {date}) — {relevance_description}
+- {id} (completed {date}) — {relevance_description}
+- {id} (completed {date}) — {relevance_description}
 ```
 
 #### 5.3 Gherkin Acceptance Scenarios
@@ -254,25 +254,25 @@ Generate concrete task breakdown based on enriched spec AND archive patterns:
    - Specific enough to estimate effort
    - Mapped to at least one Gherkin scenario
    - Ordered by dependency (earlier tasks unblock later ones)
-   - **Reference archive patterns**: "Follow feat-auth pattern" or "Mirror src/api/auth/ structure"
+   - **Reference archive patterns**: "Follow {archive_id} pattern" or "Mirror {dir}/ structure"
 
 Example output:
 ```markdown
 ## Task Breakdown
 
 ### 1. Data Layer
-- [ ] Define Company model (name, address, industry, status) — mirror User model from feat-auth
-- [ ] Create migration for companies table (follow migration pattern from feat-auth)
-- [ ] Add CompanyRepository with CRUD methods (extend BaseRepository pattern)
+- [ ] Define {Model} model ({fields}) — mirror {Model} from {archive_id}
+- [ ] Create migration for {table} table (follow migration pattern from {archive_id})
+- [ ] Add {Repository} with CRUD methods (extend {BaseClass} pattern)
 
 ### 2. Backend Logic
-- [ ] Implement POST /api/companies (follow auth endpoint pattern) — Scenario 1
-- [ ] Implement GET /api/companies (list with pagination) — Scenario 2
-- [ ] Implement PATCH /api/companies/:id (update) — Scenario 3
-- [ ] Add input validation for company fields (reuse validator pattern from feat-auth)
+- [ ] Implement POST {endpoint} (follow {archive_id} endpoint pattern) — Scenario 1
+- [ ] Implement GET {endpoint} (list with pagination) — Scenario 2
+- [ ] Implement PATCH {endpoint} (update) — Scenario 3
+- [ ] Add input validation for {entity} fields (reuse validator pattern from {archive_id})
 
 ### 3. Testing
-- [ ] Unit tests for CompanyRepository (follow test_auth.py pattern)
+- [ ] Unit tests for {Repository} (follow {archive_test} pattern)
 - [ ] API integration tests for CRUD endpoints
 ```
 
@@ -315,9 +315,9 @@ When called with `--all` on a parent feature:
 ```
 Enriched {N} sub-features under {parent_id}:
 
-  {child1}: 3 value points, 8 scenarios, 12 tasks (archive refs: feat-auth, feat-rbac)
-  {child2}: 2 value points, 5 scenarios, 9 tasks (archive refs: feat-auth)
-  {child3}: 2 value points, 6 scenarios, 10 tasks (archive refs: feat-session)
+  {child1}: {n} value points, {n} scenarios, {n} tasks (archive refs: {ids})
+  {child2}: {n} value points, {n} scenarios, {n} tasks (archive refs: {ids})
+  {child3}: {n} value points, {n} scenarios, {n} tasks (archive refs: {ids})
 
 Total: 7 value points, 19 scenarios, 31 tasks
 Sibling overlap check: OK

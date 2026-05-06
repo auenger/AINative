@@ -64,9 +64,9 @@ Based on user selection (or --auto), perform cleanup actions.
 ```
 Dry Run - Actions that would be executed:
 
-[DELETE] git worktree remove ../OA_Tool-feat-old
-[UPDATE] queue.yaml: remove feat-dashboard worktree reference
-[MOVE] active-feat-obsolete -> archive/
+[DELETE] git worktree remove {orphaned_worktree_path}
+[UPDATE] queue.yaml: remove {id} worktree reference
+[MOVE] active-{id} -> archive/
 
 Run without --dry-run to execute.
 ```

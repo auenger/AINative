@@ -23,7 +23,7 @@ View or modify the feature workflow configuration.
 | workflow.require_checklist | boolean | true | Require checklist before complete |
 | naming.feature_prefix | string | feat | Feature ID prefix |
 | naming.branch_prefix | string | feature | Git branch prefix |
-| naming.worktree_prefix | string | OA_Tool | Worktree directory prefix |
+| naming.worktree_prefix | string | {project.name} | Worktree directory prefix |
 | completion.archive.create_tag | boolean | true | Create archive tag |
 | completion.cleanup.delete_worktree | boolean | true | Delete worktree on complete |
 | completion.cleanup.delete_branch | boolean | true | Delete branch on complete |
@@ -63,7 +63,7 @@ workflow:
 naming:
   feature_prefix: feat
   branch_prefix: feature
-  worktree_prefix: OA_Tool
+  worktree_prefix: {from config}
 git:
   auto_push: false
   merge_strategy: --no-ff
@@ -82,7 +82,7 @@ parallelism.max_concurrent: 2 -> 3
 
 Checking if more features can be started...
 Current active: 1/3
-Auto-starting: feat-dashboard
+Auto-starting: {next_feature_id}
 ```
 
 ### Validation Error

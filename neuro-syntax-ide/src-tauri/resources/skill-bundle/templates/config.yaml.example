@@ -36,9 +36,17 @@ workflow:
   splitting:
     enabled: true                      # 启用需求切分功能
     threshold: 3                       # 3个以上用户价值点触发切分
+    auto_enrich: true                  # 拆分后自动调用 /enrich-feature 充实子 feature 文档
     auto_dependencies: true            # 自动设置子需求依赖关系
     force_split: false                 # 是否强制切分（默认 false）
     suggest_split: true                # 是否建议切分（默认true）
+
+  # 需求审查（开发前质量门）
+  review:
+    enabled: false              # 启用开发前审查门
+    after_enrich: true          # enrich 后自动建议审查
+    min_score: 70               # 最低通过分数（低于此分数建议修复后再开发）
+    auto_block: false           # 低分自动 block feature
 
   # 测试配置
   testing:

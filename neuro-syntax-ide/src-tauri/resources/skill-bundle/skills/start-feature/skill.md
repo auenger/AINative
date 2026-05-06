@@ -45,6 +45,52 @@ Supports parent/child feature relationships and dependency chains.
 Read from `queue.yaml` pending list:
 - name, priority, dependencies, parent, children, size
 
+### Step 1.5: Load Related Feature Context
+
+Load implementation context from related archived features to guide development.
+
+1. Read `features/active-{id}/spec.md` → extract `Dependencies` and `Related Features` fields
+2. If no related features listed: skip this step
+3. Read `features/archive/archive-log.yaml`
+   - If file doesn't exist: skip this step
+   - For each related/dependency feature ID: extract index metadata
+4. **Level 1** — Present quick summary of related features from index data
+5. **Level 2** (only if dependencies are completed features):
+   Use Agent Tool (`general-purpose` SubAgent) to deep-load their implementation context:
+
+   **SubAgent prompt template:**
+   ```
+   You are loading implementation context for related archived features.
+   For each feature, read its archive directory and extract key development patterns.
+
+   Features to analyze: {related_ids}
+
+   For each feature:
+   1. Glob features/archive/done-{id}-*/ to find the directory
+   2. Read spec.md → extract: value points, acceptance criteria summary
+   3. Read task.md → extract: files modified/created, technical approach taken
+   4. Return a concise summary focusing on:
+      - Files and directories created/modified
+      - Key technical patterns and decisions
+      - Code conventions used
+
+   Return ONLY a concise summary per feature. Do NOT return full archive content.
+   ```
+
+   Present Level 2 results as context summary:
+
+```
+Related feature context loaded:
+
+  {dep_id} (dependency, completed {date}):
+    - Created: {files from task.md}
+    - Pattern: {key pattern from task.md}
+
+  {related_id} (related, completed {date}):
+    - Created: {files from task.md}
+    - Pattern: {key pattern from task.md}
+```
+
 ### Step 2: Rename Directory
 ```bash
 mv features/pending-{id} features/active-{id}
@@ -74,16 +120,28 @@ Branch name format: `{branch_prefix}/{slug}` (prefix from config, default "featu
 ### Step 4: Create Worktree
 ```bash
 git checkout {main_branch}
-git worktree add ../OA_Tool-{slug} feature/{slug}
+git worktree add {worktree_path}/{worktree_prefix}-{slug} feature/{slug}
 ```
 
-Worktree path: `{worktree_base}/{worktree_prefix}-{slug}` (from config).
+Worktree path: `{worktree_base}/{worktree_prefix}-{slug}` — read `worktree_prefix` and base path from config.
 
 ### Step 5: Update Queue
+
+**Acquire lock before writing queue.yaml (concurrent safety):**
+```bash
+source feature-workflow/scripts/state-utils.sh
+state_acquire_lock "queue.yaml" "{id}"
+```
+
 Update `feature-workflow/queue.yaml`:
 - Remove from pending list
 - Add to active list with branch, worktree, started timestamp
 - Update `meta.last_updated`
+
+**Release lock after queue update:**
+```bash
+state_release_lock "queue.yaml"
+```
 
 ## Output
 
@@ -91,13 +149,13 @@ Update `feature-workflow/queue.yaml`:
 feature {id} started!
 
 branch: feature/{slug}
-worktree: ../OA_Tool-{slug}
+worktree: {worktree_path}
 size: {size}
 parent: {parent or "none"}
 children: {children or "none"}
 
 start developing:
-  cd ../OA_Tool-{slug}
+  cd {worktree_path}
 
 view tasks:
   cat features/active-{id}/task.md

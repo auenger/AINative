@@ -239,14 +239,15 @@ The generated `project-context.md` should include:
 
 ### Step 6: Copy Templates
 
-Copy template files to the project:
+Copy template files to `feature-workflow/templates/`:
 
 ```bash
-mkdir -p feature-workflow/templates
 # Templates (spec, task, checklist, project-context, config examples)
 cp {templates_source}/*.md feature-workflow/templates/
 cp {templates_source}/*.yaml feature-workflow/templates/
 ```
+
+> Note: Skill files (commands/agents/skills) are deployed separately via `claude plugin install feature-workflow` or `scripts/install-plugin.sh`.
 
 ### Step 7: Git Add
 
@@ -256,6 +257,7 @@ Add the workflow files to Git (do NOT commit automatically):
 git add feature-workflow/
 git add features/
 git add project-context.md
+# Note: .claude/ skills are managed by plugin system, not added here
 ```
 
 ## Quick Mode (`--quick`)
@@ -342,4 +344,4 @@ Reinitializing with new settings...
 2. **Backup first** - Always backup existing config before reinit
 3. **Smart defaults** - Leverage project analysis for sensible defaults
 4. **Incremental** - Can be run multiple times, only creates missing files
-5. **Scope limited** - Only generates project config and directories; skill files managed by plugin system
+5. **Scope limited** - Only generates project config and directories; skill files are managed by the plugin system

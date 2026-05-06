@@ -94,34 +94,34 @@ Show completed tasks, files changed, test results.
 ```yaml
 status: analyzed
 feature:
-  id: feat-auth
-  name: User Authentication
+  id: {id}
+  name: {name}
 analysis:
-  total_tasks: 5
-  completed: 1
-  pending: 4
-  suggested_order: [2, 3, 4, 5]
+  total_tasks: {n}
+  completed: {n}
+  pending: {n}
+  suggested_order: [{indices}]
 ```
 
 ### Implementation Phase
 ```yaml
 status: implemented
 feature:
-  id: feat-auth
+  id: {id}
 implementation:
   completed_tasks:
-    - index: 2
-      name: Implement registration API
+    - index: {n}
+      name: {task_name}
       files:
-        - src/api/auth/register.ts (new)
-        - src/services/user.ts (modified)
+        - {path} (new)
+        - {path} (modified)
   files_changed:
-    new: 3
-    modified: 2
+    new: {n}
+    modified: {n}
 testing:
   tests_run: true
-  passed: 12
-  failed: 0
+  passed: {n}
+  failed: {n}
 ```
 
 ## Error Handling

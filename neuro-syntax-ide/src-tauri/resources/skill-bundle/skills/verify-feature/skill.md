@@ -142,7 +142,7 @@ cp test-results/*/trace.zip features/active-{id}/evidence/traces/
 
 ### Step 6: Save Verification Report
 
-Create `features/active-{id}/evidence/verification-report.md` with:
+Create verification report at `{feature_dir}/evidence/verification-report.md` (where `{feature_dir}` is resolved in Pre-flight Checks).
 - Task completion summary
 - Test results
 - Gherkin scenario details (pass/fail per scenario with screenshots and traces)

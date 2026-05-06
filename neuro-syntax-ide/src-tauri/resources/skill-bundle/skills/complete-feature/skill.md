@@ -198,6 +198,42 @@ if [ -d "features/pending-{id}" ]; then
 fi
 ```
 
+**Acquire lock before writing archive-log.yaml and queue.yaml (concurrent safety):**
+
+```bash
+source feature-workflow/scripts/state-utils.sh
+state_acquire_lock "archive-log.yaml" "{id}"
+```
+
+### Step 10.1: Extract Feature Metadata
+
+Read feature documents to extract metadata for archive indexing:
+
+1. Read `features/active-{id}/spec.md` → extract: value points, acceptance criteria keywords, dependencies, parent/children
+2. Read `features/active-{id}/task.md` → extract: task categories, file paths modified
+3. Generate `keywords` from: feature name words, value points, acceptance criteria, technical terms
+
+**Metadata extraction rules:**
+```yaml
+keywords:
+  - Auto-extract from feature name (split by spaces/hyphens, lowercase)
+  - Add value point keywords from spec.md
+  - Add key technical terms from task.md (file paths, module names, API names)
+
+category: derived from feature content
+  - backend / frontend / fullstack / infra / docs / refactor
+
+value_points: count from spec.md "用户价值点" section
+
+related_features:
+  - From spec.md "依赖" field
+  - From spec.md "相关历史需求" section
+  - Parent/children from spec.md
+  - Add reverse-references: update archive-log.yaml entries of related features to include this feature
+```
+
+### Step 10.2: Write Archive Log
+
 Update `features/archive/archive-log.yaml`:
 ```yaml
 archived:
@@ -211,6 +247,12 @@ archived:
     branch_name: {branch}
     worktree_deleted: true
     worktree_path: {path}
+    # --- Index metadata (enables search without loading full archive) ---
+    keywords: [keyword1, keyword2, ...]         # Auto-extracted from name + spec + task
+    category: backend | frontend | fullstack | infra | docs | refactor
+    value_points: {n}                            # Count from spec.md
+    related_features: [{related_id1}, ...]       # Dependencies + parent/children + related
+    # --- Git & merge info ---
     conflicts:
       had_conflict: false | true
       conflict_files: []
@@ -220,6 +262,7 @@ archived:
       status: passed | warning | failed
       scenarios_total: {n}
       scenarios_passed: {n}
+    # --- Stats ---
     stats:
       started: {started}
       duration: {duration}
@@ -229,7 +272,18 @@ archived:
 
 ### Step 11: Update Queue
 
+**Acquire lock before writing queue.yaml:**
+```bash
+state_acquire_lock "queue.yaml" "{id}"
+```
+
 Remove from `queue.yaml` active list. Update `meta.last_updated`.
+
+**Release locks after queue update:**
+```bash
+state_release_lock "queue.yaml"
+state_release_lock "archive-log.yaml"
+```
 
 ### Step 12: Update Project Context (Incremental)
 

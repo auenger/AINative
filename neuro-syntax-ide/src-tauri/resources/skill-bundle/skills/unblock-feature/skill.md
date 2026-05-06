@@ -40,23 +40,23 @@ If `feature-workflow/config.yaml` `workflow.auto_start: true`:
 
 ### Success - Pending
 ```
-Feature feat-report unblocked
+Feature {id} unblocked
 
 Status: pending (waiting to be scheduled)
-Position in queue: #2 (priority 70)
+Position in queue: #{position} (priority {priority})
 ```
 
 ### Success - Auto-Started
 ```
-Feature feat-report unblocked
+Feature {id} unblocked
 
 Auto-started! (highest priority, slot available)
-cd ../OA_Tool-feat-report
+cd {worktree_path}
 ```
 
 ### Error
 ```
-Feature feat-report is not blocked
+Feature {id} is not blocked
 
 Use /list-features to see current status.
 ```

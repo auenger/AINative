@@ -47,20 +47,20 @@ Update `meta.last_updated`.
 
 ### Success
 ```
-Feature feat-report blocked
+Feature {id} blocked
 
-Reason: Waiting for API to be ready
+Reason: {reason}
 
-Unblock: /unblock-feature feat-report
+Unblock: /unblock-feature {id}
 ```
 
 ### Error - Cannot Block Active
 ```
-Cannot block active feature feat-auth
+Cannot block active feature {id}
 
 The feature is currently in development.
 Complete or abandon it first:
-  /complete-feature feat-auth
+  /complete-feature {id}
 ```
 
 ## Error Codes

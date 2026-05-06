@@ -18,7 +18,7 @@ Search completed feature archives using structured metadata. Uses progressive lo
 /query-archive --summary                    # Summary stats of all archives
 ```
 
-Options can be combined: `--keyword auth --category backend --since 2026-01-01`
+Options can be combined: `--keyword {term} --category {cat} --since {YYYY-MM-DD}`
 
 ## Architecture: Progressive Loading
 
@@ -65,15 +65,15 @@ If no `--id` specified, or multiple results found:
 ```
 Archive query results ({n} matched):
 
-  feat-auth | User Authentication | 2026-03-02
-    category: backend | keywords: [auth, login, jwt]
-    value_points: 3 | related: [feat-session, feat-rbac]
-    verification: passed (8/8 scenarios)
+  {id} | {name} | {completed_date}
+    category: {category} | keywords: [{keywords}]
+    value_points: {n} | related: [{related_ids}]
+    verification: {status} ({passed}/{total} scenarios)
 
-  feat-dashboard | Dashboard UI | 2026-03-05
-    category: frontend | keywords: [dashboard, chart, widget]
-    value_points: 2 | related: [feat-analytics]
-    verification: passed (5/5 scenarios)
+  {id} | {name} | {completed_date}
+    category: {category} | keywords: [{keywords}]
+    value_points: {n} | related: [{related_ids}]
+    verification: {status} ({passed}/{total} scenarios)
 
 Use /query-archive --id <feature-id> for full details.
 ```
@@ -150,8 +150,8 @@ Archive Summary ({total} features archived)
     fullstack:  {n} features
 
   By Month:
-    2026-03: {n} features
-    2026-04: {n} features
+    {YYYY-MM}: {n} features
+    {YYYY-MM}: {n} features
 
   Verification:
     passed:  {n} ({pct}%)

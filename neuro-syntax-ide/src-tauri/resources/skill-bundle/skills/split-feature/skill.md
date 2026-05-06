@@ -60,7 +60,7 @@ Present the proposal and wait for confirmation. User can:
 ### Step 4: Generate Sub-Feature IDs
 
 - Format: descriptive slug, not necessarily `{parent}-{suffix}`
-- Example: parent `feat-enterprise-org` -> children `feat-company`, `feat-factory`, `feat-department`
+- Example: parent `feat-{domain}` -> children `feat-{sub1}`, `feat-{sub2}`, `feat-{sub3}`
 - ID should be self-descriptive and meaningful on its own
 - Prefix from `feature-workflow/config.yaml` `naming.feature_prefix` (default "feat")
 
@@ -194,32 +194,32 @@ Read `feature-workflow/queue.yaml` and update:
 
 ```yaml
 # Parent entry (in parents section)
-- id: feat-enterprise-org
-  name: "Enterprise Management Module"
+- id: {parent_id}
+  name: "{parent_name}"
   description: "..."
-  priority: 90
+  priority: {p}
   size: L
   status: pending
   children:
-    - feat-company
-    - feat-factory
-    - feat-department
+    - {child1_id}
+    - {child2_id}
+    - {child3_id}
 
 # Child entries (in pending list)
-- id: feat-company
-  name: "Company Management"
-  priority: 95
+- id: {child1_id}
+  name: "{child1_name}"
+  priority: {p}
   size: M
-  parent: feat-enterprise-org
+  parent: {parent_id}
   dependencies: []
 
-- id: feat-factory
-  name: "Factory Management"
-  priority: 94
+- id: {child2_id}
+  name: "{child2_name}"
+  priority: {p}
   size: M
-  parent: feat-enterprise-org
+  parent: {parent_id}
   dependencies:
-    - feat-company
+    - {child1_id}
 ```
 
 ### Step 8: Verify Consistency
