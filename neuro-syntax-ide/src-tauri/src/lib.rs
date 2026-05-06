@@ -3069,6 +3069,306 @@ impl AgentRuntime for CodexRuntime {
 }
 
 // ===========================================================================
+// XML Tool Call Parser & Executor (feat-agent-tool-exec)
+// ===========================================================================
+
+/// Maximum iterations for the agentic tool loop to prevent infinite loops.
+const TOOL_LOOP_MAX_ITERATIONS: usize = 20;
+
+/// A parsed tool call from LLM XML output.
+#[derive(Debug, Clone)]
+struct ToolCall {
+    /// The tool name: "write_to_file", "read_file", "list_files"
+    tool_type: String,
+    /// File/directory path (relative to workspace)
+    path: String,
+    /// Content for write_to_file (empty for read/list)
+    content: String,
+}
+
+/// Result of executing a tool call.
+#[derive(Debug, Clone)]
+struct ToolResult {
+    /// Whether execution succeeded
+    success: bool,
+    /// Result content (file content, directory listing, or error message)
+    content: String,
+    /// The path that was operated on
+    path: String,
+    /// The tool type that was executed
+    tool_type: String,
+}
+
+/// Parse XML tool calls from LLM response text.
+///
+/// Recognizes:
+/// - `<write_to_file path="...">content</write_to_file>`
+/// - `<read_file path="..." />`
+/// - `<list_files path="..." />`
+fn parse_tool_calls(text: &str) -> Vec<ToolCall> {
+    let mut calls = Vec::new();
+    let mut search_start = 0;
+
+    while search_start < text.len() {
+        // Find the next tool tag
+        let Some(tag_start) = text[search_start..].find('<') else {
+            break;
+        };
+        let abs_tag_start = search_start + tag_start;
+
+        // Try to match known tool tags
+        let remaining = &text[abs_tag_start..];
+
+        if let Some(call) = try_parse_write_to_file(remaining) {
+            let tag_len = find_tag_end(remaining, "write_to_file");
+            calls.push(call);
+            search_start = abs_tag_start + tag_len;
+        } else if let Some(call) = try_parse_self_closing_tag(remaining, "read_file") {
+            let tag_len = remaining.find('/').map(|i| i + 2).unwrap_or(remaining.len());
+            calls.push(call);
+            search_start = abs_tag_start + tag_len;
+        } else if let Some(call) = try_parse_self_closing_tag(remaining, "list_files") {
+            let tag_len = remaining.find('/').map(|i| i + 2).unwrap_or(remaining.len());
+            calls.push(call);
+            search_start = abs_tag_start + tag_len;
+        } else {
+            search_start = abs_tag_start + 1;
+        }
+    }
+
+    calls
+}
+
+/// Try to parse a `<write_to_file path="...">content</write_to_file>` block.
+fn try_parse_write_to_file(text: &str) -> Option<ToolCall> {
+    let open_tag = "<write_to_file";
+    if !text.starts_with(open_tag) {
+        return None;
+    }
+
+    // Find the path attribute
+    let path = extract_path_attribute(text)?;
+
+    // Find the end of the opening tag (>)
+    let tag_end = text.find('>')?;
+    let content_start = tag_end + 1;
+
+    // Find the closing tag
+    let close_tag = "</write_to_file>";
+    let content_end = text[content_start..].find(close_tag)?;
+
+    let content = text[content_start..content_start + content_end].to_string();
+
+    Some(ToolCall {
+        tool_type: "write_to_file".to_string(),
+        path,
+        content,
+    })
+}
+
+/// Try to parse a self-closing tag like `<read_file path="..." />` or `<list_files path="..." />`.
+fn try_parse_self_closing_tag(text: &str, tag_name: &str) -> Option<ToolCall> {
+    let open_tag = format!("<{}", tag_name);
+    if !text.starts_with(&open_tag) {
+        return None;
+    }
+
+    let path = extract_path_attribute(text)?;
+
+    Some(ToolCall {
+        tool_type: tag_name.to_string(),
+        path,
+        content: String::new(),
+    })
+}
+
+/// Extract the `path` attribute value from an XML tag.
+fn extract_path_attribute(text: &str) -> Option<String> {
+    // Look for path="..." or path='...'
+    let path_prefix = "path=\"";
+    if let Some(idx) = text.find(path_prefix) {
+        let value_start = idx + path_prefix.len();
+        if let Some(end) = text[value_start..].find('"') {
+            return Some(text[value_start..value_start + end].to_string());
+        }
+    }
+    // Try single quotes
+    let path_prefix_sq = "path='";
+    if let Some(idx) = text.find(path_prefix_sq) {
+        let value_start = idx + path_prefix_sq.len();
+        if let Some(end) = text[value_start..].find('\'') {
+            return Some(text[value_start..value_start + end].to_string());
+        }
+    }
+    None
+}
+
+/// Find the end position of a closing tag to advance parsing.
+fn find_tag_end(text: &str, tag_name: &str) -> usize {
+    let close_tag = format!("</{}>", tag_name);
+    text.find(&close_tag)
+        .map(|i| i + close_tag.len())
+        .unwrap_or(text.len())
+}
+
+/// Validate that a path is safe (within workspace, no traversal attacks).
+fn is_path_safe(path: &str, workspace: &str) -> bool {
+    if path.is_empty() {
+        return false;
+    }
+
+    // Reject obviously malicious paths
+    if path.contains("..") {
+        return false;
+    }
+
+    let workspace_path = PathBuf::from(workspace);
+    let resolved = workspace_path.join(path);
+
+    // Canonicalize workspace (it should exist)
+    let canonical_workspace = match workspace_path.canonicalize() {
+        Ok(p) => p,
+        Err(_) => return false,
+    };
+
+    // If the resolved path exists, canonicalize and check prefix
+    if resolved.exists() {
+        return resolved.canonicalize()
+            .map(|cp| cp.starts_with(&canonical_workspace))
+            .unwrap_or(false);
+    }
+
+    // For paths that don't exist yet (e.g. write_to_file targets),
+    // walk up to find an existing ancestor and check from there
+    let mut check_path = resolved.clone();
+    let mut suffix_parts: Vec<std::ffi::OsString> = Vec::new();
+    while !check_path.exists() {
+        if let Some(name) = check_path.file_name() {
+            suffix_parts.push(name.to_os_string());
+        }
+        match check_path.parent() {
+            Some(p) => check_path = p.to_path_buf(),
+            None => return false,
+        }
+    }
+    match check_path.canonicalize() {
+        Ok(cp) => {
+            // Rebuild the full path from the canonicalized ancestor
+            let mut full = cp;
+            for part in suffix_parts.into_iter().rev() {
+                full = full.join(part);
+            }
+            full.starts_with(&canonical_workspace)
+        }
+        Err(_) => false,
+    }
+}
+
+/// Execute a tool call and return the result.
+fn execute_tool_call(tool: &ToolCall, workspace: &str) -> ToolResult {
+    // Safety check
+    if !is_path_safe(&tool.path, workspace) {
+        return ToolResult {
+            success: false,
+            content: format!("Path safety check failed: '{}' is outside the workspace directory", tool.path),
+            path: tool.path.clone(),
+            tool_type: tool.tool_type.clone(),
+        };
+    }
+
+    let full_path = PathBuf::from(workspace).join(&tool.path);
+
+    match tool.tool_type.as_str() {
+        "write_to_file" => {
+            // Create parent directories if needed
+            if let Some(parent) = full_path.parent() {
+                if let Err(e) = fs::create_dir_all(parent) {
+                    return ToolResult {
+                        success: false,
+                        content: format!("Failed to create parent directories: {}", e),
+                        path: tool.path.clone(),
+                        tool_type: tool.tool_type.clone(),
+                    };
+                }
+            }
+            match fs::write(&full_path, &tool.content) {
+                Ok(()) => {
+                    let bytes = tool.content.len();
+                    ToolResult {
+                        success: true,
+                        content: format!("File written successfully ({} bytes)", bytes),
+                        path: tool.path.clone(),
+                        tool_type: tool.tool_type.clone(),
+                    }
+                }
+                Err(e) => ToolResult {
+                    success: false,
+                    content: format!("Failed to write file: {}", e),
+                    path: tool.path.clone(),
+                    tool_type: tool.tool_type.clone(),
+                },
+            }
+        }
+        "read_file" => {
+            match fs::read_to_string(&full_path) {
+                Ok(content) => ToolResult {
+                    success: true,
+                    content,
+                    path: tool.path.clone(),
+                    tool_type: tool.tool_type.clone(),
+                },
+                Err(e) => ToolResult {
+                    success: false,
+                    content: format!("Failed to read file: {}", e),
+                    path: tool.path.clone(),
+                    tool_type: tool.tool_type.clone(),
+                },
+            }
+        }
+        "list_files" => {
+            match fs::read_dir(&full_path) {
+                Ok(entries) => {
+                    let mut items: Vec<String> = Vec::new();
+                    for entry in entries.flatten() {
+                        let name = entry.file_name().to_string_lossy().to_string();
+                        let is_dir = entry.file_type().map(|t| t.is_dir()).unwrap_or(false);
+                        if is_dir {
+                            items.push(format!("{}/", name));
+                        } else {
+                            items.push(name);
+                        }
+                    }
+                    items.sort();
+                    let listing = if items.is_empty() {
+                        "(empty directory)".to_string()
+                    } else {
+                        items.join("\n")
+                    };
+                    ToolResult {
+                        success: true,
+                        content: listing,
+                        path: tool.path.clone(),
+                        tool_type: tool.tool_type.clone(),
+                    }
+                }
+                Err(e) => ToolResult {
+                    success: false,
+                    content: format!("Failed to list directory: {}", e),
+                    path: tool.path.clone(),
+                    tool_type: tool.tool_type.clone(),
+                },
+            }
+        }
+        _ => ToolResult {
+            success: false,
+            content: format!("Unknown tool type: {}", tool.tool_type),
+            path: tool.path.clone(),
+            tool_type: tool.tool_type.clone(),
+        },
+    }
+}
+
+// ===========================================================================
 // GeminiHttpRuntime (feat-agent-gemini-bridge)
 // ===========================================================================
 
@@ -3148,8 +3448,10 @@ impl AgentRuntime for GeminiHttpRuntime {
         matches!(self.health_check(), AgentRuntimeStatus::Available)
     }
 
-    /// Execute: send a message to the Gemini API and stream the response back
-    /// via a std::sync::mpsc channel as StreamEvents.
+    /// Execute: send a message to the Gemini API with an agentic tool-execution loop.
+    ///
+    /// Loop: API request → stream response → parse tool calls → execute →
+    /// feed results back → continue until no more tool calls.
     fn execute(&self, params: ExecuteParams) -> Result<std::sync::mpsc::Receiver<StreamEvent>, String> {
         let api_key = get_api_key_inner()
             .map_err(|e| format!("API Key 未配置: {}. 请在 Settings 中设置 Gemini API Key。", e))?;
@@ -3159,6 +3461,7 @@ impl AgentRuntime for GeminiHttpRuntime {
         let model = self.model.clone();
         let system_prompt_text = params.system_prompt.clone();
         let user_message = params.message.clone();
+        let workspace = params.workspace.clone().unwrap_or_default();
 
         std::thread::spawn(move || {
             let rt = tokio::runtime::Builder::new_current_thread()
@@ -3169,10 +3472,10 @@ impl AgentRuntime for GeminiHttpRuntime {
             rt.block_on(async move {
                 let client = reqwest::Client::new();
 
-                // Build messages payload
-                let mut messages_payload = Vec::new();
+                // Build initial messages payload
+                let mut messages_payload: Vec<serde_json::Value> = Vec::new();
 
-                // System prompt (from params or default PM system prompt)
+                // System prompt
                 if let Some(sp) = &system_prompt_text {
                     if !sp.is_empty() {
                         messages_payload.push(serde_json::json!({
@@ -3182,9 +3485,7 @@ impl AgentRuntime for GeminiHttpRuntime {
                     }
                 }
 
-                // Parse user message — it may contain a JSON-encoded messages array
-                // from the PM Agent frontend, or it may be a plain string.
-                // We try to parse as Vec<ChatMessage> first, then fall back to single message.
+                // Parse user message — JSON-encoded messages array or plain string
                 if let Ok(chat_msgs) = serde_json::from_str::<Vec<ChatMessage>>(&user_message) {
                     for msg in &chat_msgs {
                         messages_payload.push(serde_json::json!({
@@ -3199,102 +3500,88 @@ impl AgentRuntime for GeminiHttpRuntime {
                     }));
                 }
 
-                let body = serde_json::json!({
-                    "model": model,
-                    "messages": messages_payload,
-                    "stream": true
-                });
+                // === Agentic Tool Loop ===
+                for iteration in 0..TOOL_LOOP_MAX_ITERATIONS {
+                    let body = serde_json::json!({
+                        "model": model,
+                        "messages": messages_payload,
+                        "stream": true
+                    });
 
-                let response = match client
-                    .post(GEMINI_API_URL)
-                    .header("Authorization", format!("Bearer {}", api_key))
-                    .header("Content-Type", "application/json")
-                    .json(&body)
-                    .send()
-                    .await
-                {
-                    Ok(r) => r,
-                    Err(e) => {
+                    let response = match client
+                        .post(GEMINI_API_URL)
+                        .header("Authorization", format!("Bearer {}", api_key))
+                        .header("Content-Type", "application/json")
+                        .json(&body)
+                        .send()
+                        .await
+                    {
+                        Ok(r) => r,
+                        Err(e) => {
+                            let _ = tx.send(StreamEvent {
+                                text: String::new(),
+                                is_done: true,
+                                error: Some(format!("连接 AI API 失败: {}", e)),
+                                msg_type: Some("error".to_string()),
+                                session_id: None,
+                                idle_seconds: None,
+                            });
+                            return;
+                        }
+                    };
+
+                    if !response.status().is_success() {
+                        let status = response.status();
+                        let error_body = response.text().await.unwrap_or_else(|_| "Unknown error".into());
                         let _ = tx.send(StreamEvent {
                             text: String::new(),
                             is_done: true,
-                            error: Some(format!("连接 AI API 失败: {}", e)),
+                            error: Some(format!("AI API 错误 ({}): {}", status, error_body)),
                             msg_type: Some("error".to_string()),
                             session_id: None,
                             idle_seconds: None,
                         });
                         return;
                     }
-                };
 
-                if !response.status().is_success() {
-                    let status = response.status();
-                    let error_body = response.text().await.unwrap_or_else(|_| "Unknown error".into());
-                    let _ = tx.send(StreamEvent {
-                        text: String::new(),
-                        is_done: true,
-                        error: Some(format!("AI API 错误 ({}): {}", status, error_body)),
-                        msg_type: Some("error".to_string()),
-                        session_id: None,
-                        idle_seconds: None,
-                    });
-                    return;
-                }
+                    // Stream the response and collect the full text
+                    let mut stream = response.bytes_stream();
+                    let mut buffer = String::new();
+                    let mut full_response_text = String::new();
 
-                let mut stream = response.bytes_stream();
-                let mut buffer = String::new();
+                    while let Some(chunk_result) = stream.next().await {
+                        match chunk_result {
+                            Ok(bytes) => {
+                                let text = String::from_utf8_lossy(&bytes);
+                                buffer.push_str(&text);
 
-                while let Some(chunk_result) = stream.next().await {
-                    match chunk_result {
-                        Ok(bytes) => {
-                            let text = String::from_utf8_lossy(&bytes);
-                            buffer.push_str(&text);
+                                // Process complete SSE lines
+                                while let Some(pos) = buffer.find('\n') {
+                                    let line = buffer[..pos].trim().to_string();
+                                    buffer = buffer[pos + 1..].to_string();
 
-                            // Process complete SSE lines
-                            while let Some(pos) = buffer.find('\n') {
-                                let line = buffer[..pos].trim().to_string();
-                                buffer = buffer[pos + 1..].to_string();
+                                    if line.starts_with("data: ") {
+                                        let data = &line[6..];
+                                        if data == "[DONE]" {
+                                            // Will continue to tool parsing below
+                                            break;
+                                        }
 
-                                if line.starts_with("data: ") {
-                                    let data = &line[6..];
-                                    if data == "[DONE]" {
-                                        let _ = tx.send(StreamEvent {
-                                            text: String::new(),
-                                            is_done: true,
-                                            error: None,
-                                            msg_type: Some("assistant".to_string()),
-                                            session_id: None,
-                                            idle_seconds: None,
-                                        });
-                                        return;
-                                    }
-
-                                    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(data) {
-                                        if let Some(choices) = parsed.get("choices") {
-                                            if let Some(first_choice) = choices.as_array().and_then(|a| a.first()) {
-                                                if let Some(delta) = first_choice.get("delta") {
-                                                    if let Some(content) = delta.get("content").and_then(|c| c.as_str()) {
-                                                        let _ = tx.send(StreamEvent {
-                                                            text: content.to_string(),
-                                                            is_done: false,
-                                                            error: None,
-                                                            msg_type: Some("assistant".to_string()),
-                                                            session_id: None,
-                                                            idle_seconds: None,
-                                                        });
-                                                    }
-                                                }
-                                                if let Some(finish) = first_choice.get("finish_reason") {
-                                                    if finish.as_str() == Some("stop") {
-                                                        let _ = tx.send(StreamEvent {
-                                                            text: String::new(),
-                                                            is_done: true,
-                                                            error: None,
-                                                            msg_type: Some("assistant".to_string()),
-                                                            session_id: None,
-                                                            idle_seconds: None,
-                                                        });
-                                                        return;
+                                        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(data) {
+                                            if let Some(choices) = parsed.get("choices") {
+                                                if let Some(first_choice) = choices.as_array().and_then(|a| a.first()) {
+                                                    if let Some(delta) = first_choice.get("delta") {
+                                                        if let Some(content) = delta.get("content").and_then(|c| c.as_str()) {
+                                                            full_response_text.push_str(content);
+                                                            let _ = tx.send(StreamEvent {
+                                                                text: content.to_string(),
+                                                                is_done: false,
+                                                                error: None,
+                                                                msg_type: Some("assistant".to_string()),
+                                                                session_id: None,
+                                                                idle_seconds: None,
+                                                            });
+                                                        }
                                                     }
                                                 }
                                             }
@@ -3302,27 +3589,109 @@ impl AgentRuntime for GeminiHttpRuntime {
                                     }
                                 }
                             }
-                        }
-                        Err(e) => {
-                            let _ = tx.send(StreamEvent {
-                                text: String::new(),
-                                is_done: true,
-                                error: Some(format!("Stream 错误: {}", e)),
-                                msg_type: Some("error".to_string()),
-                                session_id: None,
-                                idle_seconds: None,
-                            });
-                            return;
+                            Err(e) => {
+                                let _ = tx.send(StreamEvent {
+                                    text: String::new(),
+                                    is_done: true,
+                                    error: Some(format!("Stream 错误: {}", e)),
+                                    msg_type: Some("error".to_string()),
+                                    session_id: None,
+                                    idle_seconds: None,
+                                });
+                                return;
+                            }
                         }
                     }
+
+                    // === Parse tool calls from the accumulated response ===
+                    let tool_calls = parse_tool_calls(&full_response_text);
+
+                    if tool_calls.is_empty() {
+                        // No tool calls — we're done
+                        let _ = tx.send(StreamEvent {
+                            text: String::new(),
+                            is_done: true,
+                            error: None,
+                            msg_type: Some("assistant".to_string()),
+                            session_id: None,
+                            idle_seconds: None,
+                        });
+                        return;
+                    }
+
+                    // === Execute tool calls ===
+
+                    // Add assistant message with tool calls to history
+                    messages_payload.push(serde_json::json!({
+                        "role": "assistant",
+                        "content": full_response_text
+                    }));
+
+                    // Build tool results as a single user message (OpenAI-compatible format)
+                    let mut tool_results_content = String::new();
+                    for tool in &tool_calls {
+                        // Emit tool_use event
+                        let _ = tx.send(StreamEvent {
+                            text: format!(
+                                "{} {}",
+                                tool.tool_type,
+                                tool.path
+                            ),
+                            is_done: false,
+                            error: None,
+                            msg_type: Some("tool_use".to_string()),
+                            session_id: None,
+                            idle_seconds: None,
+                        });
+
+                        // Execute the tool
+                        let result = execute_tool_call(tool, &workspace);
+
+                        // Emit tool_result event
+                        let _ = tx.send(StreamEvent {
+                            text: if result.success {
+                                result.content.clone()
+                            } else {
+                                format!("Error: {}", result.content)
+                            },
+                            is_done: false,
+                            error: if result.success { None } else { Some(result.content.clone()) },
+                            msg_type: Some("tool_result".to_string()),
+                            session_id: None,
+                            idle_seconds: None,
+                        });
+
+                        // Accumulate for the follow-up message
+                        tool_results_content.push_str(&format!(
+                            "[Tool Result: {} {}]\n{}\n\n",
+                            result.tool_type,
+                            result.path,
+                            result.content
+                        ));
+                    }
+
+                    // Add tool results as a user message for the next API call
+                    messages_payload.push(serde_json::json!({
+                        "role": "user",
+                        "content": tool_results_content
+                    }));
+
+                    // Log iteration for debugging
+                    eprintln!(
+                        "[agent-tool-exec] iteration {} completed, {} tool calls executed, continuing loop",
+                        iteration + 1,
+                        tool_calls.len()
+                    );
+
+                    // Continue the loop — next iteration will send the updated messages
                 }
 
-                // Stream ended without [DONE] marker
+                // If we hit max iterations, send a warning and finish
                 let _ = tx.send(StreamEvent {
                     text: String::new(),
                     is_done: true,
-                    error: None,
-                    msg_type: Some("assistant".to_string()),
+                    error: Some(format!("工具执行循环达到最大迭代次数 ({})", TOOL_LOOP_MAX_ITERATIONS)),
+                    msg_type: Some("error".to_string()),
                     session_id: None,
                     idle_seconds: None,
                 });

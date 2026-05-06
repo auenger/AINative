@@ -8,7 +8,7 @@ export interface AgentStreamEvent {
   text: string;
   is_done: boolean;
   error?: string;
-  /** Stream message type: "assistant", "system", "raw", "tool_use", "result", "stderr", "disconnect", "timeout", "process_exit", "idle_warning" */
+  /** Stream message type: "assistant", "system", "raw", "tool_use", "tool_result", "result", "stderr", "disconnect", "timeout", "process_exit", "idle_warning" */
   type?: string;
   /** Session ID from the runtime */
   session_id?: string;
@@ -252,6 +252,34 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       // Stream text from assistant/system/raw messages
       if (chunk.text && (chunk.type === 'assistant' || chunk.type === 'system' || chunk.type === 'raw' || !chunk.type)) {
         streamingTextRef.current += chunk.text;
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === 'assistant') {
+            return [...prev.slice(0, -1), { ...last, content: streamingTextRef.current }];
+          }
+          return [...prev, { role: 'assistant', content: streamingTextRef.current }];
+        });
+      }
+
+      // Handle tool_use and tool_result events from agentic tool execution loop
+      // These are emitted when the backend executes file operations requested by the LLM.
+      // We append them to the streaming assistant message so the user sees tool activity.
+      if (chunk.type === 'tool_use') {
+        streamingTextRef.current += `\n🔧 ${chunk.text}\n`;
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === 'assistant') {
+            return [...prev.slice(0, -1), { ...last, content: streamingTextRef.current }];
+          }
+          return [...prev, { role: 'assistant', content: streamingTextRef.current }];
+        });
+      }
+
+      if (chunk.type === 'tool_result') {
+        const resultText = chunk.error
+          ? `  ❌ ${chunk.text}\n`
+          : `  ✅ ${chunk.text}\n`;
+        streamingTextRef.current += resultText;
         setMessages((prev) => {
           const last = prev[prev.length - 1];
           if (last && last.role === 'assistant') {
