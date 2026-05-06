@@ -790,10 +790,33 @@ pub struct AgentChunkEvent {
     pub error: Option<String>,
 }
 
+/// Attachment for multimodal messages (images, files).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MessageAttachment {
+    /// Attachment type: "image" | "file"
+    #[serde(rename = "type")]
+    pub attachment_type: String,
+    /// MIME type (e.g. "image/png")
+    #[serde(default)]
+    pub mime: String,
+    /// Base64-encoded data (for images)
+    #[serde(default)]
+    pub data: String,
+    /// File name (optional, for file attachments)
+    #[serde(default)]
+    pub name: Option<String>,
+    /// Text content (for text-based files)
+    #[serde(default)]
+    pub content: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ChatMessage {
     pub role: String,
     pub content: String,
+    /// Optional multimodal attachments (images, files)
+    #[serde(default)]
+    pub attachments: Option<Vec<MessageAttachment>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -807,6 +830,48 @@ pub struct AgentChatRequest {
 
 fn default_model() -> String {
     "gemini-2.0-flash".to_string()
+}
+
+/// Build a message JSON value from a ChatMessage.
+/// If the message has attachments, produces a content array (OpenAI-compatible format).
+/// Otherwise, produces a simple string content.
+fn build_message_json(msg: &ChatMessage) -> serde_json::Value {
+    if let Some(ref attachments) = msg.attachments {
+        if !attachments.is_empty() {
+            let mut content_array: Vec<serde_json::Value> = vec![
+                serde_json::json!({"type": "text", "text": msg.content})
+            ];
+            for att in attachments {
+                match att.attachment_type.as_str() {
+                    "image" => {
+                        let data_uri = format!("data:{};base64,{}", att.mime, att.data);
+                        content_array.push(serde_json::json!({
+                            "type": "image_url",
+                            "image_url": {"url": data_uri}
+                        }));
+                    }
+                    "file" => {
+                        if let Some(ref file_content) = att.content {
+                            let file_name = att.name.as_deref().unwrap_or("file");
+                            content_array.push(serde_json::json!({
+                                "type": "text",
+                                "text": format!("\n\n---\n**File: {}**\n```\n{}\n```\n---", file_name, file_content)
+                            }));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            return serde_json::json!({
+                "role": msg.role,
+                "content": content_array
+            });
+        }
+    }
+    serde_json::json!({
+        "role": msg.role,
+        "content": msg.content
+    })
 }
 
 /// Schema for structured output: a Feature plan returned by the Agent.
@@ -3488,10 +3553,7 @@ impl AgentRuntime for GeminiHttpRuntime {
                 // Parse user message — JSON-encoded messages array or plain string
                 if let Ok(chat_msgs) = serde_json::from_str::<Vec<ChatMessage>>(&user_message) {
                     for msg in &chat_msgs {
-                        messages_payload.push(serde_json::json!({
-                            "role": msg.role,
-                            "content": msg.content
-                        }));
+                        messages_payload.push(build_message_json(msg));
                     }
                 } else {
                     messages_payload.push(serde_json::json!({
@@ -6700,10 +6762,7 @@ async fn agent_chat_stream(
     }
 
     for msg in &request.messages {
-        messages_payload.push(serde_json::json!({
-            "role": msg.role,
-            "content": msg.content
-        }));
+        messages_payload.push(build_message_json(msg));
     }
 
     let body = serde_json::json!({

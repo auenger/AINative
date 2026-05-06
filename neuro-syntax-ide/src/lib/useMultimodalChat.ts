@@ -39,6 +39,9 @@ const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 /** Maximum total characters of analysis context to inject. */
 const MAX_CONTEXT_CHARS = 12000;
 
+/** Maximum attachment base64 size in characters (~10 MB raw). */
+const MAX_ATTACHMENT_BASE64_LENGTH = 10 * 1024 * 1024 * 1.37; // base64 is ~37% larger
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -292,12 +295,130 @@ export function useMultimodalChat(workspacePath: string) {
   // Message enrichment
   // -----------------------------------------------------------------------
 
+  /** Load base64 data for an image file from PMFile directory. */
+  const loadImageBase64 = useCallback(
+    async (filePath: string): Promise<string | null> => {
+      if (!isTauri || !workspacePath) return null;
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const result: { base64_content: string | null; text_content: string | null; file_type: string } =
+          await invoke('pmfile_read_content', { path: filePath });
+        return result.base64_content ?? null;
+      } catch {
+        return null;
+      }
+    },
+    [workspacePath],
+  );
+
+  /** Read text file content from workspace. */
+  const readFileContent = useCallback(
+    async (filePath: string): Promise<string | null> => {
+      if (!isTauri || !workspacePath) return null;
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const content: string = await invoke('read_file', { path: filePath });
+        return content;
+      } catch {
+        return null;
+      }
+    },
+    [workspacePath],
+  );
+
+  /** Determine MIME type from file name extension. */
+  function getMimeFromName(fileName: string): string {
+    const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
+    const mimeMap: Record<string, string> = {
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      gif: 'image/gif',
+      bmp: 'image/bmp',
+      svg: 'image/svg+xml',
+      webp: 'image/webp',
+      avif: 'image/avif',
+      ico: 'image/x-icon',
+      pdf: 'application/pdf',
+    };
+    return mimeMap[ext] ?? 'application/octet-stream';
+  }
+
+  /** Check if a file is an image based on its name/extension. */
+  function isImageFile(fileName: string): boolean {
+    const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
+    return ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg', 'webp', 'avif', 'ico'].includes(ext);
+  }
+
+  /** Build attachments array from file references (loads base64 for images, text for files). */
+  const buildAttachments = useCallback(
+    async (files: FileReference[]): Promise<Array<{
+      type: string;
+      mime: string;
+      data: string;
+      name?: string;
+      content?: string;
+    }>> => {
+      if (files.length === 0 || !isTauri) return [];
+
+      const attachments: Array<{
+        type: string;
+        mime: string;
+        data: string;
+        name?: string;
+        content?: string;
+      }> = [];
+
+      for (const file of files) {
+        if (isImageFile(file.name)) {
+          const base64 = await loadImageBase64(file.path);
+          if (base64) {
+            // Skip oversized attachments (> 10 MB raw ~ 13.7 MB base64)
+            if (base64.length > MAX_ATTACHMENT_BASE64_LENGTH) {
+              console.warn(`[Multimodal] Skipping oversized image attachment: ${file.name}`);
+              continue;
+            }
+            attachments.push({
+              type: 'image',
+              mime: getMimeFromName(file.name),
+              data: base64,
+            });
+          }
+        } else {
+          // For non-image files, load text content
+          const textContent = await readFileContent(file.path);
+          if (textContent) {
+            attachments.push({
+              type: 'file',
+              mime: getMimeFromName(file.name),
+              data: '', // no base64 for text files
+              name: file.name,
+              content: textContent.length > 50000
+                ? textContent.slice(0, 50000) + '\n...(truncated)'
+                : textContent,
+            });
+          }
+        }
+      }
+
+      return attachments;
+    },
+    [loadImageBase64, readFileContent],
+  );
+
   /** Enrich a user message with file context.
-   *  Returns the enriched message and resolves @mentions. */
+   *  Returns the enriched message, resolved file references, and multimodal attachments. */
   const enrichMessage = useCallback(
     async (input: string): Promise<{
       enrichedContent: string;
       resolvedReferences: FileReference[];
+      attachments: Array<{
+        type: string;
+        mime: string;
+        data: string;
+        name?: string;
+        content?: string;
+      }>;
     }> => {
       // Parse @mentions from input
       const mentions = parseMentions(input);
@@ -310,8 +431,11 @@ export function useMultimodalChat(workspacePath: string) {
         }
       }
 
-      // Build context from file references
+      // Build context from file references (text-based analysis summaries)
       const context = await buildFileContext(allFiles);
+
+      // Build multimodal attachments (base64 images, file content)
+      const attachments = await buildAttachments(allFiles);
 
       const enrichedContent = context
         ? `${input}${context}`
@@ -320,9 +444,10 @@ export function useMultimodalChat(workspacePath: string) {
       return {
         enrichedContent,
         resolvedReferences: allFiles,
+        attachments,
       };
     },
-    [parseMentions, referencedFiles, buildFileContext],
+    [parseMentions, referencedFiles, buildFileContext, buildAttachments],
   );
 
   // -----------------------------------------------------------------------

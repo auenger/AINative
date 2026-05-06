@@ -322,10 +322,10 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
   const handleSendMessage = async () => {
     if (!chatInput.trim() || pmAgent.isStreaming) return;
 
-    // Enrich message with multimodal context
-    const { enrichedContent, resolvedReferences } = await multimodalChat.enrichMessage(chatInput);
+    // Enrich message with multimodal context (includes attachments with base64 data)
+    const { enrichedContent, resolvedReferences, attachments } = await multimodalChat.enrichMessage(chatInput);
 
-    pmAgent.sendMessage(enrichedContent);
+    pmAgent.sendMessage(enrichedContent, attachments);
     multimodalChat.clearFileReferences();
     setChatInput('');
   };
@@ -367,10 +367,10 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
   const handleReqAgentSend = async () => {
     if (!reqChatInput.trim() || reqAgent.isStreaming) return;
 
-    // Enrich message with multimodal context
-    const { enrichedContent, resolvedReferences } = await multimodalChat.enrichMessage(reqChatInput);
+    // Enrich message with multimodal context (includes attachments with base64 data)
+    const { enrichedContent, resolvedReferences, attachments } = await multimodalChat.enrichMessage(reqChatInput);
 
-    reqAgent.sendMessage(enrichedContent);
+    reqAgent.sendMessage(enrichedContent, attachments);
     multimodalChat.clearFileReferences();
     setReqChatInput('');
   };

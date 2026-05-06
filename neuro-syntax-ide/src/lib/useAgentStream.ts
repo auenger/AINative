@@ -32,9 +32,25 @@ export interface FeaturePlanOutput {
   tasks: TaskGroup[];
 }
 
+/** Attachment for multimodal messages (images, files). */
+export interface MessageAttachment {
+  /** Attachment type: "image" | "file" */
+  type: string;
+  /** MIME type (e.g. "image/png") */
+  mime: string;
+  /** Base64-encoded data (for images) */
+  data: string;
+  /** File name (optional, for file attachments) */
+  name?: string;
+  /** Text content (for text-based files) */
+  content?: string;
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
+  /** Optional multimodal attachments (images, files) */
+  attachments?: MessageAttachment[];
 }
 
 export type Connection_State = 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -459,7 +475,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
 
   /** Send a message and receive streaming response via runtime_execute */
   const sendMessage = useCallback(
-    async (input: string) => {
+    async (input: string, attachments?: MessageAttachment[]) => {
       if (!input.trim()) return;
 
       const currentRuntimeId = runtimeIdRef.current;
@@ -513,7 +529,17 @@ export function useAgentStream(options: UseAgentStreamOptions) {
           // Gemini runtime expects full conversation history as JSON
           const chatMessages = [...messages, userMessage]
             .filter((m) => !(m.role === 'assistant' && m.content.includes(greetingMessage)))
-            .map((m) => ({ role: m.role, content: m.content }));
+            .map((m) => {
+              const msg: Record<string, unknown> = { role: m.role, content: m.content };
+              return msg;
+            });
+          // Attach multimodal content to the last (user) message
+          if (attachments && attachments.length > 0) {
+            const lastMsg = chatMessages[chatMessages.length - 1] as Record<string, unknown>;
+            if (lastMsg) {
+              lastMsg.attachments = attachments;
+            }
+          }
           messagePayload = JSON.stringify(chatMessages);
         } else {
           messagePayload = input;
