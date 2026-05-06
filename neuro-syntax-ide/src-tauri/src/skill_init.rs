@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
@@ -148,6 +149,66 @@ fn copy_dir_recursive(src: &PathBuf, dst: &PathBuf) -> std::io::Result<u64> {
         }
     }
     Ok(count)
+}
+
+/// Merge bundled settings.json into .claude/settings.json.
+/// Deep-merges the "hooks" object: bundle hooks are added, existing user hooks preserved.
+/// Returns Ok(true) if file was written/updated, Ok(false) if already up-to-date.
+fn merge_settings_json(bundle_dir: &PathBuf, claude_dir: &PathBuf) -> Result<bool, String> {
+    let bundle_settings_path = bundle_dir.join("settings.json");
+    if !bundle_settings_path.exists() {
+        return Ok(false);
+    }
+
+    let bundle_content = fs::read_to_string(&bundle_settings_path)
+        .map_err(|e| format!("Failed to read bundle settings.json: {}", e))?;
+    let bundle_json: Value = serde_json::from_str(&bundle_content)
+        .map_err(|e| format!("Failed to parse bundle settings.json: {}", e))?;
+
+    let dst_path = claude_dir.join("settings.json");
+    fs::create_dir_all(claude_dir)
+        .map_err(|e| format!("Failed to create .claude dir: {}", e))?;
+
+    let final_json = if dst_path.exists() {
+        let existing_content = fs::read_to_string(&dst_path)
+            .map_err(|e| format!("Failed to read existing settings.json: {}", e))?;
+        let mut existing: Value = serde_json::from_str(&existing_content)
+            .map_err(|e| format!("Failed to parse existing settings.json: {}", e))?;
+
+        // Deep merge: bundle values take priority for hook keys
+        json_merge(&mut existing, &bundle_json);
+
+        // Check if anything actually changed
+        let existing_pretty = serde_json::to_string_pretty(&existing).unwrap_or_default();
+        if existing_pretty == existing_content {
+            return Ok(false);
+        }
+        existing
+    } else {
+        bundle_json
+    };
+
+    let pretty = serde_json::to_string_pretty(&final_json)
+        .map_err(|e| format!("Failed to serialize settings.json: {}", e))?;
+    fs::write(&dst_path, pretty)
+        .map_err(|e| format!("Failed to write settings.json: {}", e))?;
+
+    Ok(true)
+}
+
+/// Recursively merge `source` into `target`. Source values overwrite target.
+fn json_merge(target: &mut Value, source: &Value) {
+    match (target, source) {
+        (Value::Object(t_map), Value::Object(s_map)) => {
+            for (key, s_val) in s_map {
+                let t_val = t_map.entry(key.clone()).or_insert(Value::Null);
+                json_merge(t_val, s_val);
+            }
+        }
+        (t, s) => {
+            *t = s.clone();
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -404,6 +465,18 @@ pub async fn install_bundled_skills(
             installed += i;
             skipped += s;
             updated += u;
+        }
+        Err(e) => errors.push(e),
+    }
+
+    // Merge settings.json → .claude/settings.json (preserve existing keys)
+    match merge_settings_json(&bundle_dir, &claude_dir) {
+        Ok(was_updated) => {
+            if was_updated {
+                updated += 1;
+            } else {
+                skipped += 1;
+            }
         }
         Err(e) => errors.push(e),
     }
