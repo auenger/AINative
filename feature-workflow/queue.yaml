@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-05-07T20:00:00Z'
+  last_updated: '2026-05-07T21:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -48,12 +48,13 @@ parents:
   - feat-shell-settings-ui
   - feat-windows-pty
 active: []
-pending:
-- id: feat-agent-sdk-runtime
-  name: Claude Agent SDK Runtime（新增 SDK 模式替代 claude -p）
-  priority: 92
+pending: []
 blocked: []
 completed:
+- id: feat-agent-sdk-runtime
+  name: Claude Agent SDK Runtime（新增 SDK 模式替代 claude -p）
+  completed_at: '2026-05-07T21:30:00Z'
+  tag: feat-agent-sdk-runtime-20260507
 - id: feat-remove-gemini-builtin
   name: 移除 Gemini 内置 Key、API Key Modal 与 Gemini 终端
   completed_at: '2026-05-07T12:00:00Z'
