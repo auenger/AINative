@@ -10273,7 +10273,7 @@ async fn read_git_user_info(
     Ok(result)
 }
 
-/// Test an LLM provider connection by calling {api_base}/models.
+/// Test an LLM provider connection by calling the models endpoint.
 /// Returns a list of available model IDs on success.
 #[tauri::command]
 async fn test_llm_connection(
@@ -10287,12 +10287,41 @@ async fn test_llm_connection(
     }
 
     let client = reqwest::Client::new();
-    let url = format!("{}/models", provider.api_base.trim_end_matches('/'));
+    let base = provider.api_base.trim_end_matches('/');
 
-    let response = client
+    let (url, auth_header, extra_headers) = match provider.protocol {
+        ChatProtocol::Anthropic => {
+            let u = format!("{}/v1/models", base);
+            let auth = format!("x-api-key: {}", provider.api_key);
+            (u, auth, vec![
+                ("anthropic-version".to_string(), "2023-06-01".to_string()),
+            ])
+        }
+        ChatProtocol::Openai => {
+            let u = format!("{}/models", base);
+            let auth = format!("Bearer {}", provider.api_key);
+            (u, auth, vec![])
+        }
+    };
+
+    let mut req = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", provider.api_key))
-        .header("Content-Type", "application/json")
+        .header("Content-Type", "application/json");
+
+    // Apply auth header
+    if url.contains("/v1/models") {
+        // Anthropic: use x-api-key
+        req = req.header("x-api-key", &provider.api_key);
+    } else {
+        // OpenAI: use Authorization Bearer
+        req = req.header("Authorization", format!("Bearer {}", provider.api_key));
+    }
+
+    for (k, v) in &extra_headers {
+        req = req.header(k.as_str(), v.as_str());
+    }
+
+    let response = req
         .send()
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
@@ -10308,7 +10337,7 @@ async fn test_llm_connection(
         .await
         .map_err(|e| format!("Failed to parse response: {}", e))?;
 
-    // OpenAI-compatible /models returns { data: [{ id: "model-name", ... }] }
+    // Both OpenAI and Anthropic return { data: [{ id: "model-name", ... }] }
     let models: Vec<String> = json
         .get("data")
         .and_then(|d| d.as_array())
