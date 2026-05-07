@@ -1,4 +1,5 @@
 mod skill_init;
+mod agent_sdk_runtime;
 
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use serde::{Deserialize, Serialize};
@@ -985,7 +986,12 @@ pub struct AppSettings {
     pub user: UserProfile,
     #[serde(default)]
     pub terminal: TerminalConfigYaml,
+    /// Agent runtime type: "claude-code" (default) or "agent-sdk"
+    #[serde(default = "default_agent_runtime")]
+    pub agent_runtime: String,
 }
+
+fn default_agent_runtime() -> String { "claude-code".to_string() }
 
 impl Default for AppSettings {
     fn default() -> Self {
@@ -1003,6 +1009,7 @@ impl Default for AppSettings {
             },
             user: UserProfile::default(),
             terminal: TerminalConfigYaml::default(),
+            agent_runtime: default_agent_runtime(),
         }
     }
 }
@@ -3834,6 +3841,7 @@ fn create_default_registry() -> RuntimeRegistry {
     registry.register(Box::new(ClaudeCodeRuntime::new()));
     registry.register(Box::new(CodexRuntime::new()));
     registry.register(Box::new(HttpRuntime::new()));
+    registry.register(Box::new(agent_sdk_runtime::AgentSdkRuntime::new()));
     registry
 }
 

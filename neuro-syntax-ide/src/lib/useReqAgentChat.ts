@@ -47,6 +47,19 @@ export type ReqAgentConnectionState = 'disconnected' | 'connecting' | 'connected
 const STORAGE_KEY_SESSION_ID = 'req_agent_session_id';
 const STORAGE_KEY_MESSAGES = 'req_agent_messages';
 
+/** Read the configured agent runtime from settings.yaml via Tauri.
+ *  Falls back to 'claude-code' if not configured or not in Tauri. */
+async function getConfiguredRuntimeId(): Promise<string> {
+  if (!isTauri) return 'claude-code';
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const settings: { agent_runtime?: string } = await invoke('read_settings');
+    return settings.agent_runtime || 'claude-code';
+  } catch {
+    return 'claude-code';
+  }
+}
+
 const GREETING_MESSAGE: ReqChatMessage = {
   role: 'assistant',
   content:
@@ -203,9 +216,11 @@ export function useReqAgentChat() {
 
     try {
       const { invoke } = await import('@tauri-apps/api/core');
+      // Resolve runtime ID from settings (agent-sdk or claude-code)
+      const runtimeId = await getConfiguredRuntimeId();
       // Use runtime_session_start (unified execute layer)
       const sid: string = await invoke('runtime_session_start', {
-        runtimeId: 'claude-code',
+        runtimeId,
       });
       setSessionId(sid);
       setConnectionState('connected');
@@ -313,9 +328,11 @@ export function useReqAgentChat() {
 
       try {
         const { invoke } = await import('@tauri-apps/api/core');
+        // Resolve runtime ID from settings (agent-sdk or claude-code)
+        const runtimeId = await getConfiguredRuntimeId();
         // Call runtime_execute (unified execute layer)
         await invoke('runtime_execute', {
-          runtimeId: 'claude-code',
+          runtimeId,
           message: input,
           sessionId: sessionId,
           systemPrompt: null,
