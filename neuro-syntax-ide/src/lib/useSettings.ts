@@ -42,6 +42,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   terminal: {
     default_shell: '',
   },
+  agent_runtime: 'claude-code',
 };
 
 // ---------------------------------------------------------------------------
@@ -75,6 +76,7 @@ export function useSettings() {
         app: { ...DEFAULT_SETTINGS.app, ...loaded.app },
         user: { ...DEFAULT_SETTINGS.user, ...loaded.user },
         terminal: { ...DEFAULT_SETTINGS.terminal, ...loaded.terminal },
+        agent_runtime: loaded.agent_runtime || DEFAULT_SETTINGS.agent_runtime,
       });
       setDirty(false);
     } catch (e: unknown) {
@@ -118,6 +120,7 @@ export function useSettings() {
       if (patch.app !== undefined) next.app = { ...prev.app, ...patch.app };
       if (patch.user !== undefined) next.user = { ...prev.user, ...patch.user };
       if (patch.terminal !== undefined) next.terminal = { ...prev.terminal, ...patch.terminal };
+      if (patch.agent_runtime !== undefined) next.agent_runtime = patch.agent_runtime;
       return next;
     });
     setDirty(true);
