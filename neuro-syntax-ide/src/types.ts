@@ -264,6 +264,18 @@ export interface GitUserInfo {
   email: string | null;
 }
 
+/** SDK Runtime config mode. */
+export type SdkConfigMode = 'claude-config' | 'custom-provider';
+
+/** SDK Runtime independent configuration. */
+export interface SdkRuntimeConfig {
+  config_mode: SdkConfigMode;
+  /** Provider key in custom-provider mode (empty = use active provider) */
+  custom_provider: string;
+  /** Model override in custom-provider mode (empty = use llm.model) */
+  custom_model: string;
+}
+
 /** Root settings object stored in settings.yaml. */
 export interface AppSettings {
   providers: Record<string, ProviderConfig>;
@@ -273,6 +285,8 @@ export interface AppSettings {
   terminal: TerminalConfig;
   /** Agent runtime type: "claude-code" (default) or "agent-sdk" */
   agent_runtime?: string;
+  /** SDK Runtime independent configuration */
+  sdk_runtime?: SdkRuntimeConfig;
 }
 
 // ---------------------------------------------------------------------------
