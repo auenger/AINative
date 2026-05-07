@@ -10228,19 +10228,19 @@ async fn reveal_in_file_manager(path: String) -> Result<(), String> {
 // Tauri commands - Settings & LLM Provider (feat-settings-llm-config)
 // ===========================================================================
 
-/// Check whether ~/.claude/settings.json exists and contains an api_key.
-/// Returns a JSON object: { exists: bool, has_api_key: bool, model?: string }
+/// Check whether ~/.claude/settings.json exists.
+/// Claude Code stores API keys in OS keychain, not settings.json.
+/// Returns: { exists: bool, model?: string }
 #[tauri::command]
 async fn check_claude_config() -> Result<serde_json::Value, String> {
     let home = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .map_err(|_| "无法获取 HOME 目录".to_string())?;
-    let claude_settings_path = PathBuf::from(home).join(".claude").join("settings.json");
+    let claude_settings_path = PathBuf::from(&home).join(".claude").join("settings.json");
 
     if !claude_settings_path.exists() {
         return Ok(serde_json::json!({
             "exists": false,
-            "has_api_key": false,
         }));
     }
 
@@ -10249,19 +10249,12 @@ async fn check_claude_config() -> Result<serde_json::Value, String> {
 
     let parsed: serde_json::Value = serde_json::from_str(&content).unwrap_or_default();
 
-    let has_api_key = parsed.get("apiKey")
-        .or_else(|| parsed.get("api_key"))
-        .and_then(|v| v.as_str())
-        .map(|s| !s.is_empty())
-        .unwrap_or(false);
-
     let model = parsed.get("model")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
 
     Ok(serde_json::json!({
         "exists": true,
-        "has_api_key": has_api_key,
         "model": model,
     }))
 }

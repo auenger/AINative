@@ -691,7 +691,6 @@ function AgentRuntimeCard({
   const [providerDropdownOpen, setProviderDropdownOpen] = useState(false);
   const [claudeConfigStatus, setClaudeConfigStatus] = useState<{
     exists: boolean;
-    has_api_key: boolean;
     model?: string;
   } | null>(null);
   const runtimeRef = useRef<HTMLDivElement>(null);
@@ -719,7 +718,7 @@ function AgentRuntimeCard({
   // Check .claude/settings.json when in agent-sdk mode
   useEffect(() => {
     if (!isAgentSdk || sdkRuntime.config_mode !== 'claude-config') return;
-    invoke<{ exists: boolean; has_api_key: boolean; model?: string }>('check_claude_config')
+    invoke<{ exists: boolean; model?: string }>('check_claude_config')
       .then(setClaudeConfigStatus)
       .catch(() => setClaudeConfigStatus(null));
   }, [isAgentSdk, sdkRuntime.config_mode]);
@@ -848,16 +847,10 @@ function AgentRuntimeCard({
               {claudeConfigStatus && !claudeConfigStatus.exists && (
                 <div className="flex items-center gap-2 text-xs text-warning bg-warning/10 rounded px-3 py-2">
                   <AlertTriangle size={12} />
-                  未检测到 Claude 配置，请先运行 claude 命令完成初始化配置
+                  未检测到 ~/.claude/settings.json，请先运行 claude 命令完成初始化配置
                 </div>
               )}
-              {claudeConfigStatus?.exists && !claudeConfigStatus.has_api_key && (
-                <div className="flex items-center gap-2 text-xs text-warning bg-warning/10 rounded px-3 py-2">
-                  <AlertTriangle size={12} />
-                  检测到 .claude/settings.json 但未配置 api_key
-                </div>
-              )}
-              {claudeConfigStatus?.exists && claudeConfigStatus.has_api_key && (
+              {claudeConfigStatus?.exists && (
                 <div className="text-xs text-success bg-success/10 rounded px-3 py-2">
                   Claude 配置检测通过 ✓{claudeConfigStatus.model ? ` (model: ${claudeConfigStatus.model})` : ''}
                 </div>
