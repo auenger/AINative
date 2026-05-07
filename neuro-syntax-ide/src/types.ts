@@ -271,6 +271,8 @@ export interface AppSettings {
   app: AppConfig;
   user: UserProfile;
   terminal: TerminalConfig;
+  /** Agent runtime type: "claude-code" (default) or "agent-sdk" */
+  agent_runtime?: string;
 }
 
 // ---------------------------------------------------------------------------

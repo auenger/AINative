@@ -668,6 +668,34 @@ function LlmPanel({
           </div>
         );
       })}
+
+      {/* Agent Runtime Mode Selector */}
+      <div className="config-card">
+        <div className="flex items-center gap-2 mb-3">
+          <Cpu size={14} className="text-primary" />
+          <span className="config-label">Agent Runtime</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <select
+            value={settings.agent_runtime || 'claude-code'}
+            onChange={(e) => onUpdate({ agent_runtime: e.target.value })}
+            className="config-input flex-1"
+          >
+            <option value="claude-code">Claude Code CLI (claude -p)</option>
+            <option value="agent-sdk">Agent SDK (Claude Agent SDK sidecar)</option>
+          </select>
+        </div>
+        {settings.agent_runtime === 'agent-sdk' && settings.llm.provider && settings.providers[settings.llm.provider]?.protocol !== 'anthropic' && (
+          <div className="mt-2 text-xs text-error bg-error/10 rounded px-3 py-2">
+            SDK 模式要求 Provider 协议为 Anthropic。请切换到 Anthropic 兼容的 Provider，或新增一个 protocol=anthropic 的 Provider。
+          </div>
+        )}
+        {settings.agent_runtime === 'agent-sdk' && settings.llm.provider && settings.providers[settings.llm.provider]?.protocol === 'anthropic' && (
+          <div className="mt-2 text-xs text-success bg-success/10 rounded px-3 py-2">
+            当前 Provider ({settings.llm.provider}) 兼容 Anthropic 协议 ✓
+          </div>
+        )}
+      </div>
     </div>
   );
 }
