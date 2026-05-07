@@ -148,6 +148,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ workspace, onNavigateT
     providerId === 'claude-code' || providerId === 'codex' ? providerId : 'http';
   const pmRuntimeId = toRuntimeId(pmProviderOverride ?? defaultProvider);
   const reqRuntimeId = reqProviderOverride ? toRuntimeId(reqProviderOverride) : 'claude-code';
+  const reqProviderId = reqProviderOverride ?? 'claude-code';
 
   // Build provider list from settings (for dropdown)
   const providerList = useMemo(() => {
@@ -217,8 +218,11 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
     return Object.values(settings.providers || {}).some(p => !!p.api_key);
   }, [settings.providers]);
 
+  /** Current PM provider ID (actual settings key like 'zai', not runtime 'http') */
+  const pmProviderId = pmProviderOverride ?? defaultProvider;
+
   /** Check if current PM agent provider has API key in settings */
-  const pmProviderReady = hasProviderApiKey(pmAgent.runtimeId);
+  const pmProviderReady = hasProviderApiKey(pmProviderId);
 
   /** Handle PM provider switch */
   const handlePmProviderSwitch = useCallback((providerId: string) => {
@@ -638,13 +642,13 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
                           )}
                           title="Switch LLM Provider"
                         >
-                          <span>{pmAgent.runtimeId}</span>
+                          <span>{pmProviderId}</span>
                           <ChevronDown size={8} className={cn("transition-transform", showPmProviderDropdown && "rotate-180")} />
                         </button>
                         {showPmProviderDropdown && (
                           <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] bg-surface-container-high border border-outline-variant/20 rounded-lg shadow-xl py-1">
                             {providerList.map((pId) => {
-                              const isSelected = pId === pmAgent.runtimeId;
+                              const isSelected = pId === pmProviderId;
                               const hasKey = hasProviderApiKey(pId);
                               return (
                                 <button
@@ -673,7 +677,7 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
                         )}
                       </div>
                       {/* Provider not configured warning */}
-                      {!pmProviderReady && settings.providers?.[pmAgent.runtimeId] && (
+                      {!pmProviderReady && settings.providers?.[pmProviderId] && (
                         <span className="text-[8px] text-warning bg-warning/10 px-1.5 py-0.5 rounded whitespace-nowrap">Not Configured</span>
                       )}
                       {/* Connection status — use settings-based key check */}
@@ -881,7 +885,7 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
                           )}
                           title="Switch LLM Provider"
                         >
-                          <span>{reqAgent.runtimeId}</span>
+                          <span>{reqProviderId}</span>
                           <ChevronDown size={8} className={cn("transition-transform", showReqProviderDropdown && "rotate-180")} />
                         </button>
                         {showReqProviderDropdown && (
@@ -902,7 +906,7 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
                             </button>
                             {/* Configured providers */}
                             {providerList.map((pId) => {
-                              const isSelected = pId === reqAgent.runtimeId;
+                              const isSelected = pId === reqProviderId;
                               const hasKey = hasProviderApiKey(pId);
                               return (
                                 <button
@@ -928,7 +932,7 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
                         )}
                       </div>
                       {/* Provider not configured warning */}
-                      {reqAgent.runtimeId !== 'claude-code' && !hasProviderApiKey(reqAgent.runtimeId) && settings.providers?.[reqAgent.runtimeId] && (
+                      {reqProviderId !== 'claude-code' && !hasProviderApiKey(reqProviderId) && settings.providers?.[reqProviderId] && (
                         <span className="text-[8px] text-warning bg-warning/10 px-1.5 py-0.5 rounded whitespace-nowrap">Not Configured</span>
                       )}
                       {/* Connection status indicator */}
