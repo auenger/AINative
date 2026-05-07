@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-05-07T21:30:00Z'
+  last_updated: '2026-05-07T22:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -48,7 +48,10 @@ parents:
   - feat-shell-settings-ui
   - feat-windows-pty
 active: []
-pending: []
+pending:
+- id: feat-sdk-runtime-config
+  name: SDK Runtime 独立配置页面（支持 Claude Config / Custom Provider 双模式）
+  priority: 90
 blocked: []
 completed:
 - id: feat-agent-sdk-runtime
@@ -277,7 +280,7 @@ completed:
   completed_at: '2026-04-08T15:30:00Z'
   tag: feat-claude-code-runtime-monitor-20260408
 - id: fix-terminal-io-resize
-  name: "终端输入输出修复 + 面板动态调整"
+  name: 终端输入输出修复 + 面板动态调整
   completed_at: '2026-04-08T00:00:00Z'
   tag: fix-terminal-io-resize-20260408
 - id: feat-editor-terminal-workspace
