@@ -3515,7 +3515,7 @@ impl AgentRuntime for HttpRuntime {
                             if b.ends_with("/chat/completions") { b.to_string() } else { format!("{}/chat/completions", b) }
                         }
                         ChatProtocol::Anthropic => {
-                            if b.ends_with("/messages") { b.to_string() } else { format!("{}/messages", b) }
+                            if b.ends_with("/v1/messages") || b.ends_with("/messages") { b.to_string() } else { format!("{}/v1/messages", b) }
                         }
                     }
                 };
@@ -3603,15 +3603,18 @@ impl AgentRuntime for HttpRuntime {
                             }
                             let headers = vec![
                                 ("anthropic-version".to_string(), "2023-06-01".to_string()),
+                                ("x-api-key".to_string(), api_key.clone()),
                             ];
-                            (b, format!("Bearer {}", api_key), headers)
+                            (b, String::new(), headers)
                         }
                     };
 
                     let mut req = client
                         .post(&api_url)
-                        .header("Authorization", &auth_header)
                         .header("Content-Type", "application/json");
+                    if !auth_header.is_empty() {
+                        req = req.header("Authorization", &auth_header);
+                    }
                     for (k, v) in &extra_headers {
                         req = req.header(k.as_str(), v.as_str());
                     }
@@ -6814,7 +6817,7 @@ async fn agent_chat_stream(
                 let b = r.api_base.trim_end_matches('/');
                 match r.protocol {
                     ChatProtocol::Openai => if b.ends_with("/chat/completions") { b.to_string() } else { format!("{}/chat/completions", b) },
-                    ChatProtocol::Anthropic => if b.ends_with("/messages") { b.to_string() } else { format!("{}/messages", b) },
+                    ChatProtocol::Anthropic => if b.ends_with("/v1/messages") || b.ends_with("/messages") { b.to_string() } else { format!("{}/v1/messages", b) },
                 }
             };
             (r.api_key, url, if request.model.is_empty() { r.model } else { request.model }, r.protocol)
@@ -6853,14 +6856,19 @@ async fn agent_chat_stream(
             });
             let mut b = serde_json::json!({ "model": model, "messages": msgs, "max_tokens": 8192, "stream": true });
             if !sys.is_empty() { b["system"] = serde_json::json!(sys); }
-            (b, format!("Bearer {}", api_key), vec![("anthropic-version".to_string(), "2023-06-01".to_string())])
+            (b, String::new(), vec![
+                ("anthropic-version".to_string(), "2023-06-01".to_string()),
+                ("x-api-key".to_string(), api_key.clone()),
+            ])
         }
     };
 
     let mut req_builder = client
         .post(&api_url)
-        .header("Authorization", &auth_header)
         .header("Content-Type", "application/json");
+    if !auth_header.is_empty() {
+        req_builder = req_builder.header("Authorization", &auth_header);
+    }
     for (k, v) in &extra_headers {
         req_builder = req_builder.header(k.as_str(), v.as_str());
     }
