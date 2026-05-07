@@ -103,15 +103,15 @@ async function handleQuery(msg) {
           send({ type: 'assistant', text });
         }
       } else if (msgType === 'result') {
-        // Final result
+        // Final result — include session_id in the result event itself
         const text = typeof message.result === 'string'
           ? message.result
           : (message.result ? JSON.stringify(message.result) : '');
-        sendResult(text);
-        // Capture session_id from result if present
+        const resultEvent = { type: 'result', text, is_done: true };
         if (message.session_id) {
-          send({ type: 'system', session_id: message.session_id });
+          resultEvent.session_id = message.session_id;
         }
+        send(resultEvent);
       } else if (msgType === 'stream_event') {
         // Partial streaming output
         const text = extractStreamText(message);

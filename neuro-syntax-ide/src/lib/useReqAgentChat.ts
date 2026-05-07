@@ -130,6 +130,11 @@ export function useReqAgentChat() {
     const unlisten = await listen<ReqAgentChunkEvent>('agent://chunk', (event) => {
       const chunk = event.payload;
 
+      // Capture SDK session_id for multi-turn continuity
+      if (chunk.session_id) {
+        setSessionId(chunk.session_id);
+      }
+
       // Handle idle_warning: non-error, informational — update UI state only
       if (chunk.type === 'idle_warning') {
         setIdleWarningSeconds(chunk.idle_seconds ?? null);
