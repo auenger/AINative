@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-05-07T22:00:00Z'
+  last_updated: '2026-05-07T23:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -48,12 +48,13 @@ parents:
   - feat-shell-settings-ui
   - feat-windows-pty
 active: []
-pending:
-- id: feat-sdk-runtime-config
-  name: SDK Runtime 独立配置页面（支持 Claude Config / Custom Provider 双模式）
-  priority: 90
+pending: []
 blocked: []
 completed:
+- id: feat-sdk-runtime-config
+  name: SDK Runtime 独立配置页面（支持 Claude Config / Custom Provider 双模式）
+  completed_at: '2026-05-07T23:30:00Z'
+  tag: feat-sdk-runtime-config-20260507
 - id: feat-agent-sdk-runtime
   name: Claude Agent SDK Runtime（新增 SDK 模式替代 claude -p）
   completed_at: '2026-05-07T21:30:00Z'
