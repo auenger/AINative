@@ -124,55 +124,11 @@ export function useAgentChat() {
     },
   ]);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [apiKeyConfigured, setApiKeyConfigured] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const streamingTextRef = useRef<string>('');
 
   // Ref to hold the persistent chunk listener unlisten function
   const chunkUnlistenRef = useRef<(() => void) | null>(null);
-
-  /** Check if API key is configured */
-  const checkApiKey = useCallback(async () => {
-    if (!isTauri) {
-      setApiKeyConfigured(false);
-      return;
-    }
-
-    try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      const hasKey: boolean = await invoke('has_api_key');
-      setApiKeyConfigured(hasKey);
-    } catch {
-      setApiKeyConfigured(false);
-    }
-  }, []);
-
-  /** Store API key via Rust backend (keyring) */
-  const configureApiKey = useCallback(async (key: string) => {
-    if (!isTauri) return;
-
-    try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('store_api_key', { key });
-      setApiKeyConfigured(true);
-      setError(null);
-    } catch (e: any) {
-      setError(e?.toString() ?? 'Failed to store API key');
-    }
-  }, []);
-
-  /** Delete stored API key */
-  const removeApiKey = useCallback(async () => {
-    if (!isTauri) return;
-
-    try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('delete_api_key');
-      setApiKeyConfigured(false);
-    } catch (e: any) {
-      setError(e?.toString() ?? 'Failed to delete API key');
-    }
-  }, []);
 
   /** Register the persistent agent://chunk listener for the Feature Creation PM Agent.
    *  Listens on the unified `agent://chunk` event from runtime_execute. */
@@ -369,22 +325,13 @@ export function useAgentChat() {
     setError(null);
   }, []);
 
-  // Check API key on mount
-  useEffect(() => {
-    checkApiKey();
-  }, [checkApiKey]);
-
   return {
     messages,
     isStreaming,
-    apiKeyConfigured,
     error,
     sendMessage,
     generateFeaturePlan,
     createFeature,
-    configureApiKey,
-    removeApiKey,
-    checkApiKey,
     clearChat,
   };
 }

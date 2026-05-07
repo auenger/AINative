@@ -1222,7 +1222,6 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
     const labelMap: Record<TerminalKind, string> = {
       bash: t('editor.bashTerminal'),
       claude: t('editor.claudeCode'),
-      gemini: t('editor.geminiCli'),
     };
     setTabs((prev) => [...prev, { id, kind, label: labelMap[kind] }]);
     setActiveTabId(id);
@@ -1257,8 +1256,6 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
         return <TerminalIcon size={size} />;
       case 'claude':
         return <Bot size={size} />;
-      case 'gemini':
-        return <Sparkles size={size} />;
     }
   };
 
@@ -1268,8 +1265,6 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
         return 'text-primary border-b-2 border-primary';
       case 'claude':
         return 'text-secondary border-b-2 border-secondary';
-      case 'gemini':
-        return 'text-[color:var(--t-blue-400)] border-b-2 border-[color:var(--t-blue-400)]';
     }
   };
 
@@ -2266,13 +2261,6 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                         <Bot size={12} className="text-secondary" />
                         Claude CLI
                       </button>
-                      <button
-                        onClick={() => { addTab('gemini'); setShowAddMenu(false); }}
-                        className="flex items-center gap-2 w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface transition-colors"
-                      >
-                        <Sparkles size={12} className="text-[color:var(--t-blue-400)]" />
-                        Gemini CLI
-                      </button>
                     </div>
                   )}
                   {showAddMenu && (
@@ -2289,13 +2277,6 @@ export const EditorView: React.FC<EditorViewProps> = ({ workspace }) => {
                       title={t('editor.claudeCode')}
                     >
                       <Zap size={12} />
-                    </button>
-                    <button
-                      onClick={() => addTab('gemini')}
-                      className="p-1 hover:bg-surface-container-high rounded text-[color:var(--t-blue-400)]"
-                      title={t('editor.geminiCli')}
-                    >
-                      <Bot size={12} />
                     </button>
                   </div>
                   <button onClick={() => setTerminalOpen(false)} className="text-outline hover:text-on-surface text-sm leading-none">
