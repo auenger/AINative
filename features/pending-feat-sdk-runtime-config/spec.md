@@ -159,8 +159,52 @@ And 用户仍可切换到 Custom Provider 模式
 - Claude Config 模式下：.claude 配置检测状态 + 提示信息
 - 配置变更后 Save 按钮亮起
 
+### UI 设计规范 — 下拉框组件
+
+所有下拉选择器（配置模式、Provider 选择）统一使用 TaskBoard 排序下拉框的设计方案：
+
+```
+结构: <button> 触发器 + <AnimatePresence> + <motion.div> 浮层面板
+```
+
+**触发器 Button 样式**:
+```
+flex items-center gap-2 px-3 py-1.5 rounded-lg
+text-[10px] font-bold uppercase tracking-widest
+border border-outline-variant/20 bg-surface-container-high
+hover:bg-surface-container-highest transition-all
+选中态: border-primary/50 ring-1 ring-primary/30
+```
+
+**ChevronDown 图标**:
+```
+size={12} text-outline transition-transform
+展开时: rotate-180
+```
+
+**浮层面板**:
+```
+absolute {left|right}-0 mt-1 w-48
+bg-surface-container-low border border-outline-variant/20
+rounded-lg shadow-xl z-20 overflow-hidden
+动画: initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+```
+
+**选项 Button**:
+```
+w-full px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wider transition-all
+选中态: bg-primary/10 text-primary
+未选中态: text-on-surface hover:bg-surface-container-high
+```
+
+**参考实现**: `neuro-syntax-ide/src/components/views/TaskBoard.tsx` 搜索栏排序下拉（`sortDropdownOpen` + `AnimatePresence` + `motion.div`）
+
+**不用原生 `<select>`** — 原生 select 在各平台样式不一致，且不支持动画和自定义渲染。
+
 ### General Checklist
 - [ ] 配置模式持久化到 settings.yaml
 - [ ] 两种模式正确切换，无需重启
 - [ ] Custom Provider 模式 env vars 包含 ANTHROPIC_MODEL
 - [ ] Claude Config 模式不注入任何 env vars
+- [ ] 所有下拉框使用 TaskBoard 排序下拉设计方案（button + AnimatePresence + motion.div）
+- [ ] 不使用原生 <select> 元素
