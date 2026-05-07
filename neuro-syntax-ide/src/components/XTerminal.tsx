@@ -10,7 +10,7 @@ import { useTheme } from '../context/ThemeContext';
 // Types
 // ---------------------------------------------------------------------------
 
-export type TerminalKind = 'bash' | 'claude' | 'gemini';
+export type TerminalKind = 'bash' | 'claude';
 
 export interface XTerminalProps {
   /** Unique identifier for this terminal instance (the pty_id). */
@@ -98,8 +98,6 @@ async function shellForKind(kind: TerminalKind): Promise<{ shell: string; args: 
   switch (kind) {
     case 'claude':
       return { shell: 'claude', args: [] };
-    case 'gemini':
-      return { shell: 'gemini', args: [] };
     case 'bash':
     default: {
       // 1. Check if user has configured a default shell in settings

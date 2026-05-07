@@ -57,7 +57,7 @@ const App: React.FC = () => {
           <div className="flex-1 flex overflow-hidden relative">
             {/* All views always mounted — CSS controls visibility to preserve state */}
             <div className={cn("absolute inset-0 overflow-hidden", activeView === 'project' ? 'flex' : 'hidden')}>
-              <ProjectView workspace={workspace} onNavigateToGit={() => setActiveView('git')} />
+              <ProjectView workspace={workspace} onNavigateToGit={() => setActiveView('git')} onNavigateToSettings={() => setActiveView('settings')} />
             </div>
             <div className={cn("absolute inset-0 overflow-hidden", activeView === 'editor' ? 'flex' : 'hidden')}>
               <EditorView workspace={workspace} />

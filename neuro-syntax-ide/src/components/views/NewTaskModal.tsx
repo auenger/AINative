@@ -99,7 +99,6 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
     sendMessage,
     generateFeaturePlan,
     createFeature,
-    apiKeyConfigured,
     isStreaming,
     error: chatError,
     clearChat,
@@ -887,15 +886,6 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
                 {/* PM Agent path: Chat panel */}
                 {selectedAgent?.isBuiltIn ? (
                   <div className="flex flex-col gap-3">
-                    {/* API key warning */}
-                    {!apiKeyConfigured && (
-                      <div className="rounded-lg bg-warning/10 border border-warning/20 px-3 py-2">
-                        <span className="text-[10px] text-warning font-medium">
-                          API Key not configured — configure in Settings to use PM Agent chat
-                        </span>
-                      </div>
-                    )}
-
                     {/* Messages list */}
                     <div className="flex-1 min-h-[200px] max-h-[320px] overflow-y-auto rounded-lg bg-surface-container-high border border-outline-variant/10 p-3 space-y-3">
                       {messages.map((msg, idx) => (

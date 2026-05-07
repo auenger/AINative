@@ -131,7 +131,6 @@ export function useAgentStream(options: UseAgentStreamOptions) {
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [apiKeyConfigured, setApiKeyConfigured] = useState<boolean | null>(null);
   const streamingTextRef = useRef<string>('');
   const chunkUnlistenRef = useRef<(() => void) | null>(null);
   // Track the current streaming request ID to detect stale is_done events from process_exit
@@ -214,7 +213,6 @@ export function useAgentStream(options: UseAgentStreamOptions) {
     }
 
     // Re-check API key for the new runtime
-    checkApiKey();
   }, [runtimeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------------------------------------------------------------------------
@@ -392,57 +390,6 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       chunkUnlistenRef.current = null;
     }
   }, []);
-
-  // ---------------------------------------------------------------------------
-  // API Key management (for gemini-http runtime)
-  // ---------------------------------------------------------------------------
-
-  /** Check if API key is configured */
-  const checkApiKey = useCallback(async () => {
-    if (!isTauri) {
-      setApiKeyConfigured(false);
-      return;
-    }
-    try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      const hasKey: boolean = await invoke('has_api_key');
-      setApiKeyConfigured(hasKey);
-    } catch {
-      setApiKeyConfigured(false);
-    }
-  }, []);
-
-  /** Store API key via Rust backend (keyring) */
-  const configureApiKey = useCallback(async (key: string) => {
-    if (!isTauri) return;
-    try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('store_api_key', { key });
-      setApiKeyConfigured(true);
-      setError(null);
-    } catch (e: any) {
-      setError(e?.toString() ?? 'Failed to store API key');
-    }
-  }, []);
-
-  /** Delete stored API key */
-  const removeApiKey = useCallback(async () => {
-    if (!isTauri) return;
-    try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      await invoke('delete_api_key');
-      setApiKeyConfigured(false);
-    } catch (e: any) {
-      setError(e?.toString() ?? 'Failed to delete API key');
-    }
-  }, []);
-
-  // Check API key on mount (for gemini-http runtime)
-  useEffect(() => {
-    if (runtimeId === 'gemini-http') {
-      checkApiKey();
-    }
-  }, [checkApiKey, runtimeId]);
 
   // ---------------------------------------------------------------------------
   // Session management (for runtimes like claude-code)
@@ -753,12 +700,6 @@ export function useAgentStream(options: UseAgentStreamOptions) {
     error,
     sendMessage,
     clearChat,
-
-    // API Key management (available for all runtimes, used by gemini-http)
-    apiKeyConfigured,
-    configureApiKey,
-    removeApiKey,
-    checkApiKey,
 
     // Session management (available when useSessions is true)
     connectionState,

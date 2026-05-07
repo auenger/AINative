@@ -28,6 +28,7 @@ import {
   AtSign,
   FileSpreadsheet,
   Wrench,
+  Settings,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
@@ -56,6 +57,7 @@ interface WorkspaceHook {
 interface ProjectViewProps {
   workspace: WorkspaceHook;
   onNavigateToGit?: () => void;
+  onNavigateToSettings?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -128,7 +130,7 @@ function ToolCallMessage({ msg }: { msg: ChatMessage }) {
 }
 
 
-export const ProjectView: React.FC<ProjectViewProps> = ({ workspace, onNavigateToGit }) => {
+export const ProjectView: React.FC<ProjectViewProps> = ({ workspace, onNavigateToGit, onNavigateToSettings }) => {
   const { t } = useTranslation();
   const { workspacePath, loading: workspaceLoading, error: workspaceError, selectWorkspace } = workspace;
 
@@ -237,8 +239,6 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
   const [chatInput, setChatInput] = useState('');
   const [reqChatInput, setReqChatInput] = useState('');
   const [activeChatTab, setActiveChatTab] = useState<'pm' | 'req'>('pm');
-  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // --- Project Context: dynamic file loading ---
@@ -428,13 +428,6 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [reqAgent.messages]);
 
-  const handleStoreApiKey = () => {
-    if (!apiKeyInput.trim()) return;
-    pmAgent.configureApiKey(apiKeyInput);
-    setApiKeyInput('');
-    setShowApiKeyModal(false);
-  };
-
   const handleReqAgentSend = async () => {
     if (!reqChatInput.trim() || reqAgent.isStreaming) return;
 
@@ -526,15 +519,15 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
         )}
       </AnimatePresence>
 
-      {/* API Key prompt banner — only when NO provider has an api_key */}
+      {/* Provider config prompt banner — only when NO provider has an api_key */}
       {workspacePath && !anyProviderHasApiKey && !pmAgent.isStreaming && (
         <div className="px-6 py-2 bg-warning/10 border-b border-warning/20 text-xs text-warning flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Key size={12} />
-            Configure your API Key to enable AI features
+            Configure LLM Provider in Settings to enable AI features
           </div>
-          <button onClick={() => setShowApiKeyModal(true)} className="text-primary underline text-[10px]">
-            Set API Key
+          <button onClick={() => onNavigateToSettings?.()} className="text-primary underline text-[10px]">
+            Go to Settings
           </button>
         </div>
       )}
@@ -546,8 +539,8 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
             <AlertTriangle size={12} />
             {pmAgent.error}
           </div>
-          <button onClick={() => setShowApiKeyModal(true)} className="text-primary underline text-[10px]">
-            Configure API Key
+          <button onClick={() => onNavigateToSettings?.()} className="text-primary underline text-[10px]">
+            Go to Settings
           </button>
         </div>
       )}
@@ -676,9 +669,9 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
                           </div>
                         )}
                       </div>
-                      {/* API Key warning for current provider */}
+                      {/* Provider not configured warning */}
                       {!pmProviderReady && settings.providers?.[pmAgent.runtimeId] && (
-                        <span className="text-[8px] text-warning bg-warning/10 px-1.5 py-0.5 rounded whitespace-nowrap">No Key</span>
+                        <span className="text-[8px] text-warning bg-warning/10 px-1.5 py-0.5 rounded whitespace-nowrap">Not Configured</span>
                       )}
                       {/* Connection status — use settings-based key check */}
                       <div className={cn(
@@ -695,17 +688,17 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
                           "text-[9px] font-bold uppercase tracking-tighter",
                           pmProviderReady ? "text-tertiary" : "text-outline"
                         )}>
-                          {pmAgent.isStreaming ? 'Thinking...' : pmProviderReady ? 'Active' : 'No Key'}
+                          {pmAgent.isStreaming ? 'Thinking...' : pmProviderReady ? 'Active' : 'Not Configured'}
                         </span>
                       </div>
-                      {/* Key settings button — only show when provider not ready */}
+                      {/* Settings link — only show when provider not ready */}
                       {!pmProviderReady && (
                         <button
-                          onClick={() => setShowApiKeyModal(true)}
+                          onClick={() => onNavigateToSettings?.()}
                           className="p-1 text-on-surface-variant hover:text-primary transition-colors"
-                          title="API Key Settings"
+                          title="Configure in Settings"
                         >
-                          <Key size={12} />
+                          <Settings size={12} />
                         </button>
                       )}
                     </div>
@@ -931,9 +924,9 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
                           </div>
                         )}
                       </div>
-                      {/* API Key warning for current provider */}
+                      {/* Provider not configured warning */}
                       {reqAgent.runtimeId !== 'claude-code' && !hasProviderApiKey(reqAgent.runtimeId) && settings.providers?.[reqAgent.runtimeId] && (
-                        <span className="text-[8px] text-warning bg-warning/10 px-1.5 py-0.5 rounded whitespace-nowrap">No Key</span>
+                        <span className="text-[8px] text-warning bg-warning/10 px-1.5 py-0.5 rounded whitespace-nowrap">Not Configured</span>
                       )}
                       {/* Connection status indicator */}
                       <div className={cn(
@@ -1515,107 +1508,6 @@ Be concise, analytical, and insightful. Use Markdown formatting for clarity.`,
           </div>
         </div>
       )}
-
-      {/* API Key Configuration Modal */}
-      <AnimatePresence>
-        {showApiKeyModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowApiKeyModal(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-md bg-surface-container-low border border-outline-variant/20 rounded-xl shadow-2xl overflow-hidden flex flex-col"
-            >
-              <div className="p-4 border-b border-outline-variant/10 flex items-center justify-between bg-surface-container-high/30">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-secondary/10 rounded-lg">
-                    <Key size={20} className="text-secondary" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold uppercase tracking-widest">API Key</h3>
-                    <p className="text-[10px] text-outline">Gemini API Key for AI features</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowApiKeyModal(false)}
-                  className="p-2 hover:bg-surface-container-high rounded-full transition-colors"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div className="p-6 space-y-4">
-                <div className={cn(
-                  "flex items-center gap-3 p-3 rounded-lg border",
-                  pmAgent.apiKeyConfigured
-                    ? "bg-tertiary/10 border-tertiary/20"
-                    : "bg-warning/10 border-warning/20"
-                )}>
-                  {pmAgent.apiKeyConfigured ? (
-                    <CheckCircle2 size={16} className="text-tertiary" />
-                  ) : (
-                    <AlertTriangle size={16} className="text-warning" />
-                  )}
-                  <span className="text-xs text-on-surface-variant">
-                    {pmAgent.apiKeyConfigured
-                      ? 'API Key is configured and stored securely in your OS Keyring.'
-                      : 'No API Key configured. AI features require a Gemini API key.'}
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                    Gemini API Key
-                  </label>
-                  <input
-                    type="password"
-                    value={apiKeyInput}
-                    onChange={(e) => setApiKeyInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleStoreApiKey()}
-                    placeholder="Enter your Gemini API key..."
-                    className="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-lg p-3 text-xs text-on-surface focus:outline-none focus:border-primary/50 font-mono"
-                  />
-                  <p className="text-[9px] text-outline leading-relaxed">
-                    Your key is stored in the OS Keyring and never sent to the frontend or exposed in network requests.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-4 bg-surface-container-high/30 border-t border-outline-variant/10 flex gap-3">
-                {pmAgent.apiKeyConfigured && (
-                  <button
-                    onClick={() => pmAgent.removeApiKey()}
-                    className="px-4 py-2 bg-error/10 text-error rounded-lg text-xs font-bold hover:bg-error/20 transition-all border border-error/20"
-                  >
-                    Delete Key
-                  </button>
-                )}
-                <div className="flex-1" />
-                <button
-                  onClick={() => setShowApiKeyModal(false)}
-                  className="px-4 py-2 bg-surface-container-highest text-on-surface rounded-lg text-xs font-bold hover:bg-surface-variant transition-all border border-outline-variant/10"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleStoreApiKey}
-                  disabled={!apiKeyInput.trim()}
-                  className="px-4 py-2 bg-primary text-on-primary rounded-lg text-xs font-bold hover:brightness-110 transition-all disabled:opacity-50"
-                >
-                  Save Key
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* Hidden file input for PMFile uploads (shared by PM and REQ Agent) */}
       <input

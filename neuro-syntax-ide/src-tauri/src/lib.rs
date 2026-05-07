@@ -1040,10 +1040,6 @@ impl ReqAgentState {
     }
 }
 
-/// Keyring service name constant.
-const KEYRING_SERVICE: &str = "neuro-syntax-ide";
-const KEYRING_ACCOUNT: &str = "ai-api-key";
-
 // ===========================================================================
 // Data types - Agent Runtime System (feat-agent-runtime-core)
 // ===========================================================================
@@ -3474,34 +3470,22 @@ impl AgentRuntime for GeminiHttpRuntime {
         "Configure Gemini API Key in Settings".to_string()
     }
 
-    /// Detect: check if a Gemini API key is configured in the keyring.
+    /// Detect: HttpRuntime is always detected (availability depends on Settings provider config).
     fn detect(&self) -> Result<Option<(String, String)>, String> {
-        match get_api_key_inner() {
-            Ok(_) => Ok(Some(("keyring".to_string(), "configured".to_string()))),
-            Err(_) => Ok(None),
-        }
+        Ok(Some(("http-runtime".to_string(), "available".to_string())))
     }
 
-    /// Health check: verify the API key is present and valid by making a lightweight request.
+    /// Health check: always Available — actual API key check happens at request time via Settings.
     fn health_check(&self) -> AgentRuntimeStatus {
-        match get_api_key_inner() {
-            Ok(_) => {
-                // Key exists — mark as Available.
-                // A full health check would call the API, but we keep it lightweight
-                // to avoid unnecessary network latency during scan_all().
-                AgentRuntimeStatus::Available
-            }
-            Err(_) => AgentRuntimeStatus::NotInstalled,
-        }
+        AgentRuntimeStatus::Available
     }
 
     fn info(&self) -> AgentRuntimeInfo {
-        let has_key = get_api_key_inner().is_ok();
         AgentRuntimeInfo {
             id: self.id().to_string(),
             name: self.name().to_string(),
             runtime_type: self.runtime_type().to_string(),
-            status: if has_key { AgentRuntimeStatus::Available } else { AgentRuntimeStatus::NotInstalled },
+            status: AgentRuntimeStatus::Available,
             version: None,
             install_path: None,
             capabilities: self.capabilities(),
@@ -3518,15 +3502,25 @@ impl AgentRuntime for GeminiHttpRuntime {
     /// Loop: API request → stream response → parse tool calls → execute →
     /// feed results back → continue until no more tool calls.
     fn execute(&self, params: ExecuteParams) -> Result<std::sync::mpsc::Receiver<StreamEvent>, String> {
-        let api_key = get_api_key_inner()
-            .map_err(|e| format!("API Key 未配置: {}. 请在 Settings 中设置 Gemini API Key。", e))?;
+        let workspace = params.workspace.clone().unwrap_or_default();
+
+        let (api_key, api_base, model) = get_llm_provider_from_settings(&workspace)
+            .ok_or_else(|| "未配置 LLM Provider。请在 Settings 中配置一个 Provider（如 OpenRouter、Gemini 等）。".to_string())?;
+
+        let api_url = {
+            let base = api_base.trim_end_matches('/');
+            if base.ends_with("/chat/completions") {
+                base.to_string()
+            } else {
+                format!("{}/chat/completions", base)
+            }
+        };
 
         let (tx, rx) = std::sync::mpsc::channel();
 
-        let model = self.model.clone();
+        let model = if model == "default" { self.model.clone() } else { model };
         let system_prompt_text = params.system_prompt.clone();
         let user_message = params.message.clone();
-        let workspace = params.workspace.clone().unwrap_or_default();
 
         std::thread::spawn(move || {
             let rt = tokio::runtime::Builder::new_current_thread()
@@ -3571,7 +3565,7 @@ impl AgentRuntime for GeminiHttpRuntime {
                     });
 
                     let response = match client
-                        .post(GEMINI_API_URL)
+                        .post(&api_url)
                         .header("Authorization", format!("Bearer {}", api_key))
                         .header("Content-Type", "application/json")
                         .json(&body)
@@ -6741,12 +6735,13 @@ async fn git_pull(
 #[tauri::command]
 async fn agent_chat_stream(
     app: AppHandle,
-    _state: tauri::State<'_, AppState>,
+    state: tauri::State<'_, AppState>,
     request: AgentChatRequest,
 ) -> Result<(), String> {
-    // Retrieve API key from keyring
-    let api_key = get_api_key_inner()
-        .map_err(|e| format!("API key not configured: {}. Please set your API key in Settings.", e))?;
+    // Get API credentials from Settings provider config
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    let (api_key, api_base, _model) = get_llm_provider_from_settings(&workspace)
+        .ok_or_else(|| "未配置 LLM Provider。请在 Settings 中配置一个 Provider（如 OpenRouter、Gemini 等）。".to_string())?;
 
     let client = reqwest::Client::new();
 
@@ -6771,10 +6766,13 @@ async fn agent_chat_stream(
         "stream": true
     });
 
-    let url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+    let url = {
+        let base = api_base.trim_end_matches('/');
+        if base.ends_with("/chat/completions") { base.to_string() } else { format!("{}/chat/completions", base) }
+    };
 
     let response = client
-        .post(url)
+        .post(&url)
         .header("Authorization", format!("Bearer {}", api_key))
         .header("Content-Type", "application/json")
         .json(&body)
@@ -6871,32 +6869,6 @@ async fn agent_chat_stream(
     Ok(())
 }
 
-/// Store an API key in the OS keyring.
-#[tauri::command]
-fn store_api_key(key: String) -> Result<(), String> {
-    let entry = keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT)
-        .map_err(|e| format!("Failed to create keyring entry: {}", e))?;
-    entry.set_password(&key)
-        .map_err(|e| format!("Failed to store API key: {}", e))?;
-    Ok(())
-}/// Check if an API key is stored in the OS keyring (returns true/false, never the key itself).
-#[tauri::command]
-fn has_api_key() -> Result<bool, String> {
-    match get_api_key_inner() {
-        Ok(_) => Ok(true),
-        Err(_) => Ok(false),
-    }
-}
-
-/// Delete the stored API key from the OS keyring.
-#[tauri::command]
-fn delete_api_key() -> Result<(), String> {
-    let entry = keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT)
-        .map_err(|e| format!("Failed to create keyring entry: {}", e))?;
-    entry.delete_credential()
-        .map_err(|e| format!("Failed to delete API key: {}", e))?;
-    Ok(())
-}
 
 /// Read the active LLM provider config from workspace settings.yaml.
 /// Returns (api_key, api_base, model) if a provider with HTTP API is configured.
@@ -6945,14 +6917,6 @@ fn get_llm_provider_from_settings(workspace: &str) -> Option<(String, String, St
     };
 
     Some((provider_config.api_key.clone(), provider_config.api_base.clone(), model))
-}
-
-/// Internal helper to retrieve the API key (never exposed to frontend).
-fn get_api_key_inner() -> Result<String, String> {
-    let entry = keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT)
-        .map_err(|e| format!("Failed to create keyring entry: {}", e))?;
-    entry.get_password()
-        .map_err(|e| format!("Key not found: {}", e))
 }
 
 /// Create a new Feature from an Agent's structured output.
@@ -7146,10 +7110,12 @@ r#"# Checklist: {}
 /// Returns the parsed plan so the frontend can confirm before creating files.
 #[tauri::command]
 async fn agent_generate_feature_plan(
+    state: tauri::State<'_, AppState>,
     request: AgentChatRequest,
 ) -> Result<FeaturePlanOutput, String> {
-    let api_key = get_api_key_inner()
-        .map_err(|e| format!("API key not configured: {}", e))?;
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    let (api_key, api_base, _model) = get_llm_provider_from_settings(&workspace)
+        .ok_or_else(|| "未配置 LLM Provider。请在 Settings 中配置一个 Provider。".to_string())?;
 
     let client = reqwest::Client::new();
 
@@ -7199,10 +7165,13 @@ Rules:
         "response_format": { "type": "json_object" }
     });
 
-    let url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+    let url = {
+        let base = api_base.trim_end_matches('/');
+        if base.ends_with("/chat/completions") { base.to_string() } else { format!("{}/chat/completions", base) }
+    };
 
     let response = client
-        .post(url)
+        .post(&url)
         .header("Authorization", format!("Bearer {}", api_key))
         .header("Content-Type", "application/json")
         .json(&body)
@@ -10980,19 +10949,9 @@ async fn pmfile_analyze(
         file_name.clone(),
     ).await?;
 
-    // 2. Get API key & base URL — prefer settings provider, fall back to keyring + Gemini
-    let (api_key, api_base, model) = match get_llm_provider_from_settings(&workspace) {
-        Some(config) => config,
-        None => {
-            // Fallback: use keyring key + hardcoded Gemini URL
-            let key = get_api_key_inner()
-                .map_err(|e| format!(
-                    "API Key 未配置: {}. 请在 Settings 中配置一个 LLM Provider（如 OpenRouter、Gemini 等），或设置 Gemini API Key。",
-                    e
-                ))?;
-            (key, GEMINI_API_URL.to_string(), "gemini-2.0-flash".to_string())
-        }
-    };
+    // 2. Get API key & base URL from Settings provider config
+    let (api_key, api_base, model) = get_llm_provider_from_settings(&workspace)
+        .ok_or_else(|| "未配置 LLM Provider。请在 Settings 中配置一个 Provider（如 OpenRouter、Gemini 等）。".to_string())?;
 
     // Build chat completions endpoint from api_base
     let api_url = {
@@ -11342,9 +11301,6 @@ pub fn run() {
             git_commit_detail,
             // AI Agent Service
             agent_chat_stream,
-            store_api_key,
-            has_api_key,
-            delete_api_key,
             create_feature_from_agent,
             agent_generate_feature_plan,
             // ReqAgent (Claude Code CLI Bridge)
