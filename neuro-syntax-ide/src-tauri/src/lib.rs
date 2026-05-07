@@ -3530,7 +3530,7 @@ impl AgentRuntime for HttpRuntime {
 
         let (tx, rx) = std::sync::mpsc::channel();
 
-        let model = if model == "default" { self.model.clone() } else { model };
+        let model = if model == "default" || model.is_empty() { "default".to_string() } else { model };
         let system_prompt_text = params.system_prompt.clone();
         let user_message = params.message.clone();
 
@@ -7214,8 +7214,10 @@ async fn agent_generate_feature_plan(
     request: AgentChatRequest,
 ) -> Result<FeaturePlanOutput, String> {
     let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
-    let (api_key, api_base, _model) = get_llm_provider_from_settings(&workspace)
+    let provider = get_llm_provider_from_settings(&workspace)
         .ok_or_else(|| "未配置 LLM Provider。请在 Settings 中配置一个 Provider。".to_string())?;
+    let api_key = provider.api_key;
+    let api_base = provider.api_base;
 
     let client = reqwest::Client::new();
 
