@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-05-07T12:00:00Z'
+  last_updated: '2026-05-07T20:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -48,7 +48,10 @@ parents:
   - feat-shell-settings-ui
   - feat-windows-pty
 active: []
-pending: []
+pending:
+- id: feat-agent-sdk-runtime
+  name: Claude Agent SDK Runtime（新增 SDK 模式替代 claude -p）
+  priority: 92
 blocked: []
 completed:
 - id: feat-remove-gemini-builtin
