@@ -136,15 +136,18 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ workspace, onNavigateT
 
   // --- Settings & Provider management ---
   const { settings } = useSettings();
-  const defaultProvider = settings.llm.provider || 'gemini-http';
+  const defaultProvider = settings.llm.provider || 'http';
 
   // Independent provider overrides per agent tab (null = use settings default)
   const [pmProviderOverride, setPmProviderOverride] = useState<string | null>(null);
   const [reqProviderOverride, setReqProviderOverride] = useState<string | null>(null);
 
   // Derived runtime IDs
-  const pmRuntimeId = pmProviderOverride ?? defaultProvider;
-  const reqRuntimeId = reqProviderOverride ?? 'claude-code';
+  // CLI-based providers map to their runtime; all HTTP-based providers use 'http'
+  const toRuntimeId = (providerId: string) =>
+    providerId === 'claude-code' || providerId === 'codex' ? providerId : 'http';
+  const pmRuntimeId = toRuntimeId(pmProviderOverride ?? defaultProvider);
+  const reqRuntimeId = reqProviderOverride ? toRuntimeId(reqProviderOverride) : 'claude-code';
 
   // Build provider list from settings (for dropdown)
   const providerList = useMemo(() => {

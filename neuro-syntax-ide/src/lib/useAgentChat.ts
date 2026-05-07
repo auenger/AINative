@@ -107,7 +107,7 @@ Do NOT generate the full plan in chat. The system will produce a structured plan
 - Acknowledge user answers before asking follow-ups
 - When summarizing, use the "value point" framing to reinforce the feature-workflow vocabulary`;
 
-const GEMINI_RUNTIME_ID = 'gemini-http';
+const HTTP_RUNTIME_ID = 'http';
 
 // ---------------------------------------------------------------------------
 // Hook
@@ -236,9 +236,9 @@ export function useAgentChat() {
         // Serialize messages as JSON string for the runtime's execute() to parse
         const messagePayload = JSON.stringify(chatMessages);
 
-        // Invoke runtime_execute with the gemini-http runtime
+        // Invoke runtime_execute with the http runtime
         await invoke('runtime_execute', {
-          runtimeId: GEMINI_RUNTIME_ID,
+          runtimeId: HTTP_RUNTIME_ID,
           message: messagePayload,
           sessionId: null,
           systemPrompt: FEATURE_CREATION_PM_PROMPT,
@@ -281,7 +281,7 @@ export function useAgentChat() {
         const plan: FeaturePlanOutput = await invoke('agent_generate_feature_plan', {
           request: {
             messages: filteredMessages.map(m => ({ role: m.role, content: m.content })),
-            model: 'gemini-2.0-flash',
+            model: '',
           },
         });
         return plan;

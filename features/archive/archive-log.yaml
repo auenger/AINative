@@ -1,10 +1,96 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-05-06T12:30:00Z"
+  last_updated: "2026-05-07T12:00:00Z"
   version: 1
-  total_completed: 119
+  total_completed: 123
 
 records:
+  - id: feat-remove-gemini-builtin
+    name: "移除 Gemini 内置 Key、API Key Modal 与 Gemini 终端"
+    completed_at: "2026-05-07T12:00:00Z"
+    tag: feat-remove-gemini-builtin-20260507
+    merged_to: main
+    branch_deleted: true
+    worktree_deleted: true
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      files_changed: 11
+      insertions: 62
+      deletions: 371
+
+  - id: feat-agent-tool-ui
+    name: "Agent 工具事件 UI 渲染"
+    completed_at: "2026-05-06T19:30:00Z"
+    tag: feat-agent-tool-ui-20260506
+    parent: feat-agent-tool-loop
+    depends_on:
+      - feat-agent-tool-exec
+    merge_commit: 59ac7ec
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-agent-tool-ui
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-agent-tool-ui
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-05-06T19:00:00Z"
+      duration: 30m
+      commits: 1
+      files_changed: 2
+
+  - id: feat-agent-multimodal-chat
+    name: "Agent 多模态消息支持"
+    completed_at: "2026-05-06T18:30:00Z"
+    tag: feat-agent-multimodal-chat-20260506
+    parent: feat-agent-tool-loop
+    depends_on:
+      - feat-agent-tool-exec
+    merge_commit: a285ad1
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-agent-multimodal-chat
+    worktree_deleted: true
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-05-06T18:00:00Z"
+      duration: 30m
+      commits: 1
+      files_changed: 8
+
+  - id: feat-agent-tool-exec
+    name: "PM Agent 工具执行循环"
+    completed_at: "2026-05-06T17:30:00Z"
+    tag: feat-agent-tool-exec-20260506
+    merge_commit: 301f8c5
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-agent-tool-exec
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-agent-tool-exec
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-05-06T17:00:00Z"
+      duration: "30m"
+      commits: 1
+      files_changed: 2
   - id: feat-skill-init
     name: "IDE Skill 初始化能力（自动检测 + 一键安装）"
     completed_at: "2026-05-06T12:30:00Z"

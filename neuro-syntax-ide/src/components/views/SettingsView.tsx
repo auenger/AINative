@@ -380,7 +380,7 @@ function LlmPanel({
     const name = `provider-${Date.now()}`;
     const newProviders = {
       ...settings.providers,
-      [name]: { api_key: '', api_base: '' },
+      [name]: { api_key: '', api_base: '', protocol: 'openai' },
     };
     onUpdate({ providers: newProviders });
   }, [settings.providers, onUpdate]);
@@ -540,6 +540,30 @@ function LlmPanel({
                 >
                   {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
+              </div>
+            </div>
+
+            {/* Protocol */}
+            <div className="mt-3">
+              <label className="config-label">
+                Protocol
+              </label>
+              <div className="flex gap-2">
+                {(['openai', 'anthropic'] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => updateProvider(name, 'protocol', p)}
+                    className={cn(
+                      "px-3 py-1 rounded text-xs font-medium transition-colors",
+                      (config.protocol ?? 'openai') === p
+                        ? "bg-primary/20 text-primary border border-primary/40"
+                        : "bg-surface-container-highest/50 text-on-surface-variant border border-transparent hover:bg-surface-container-highest"
+                    )}
+                  >
+                    {p === 'openai' ? 'OpenAI' : 'Anthropic'}
+                  </button>
+                ))}
               </div>
             </div>
 

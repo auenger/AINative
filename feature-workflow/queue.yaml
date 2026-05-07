@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-05-06T00:00:00Z'
+  last_updated: '2026-05-07T12:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -51,6 +51,25 @@ active: []
 pending: []
 blocked: []
 completed:
+- id: feat-remove-gemini-builtin
+  name: 移除 Gemini 内置 Key、API Key Modal 与 Gemini 终端
+  completed_at: '2026-05-07T12:00:00Z'
+  tag: feat-remove-gemini-builtin-20260507
+- id: feat-agent-tool-ui
+  name: Agent 工具事件 UI 渲染
+  completed_at: '2026-05-06T19:30:00Z'
+  tag: feat-agent-tool-ui-20260506
+  parent: feat-agent-tool-loop
+- id: feat-agent-multimodal-chat
+  name: Agent 多模态消息支持
+  completed_at: '2026-05-06T18:30:00Z'
+  tag: feat-agent-multimodal-chat-20260506
+  parent: feat-agent-tool-loop
+- id: feat-agent-tool-exec
+  name: PM Agent 工具执行循环
+  completed_at: '2026-05-06T17:30:00Z'
+  tag: feat-agent-tool-exec-20260506
+  parent: feat-agent-tool-loop
 - id: feat-skill-init
   name: IDE Skill 初始化能力（自动检测 + 一键安装）
   completed_at: '2026-05-06T12:30:00Z'

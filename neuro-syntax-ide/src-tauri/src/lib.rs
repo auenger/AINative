@@ -829,7 +829,7 @@ pub struct AgentChatRequest {
 }
 
 fn default_model() -> String {
-    "gemini-2.0-flash".to_string()
+    String::new()
 }
 
 /// Build a message JSON value from a ChatMessage.
@@ -904,12 +904,26 @@ pub struct CreateFeatureRequest {
 // Data types - Settings & LLM Provider (feat-settings-llm-config)
 // ===========================================================================
 
+/// Chat API protocol for HTTP-based providers.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum ChatProtocol {
+    /// OpenAI-compatible chat/completions endpoint (default)
+    #[default]
+    Openai,
+    /// Anthropic-compatible messages endpoint
+    Anthropic,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct ProviderConfig {
     #[serde(default)]
     pub api_key: String,
     #[serde(default)]
     pub api_base: String,
+    /// Chat protocol: "openai" (default) or "anthropic"
+    #[serde(default)]
+    pub protocol: ChatProtocol,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -3430,32 +3444,19 @@ fn execute_tool_call(tool: &ToolCall, workspace: &str) -> ToolResult {
 }
 
 // ===========================================================================
-// GeminiHttpRuntime (feat-agent-gemini-bridge)
+// HttpRuntime — provider-agnostic HTTP chat runtime
 // ===========================================================================
 
-const GEMINI_API_URL: &str = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
-const GEMINI_DEFAULT_MODEL: &str = "gemini-2.0-flash";
+/// HTTP-based runtime for any OpenAI-compatible or Anthropic-compatible API.
+/// Reads api_key, api_base, model, and protocol from settings.yaml at execute time.
+struct HttpRuntime;
 
-/// HTTP-based runtime that calls the Google Gemini API directly via SSE streaming.
-/// Used by the PM Agent (and any other agent that needs Gemini without a local CLI).
-struct GeminiHttpRuntime {
-    model: String,
+impl HttpRuntime {
+    fn new() -> Self { Self }
 }
 
-impl GeminiHttpRuntime {
-    fn new() -> Self {
-        Self {
-            model: GEMINI_DEFAULT_MODEL.to_string(),
-        }
-    }
-
-    fn new_with_model(model: String) -> Self {
-        Self { model }
-    }
-}
-
-impl AgentRuntime for GeminiHttpRuntime {
-    fn id(&self) -> &str { "gemini-http" }
+impl AgentRuntime for HttpRuntime {
+    fn id(&self) -> &str { "http" }
     fn name(&self) -> &str { "Gemini HTTP" }
     fn runtime_type(&self) -> &str { "http" }
 
@@ -3467,7 +3468,7 @@ impl AgentRuntime for GeminiHttpRuntime {
     }
 
     fn install_hint(&self) -> String {
-        "Configure Gemini API Key in Settings".to_string()
+        "Configure an LLM Provider in Settings".to_string()
     }
 
     /// Detect: HttpRuntime is always detected (availability depends on Settings provider config).
@@ -3503,18 +3504,29 @@ impl AgentRuntime for GeminiHttpRuntime {
     /// feed results back → continue until no more tool calls.
     fn execute(&self, params: ExecuteParams) -> Result<std::sync::mpsc::Receiver<StreamEvent>, String> {
         let workspace = params.workspace.clone().unwrap_or_default();
+        let resolved = get_llm_provider_from_settings(&workspace);
 
-        let (api_key, api_base, model) = get_llm_provider_from_settings(&workspace)
-            .ok_or_else(|| "未配置 LLM Provider。请在 Settings 中配置一个 Provider（如 OpenRouter、Gemini 等）。".to_string())?;
-
-        let api_url = {
-            let base = api_base.trim_end_matches('/');
-            if base.ends_with("/chat/completions") {
-                base.to_string()
-            } else {
-                format!("{}/chat/completions", base)
+        let (api_key, api_url, model, protocol) = match resolved {
+            Some(r) => {
+                let url = {
+                    let b = r.api_base.trim_end_matches('/');
+                    match r.protocol {
+                        ChatProtocol::Openai => {
+                            if b.ends_with("/chat/completions") { b.to_string() } else { format!("{}/chat/completions", b) }
+                        }
+                        ChatProtocol::Anthropic => {
+                            if b.ends_with("/messages") { b.to_string() } else { format!("{}/messages", b) }
+                        }
+                    }
+                };
+                (r.api_key, url, r.model, r.protocol)
+            }
+            None => {
+                return Err("未配置 LLM Provider。请在 Settings 中配置一个 Provider（如 OpenRouter、Gemini 等）。".to_string());
             }
         };
+
+        eprintln!("[HttpRuntime] url={}, model={}, protocol={:?}, workspace={}", api_url, model, protocol, workspace);
 
         let (tx, rx) = std::sync::mpsc::channel();
 
@@ -3558,21 +3570,61 @@ impl AgentRuntime for GeminiHttpRuntime {
 
                 // === Agentic Tool Loop ===
                 for iteration in 0..TOOL_LOOP_MAX_ITERATIONS {
-                    let body = serde_json::json!({
-                        "model": model,
-                        "messages": messages_payload,
-                        "stream": true
-                    });
+                    // Build request body and headers per protocol
+                    let (body, auth_header, extra_headers) = match protocol {
+                        ChatProtocol::Openai => {
+                            let b = serde_json::json!({
+                                "model": model,
+                                "messages": messages_payload,
+                                "stream": true
+                            });
+                            (b, format!("Bearer {}", api_key), Vec::<(String, String)>::new())
+                        }
+                        ChatProtocol::Anthropic => {
+                            // Anthropic API: system prompt goes in top-level field, max_tokens required
+                            let mut sys = String::new();
+                            let mut msgs = messages_payload.clone();
+                            msgs.retain(|m| {
+                                if m.get("role").and_then(|r| r.as_str()) == Some("system") {
+                                    sys = m.get("content").and_then(|c| c.as_str()).unwrap_or("").to_string();
+                                    false
+                                } else {
+                                    true
+                                }
+                            });
+                            let mut b = serde_json::json!({
+                                "model": model,
+                                "messages": msgs,
+                                "max_tokens": 8192,
+                                "stream": true
+                            });
+                            if !sys.is_empty() {
+                                b["system"] = serde_json::json!(sys);
+                            }
+                            let headers = vec![
+                                ("anthropic-version".to_string(), "2023-06-01".to_string()),
+                            ];
+                            (b, format!("Bearer {}", api_key), headers)
+                        }
+                    };
 
-                    let response = match client
+                    let mut req = client
                         .post(&api_url)
-                        .header("Authorization", format!("Bearer {}", api_key))
-                        .header("Content-Type", "application/json")
+                        .header("Authorization", &auth_header)
+                        .header("Content-Type", "application/json");
+                    for (k, v) in &extra_headers {
+                        req = req.header(k.as_str(), v.as_str());
+                    }
+
+                    let response = match req
                         .json(&body)
                         .send()
                         .await
                     {
-                        Ok(r) => r,
+                        Ok(r) => {
+                            eprintln!("[HttpRuntime] response status={}", r.status());
+                            r
+                        }
                         Err(e) => {
                             let _ = tx.send(StreamEvent {
                                 text: String::new(),
@@ -3619,27 +3671,42 @@ impl AgentRuntime for GeminiHttpRuntime {
                                     if line.starts_with("data: ") {
                                         let data = &line[6..];
                                         if data == "[DONE]" {
-                                            // Will continue to tool parsing below
                                             break;
                                         }
 
                                         if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(data) {
-                                            if let Some(choices) = parsed.get("choices") {
-                                                if let Some(first_choice) = choices.as_array().and_then(|a| a.first()) {
-                                                    if let Some(delta) = first_choice.get("delta") {
-                                                        if let Some(content) = delta.get("content").and_then(|c| c.as_str()) {
-                                                            full_response_text.push_str(content);
-                                                            let _ = tx.send(StreamEvent {
-                                                                text: content.to_string(),
-                                                                is_done: false,
-                                                                error: None,
-                                                                msg_type: Some("assistant".to_string()),
-                                                                session_id: None,
-                                                                idle_seconds: None,
-                                                            });
-                                                        }
+                                            let content_opt = match protocol {
+                                                ChatProtocol::Openai => {
+                                                    // OpenAI: choices[0].delta.content
+                                                    parsed.get("choices")
+                                                        .and_then(|c| c.as_array()).and_then(|a| a.first())
+                                                        .and_then(|c| c.get("delta"))
+                                                        .and_then(|d| d.get("content"))
+                                                        .and_then(|c| c.as_str())
+                                                        .map(|s| s.to_string())
+                                                }
+                                                ChatProtocol::Anthropic => {
+                                                    // Anthropic: event=content_block_delta → delta.text
+                                                    if parsed.get("type").and_then(|t| t.as_str()) == Some("content_block_delta") {
+                                                        parsed.get("delta")
+                                                            .and_then(|d| d.get("text"))
+                                                            .and_then(|t| t.as_str())
+                                                            .map(|s| s.to_string())
+                                                    } else {
+                                                        None
                                                     }
                                                 }
+                                            };
+                                            if let Some(content) = content_opt {
+                                                full_response_text.push_str(&content);
+                                                let _ = tx.send(StreamEvent {
+                                                    text: content,
+                                                    is_done: false,
+                                                    error: None,
+                                                    msg_type: Some("assistant".to_string()),
+                                                    session_id: None,
+                                                    idle_seconds: None,
+                                                });
                                             }
                                         }
                                     }
@@ -3763,7 +3830,7 @@ fn create_default_registry() -> RuntimeRegistry {
     let mut registry = RuntimeRegistry::new();
     registry.register(Box::new(ClaudeCodeRuntime::new()));
     registry.register(Box::new(CodexRuntime::new()));
-    registry.register(Box::new(GeminiHttpRuntime::new()));
+    registry.register(Box::new(HttpRuntime::new()));
     registry
 }
 
@@ -6740,50 +6807,74 @@ async fn agent_chat_stream(
 ) -> Result<(), String> {
     // Get API credentials from Settings provider config
     let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
-    let (api_key, api_base, _model) = get_llm_provider_from_settings(&workspace)
-        .ok_or_else(|| "未配置 LLM Provider。请在 Settings 中配置一个 Provider（如 OpenRouter、Gemini 等）。".to_string())?;
+
+    let (api_key, api_url, model, protocol) = match get_llm_provider_from_settings(&workspace) {
+        Some(r) => {
+            let url = {
+                let b = r.api_base.trim_end_matches('/');
+                match r.protocol {
+                    ChatProtocol::Openai => if b.ends_with("/chat/completions") { b.to_string() } else { format!("{}/chat/completions", b) },
+                    ChatProtocol::Anthropic => if b.ends_with("/messages") { b.to_string() } else { format!("{}/messages", b) },
+                }
+            };
+            (r.api_key, url, if request.model.is_empty() { r.model } else { request.model }, r.protocol)
+        }
+        None => {
+            return Err("未配置 LLM Provider。请在 Settings 中配置一个 Provider（如 OpenRouter、Gemini 等）。".to_string());
+        }
+    };
 
     let client = reqwest::Client::new();
 
-    // Build the request body for Google Gemini API (OpenAI-compatible endpoint)
     let mut messages_payload = Vec::new();
-
-    // If context is provided, prepend it as a system instruction
     if let Some(ctx) = &request.context {
         messages_payload.push(serde_json::json!({
             "role": "system",
             "content": ctx
         }));
     }
-
     for msg in &request.messages {
         messages_payload.push(build_message_json(msg));
     }
 
-    let body = serde_json::json!({
-        "model": request.model,
-        "messages": messages_payload,
-        "stream": true
-    });
-
-    let url = {
-        let base = api_base.trim_end_matches('/');
-        if base.ends_with("/chat/completions") { base.to_string() } else { format!("{}/chat/completions", base) }
+    let (body, auth_header, extra_headers) = match protocol {
+        ChatProtocol::Openai => {
+            let b = serde_json::json!({ "model": model, "messages": messages_payload, "stream": true });
+            (b, format!("Bearer {}", api_key), Vec::<(String, String)>::new())
+        }
+        ChatProtocol::Anthropic => {
+            let mut sys = String::new();
+            let mut msgs = messages_payload.clone();
+            msgs.retain(|m| {
+                if m.get("role").and_then(|r| r.as_str()) == Some("system") {
+                    sys = m.get("content").and_then(|c| c.as_str()).unwrap_or("").to_string();
+                    false
+                } else { true }
+            });
+            let mut b = serde_json::json!({ "model": model, "messages": msgs, "max_tokens": 8192, "stream": true });
+            if !sys.is_empty() { b["system"] = serde_json::json!(sys); }
+            (b, format!("Bearer {}", api_key), vec![("anthropic-version".to_string(), "2023-06-01".to_string())])
+        }
     };
 
-    let response = client
-        .post(&url)
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("Content-Type", "application/json")
+    let mut req_builder = client
+        .post(&api_url)
+        .header("Authorization", &auth_header)
+        .header("Content-Type", "application/json");
+    for (k, v) in &extra_headers {
+        req_builder = req_builder.header(k.as_str(), v.as_str());
+    }
+
+    let response = req_builder
         .json(&body)
         .send()
         .await
-        .map_err(|e| format!("Failed to connect to AI API: {}", e))?;
+        .map_err(|e| format!("连接 AI API 失败: {}", e))?;
 
     if !response.status().is_success() {
         let status = response.status();
         let error_body = response.text().await.unwrap_or_else(|_| "Unknown error".into());
-        let err_msg = format!("AI API error ({}): {}", status, error_body);
+        let err_msg = format!("AI API 错误 ({}): {}", status, error_body);
         let _ = app.emit("pm_agent_chunk", AgentChunkEvent {
             text: String::new(),
             is_done: false,
@@ -6817,31 +6908,33 @@ async fn agent_chat_stream(
                             return Ok(());
                         }
 
-                        // Parse the SSE data as JSON
                         if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(data) {
-                            if let Some(choices) = parsed.get("choices") {
-                                if let Some(first_choice) = choices.as_array().and_then(|a| a.first()) {
-                                    if let Some(delta) = first_choice.get("delta") {
-                                        if let Some(content) = delta.get("content").and_then(|c| c.as_str()) {
-                                            let _ = app.emit("pm_agent_chunk", AgentChunkEvent {
-                                                text: content.to_string(),
-                                                is_done: false,
-                                                error: None,
-                                            });
-                                        }
-                                    }
-                                    // Check for finish_reason
-                                    if let Some(finish) = first_choice.get("finish_reason") {
-                                        if finish.as_str() == Some("stop") {
-                                            let _ = app.emit("pm_agent_chunk", AgentChunkEvent {
-                                                text: String::new(),
-                                                is_done: true,
-                                                error: None,
-                                            });
+                            let content_opt: Option<String> = match protocol {
+                                ChatProtocol::Openai => {
+                                    if let Some(first) = parsed.get("choices").and_then(|c| c.as_array()).and_then(|a| a.first()) {
+                                        if let Some(content) = first.get("delta").and_then(|d| d.get("content")).and_then(|c| c.as_str()) {
+                                            Some(content.to_string())
+                                        } else if first.get("finish_reason").and_then(|f| f.as_str()) == Some("stop") {
+                                            let _ = app.emit("pm_agent_chunk", AgentChunkEvent { text: String::new(), is_done: true, error: None });
                                             return Ok(());
-                                        }
-                                    }
+                                        } else { None }
+                                    } else { None }
                                 }
+                                ChatProtocol::Anthropic => {
+                                    if parsed.get("type").and_then(|t| t.as_str()) == Some("content_block_delta") {
+                                        parsed.get("delta").and_then(|d| d.get("text")).and_then(|t| t.as_str()).map(|s| s.to_string())
+                                    } else if parsed.get("type").and_then(|t| t.as_str()) == Some("message_stop") {
+                                        let _ = app.emit("pm_agent_chunk", AgentChunkEvent { text: String::new(), is_done: true, error: None });
+                                        return Ok(());
+                                    } else { None }
+                                }
+                            };
+                            if let Some(content) = content_opt {
+                                let _ = app.emit("pm_agent_chunk", AgentChunkEvent {
+                                    text: content,
+                                    is_done: false,
+                                    error: None,
+                                });
                             }
                         }
                     }
@@ -6871,8 +6964,16 @@ async fn agent_chat_stream(
 
 
 /// Read the active LLM provider config from workspace settings.yaml.
-/// Returns (api_key, api_base, model) if a provider with HTTP API is configured.
-fn get_llm_provider_from_settings(workspace: &str) -> Option<(String, String, String)> {
+/// Resolved LLM provider config for HTTP-based execution.
+struct ResolvedProvider {
+    api_key: String,
+    api_base: String,
+    model: String,
+    protocol: ChatProtocol,
+}
+
+/// Returns resolved provider config from settings.yaml if an HTTP provider is configured.
+fn get_llm_provider_from_settings(workspace: &str) -> Option<ResolvedProvider> {
     let settings_path = PathBuf::from(workspace)
         .join(".neuro")
         .join("settings.yaml");
@@ -6889,17 +6990,17 @@ fn get_llm_provider_from_settings(workspace: &str) -> Option<(String, String, St
         return None;
     }
 
-    // Claude Code is a CLI bridge, not a direct HTTP API — skip it
-    if provider_name == "claude-code" {
-        // Try to find any other provider with api_key and api_base configured
+    // CLI-based runtimes are not HTTP providers — try to find an alternative
+    let skip_names = ["claude-code", "codex"];
+    if skip_names.contains(&provider_name.as_str()) {
         for (name, config) in &settings.providers {
-            if name != "claude-code" && !config.api_key.is_empty() && !config.api_base.is_empty() {
-                let model = if settings.llm.model.is_empty() {
-                    "default".to_string()
-                } else {
-                    settings.llm.model.clone()
-                };
-                return Some((config.api_key.clone(), config.api_base.clone(), model));
+            if !skip_names.contains(&name.as_str()) && !config.api_key.is_empty() && !config.api_base.is_empty() {
+                return Some(ResolvedProvider {
+                    api_key: config.api_key.clone(),
+                    api_base: config.api_base.clone(),
+                    model: if settings.llm.model.is_empty() { "default".to_string() } else { settings.llm.model.clone() },
+                    protocol: config.protocol.clone(),
+                });
             }
         }
         return None;
@@ -6910,13 +7011,12 @@ fn get_llm_provider_from_settings(workspace: &str) -> Option<(String, String, St
         return None;
     }
 
-    let model = if settings.llm.model.is_empty() {
-        "default".to_string()
-    } else {
-        settings.llm.model.clone()
-    };
-
-    Some((provider_config.api_key.clone(), provider_config.api_base.clone(), model))
+    Some(ResolvedProvider {
+        api_key: provider_config.api_key.clone(),
+        api_base: provider_config.api_base.clone(),
+        model: if settings.llm.model.is_empty() { "default".to_string() } else { settings.llm.model.clone() },
+        protocol: provider_config.protocol.clone(),
+    })
 }
 
 /// Create a new Feature from an Agent's structured output.
@@ -10950,8 +11050,16 @@ async fn pmfile_analyze(
     ).await?;
 
     // 2. Get API key & base URL from Settings provider config
-    let (api_key, api_base, model) = get_llm_provider_from_settings(&workspace)
-        .ok_or_else(|| "未配置 LLM Provider。请在 Settings 中配置一个 Provider（如 OpenRouter、Gemini 等）。".to_string())?;
+    let (api_key, api_base, model) = match get_llm_provider_from_settings(&workspace) {
+        Some(config) => (config.api_key, config.api_base, config.model),
+        None => {
+            return Err("未配置 LLM Provider。请在 Settings 中配置一个 Provider（如 OpenRouter、Gemini 等）。".into());
+        }
+    };
+
+    if api_base.is_empty() {
+        return Err("未找到 LLM Provider 配置。请在 Settings 中配置 api_base。".into());
+    }
 
     // Build chat completions endpoint from api_base
     let api_url = {

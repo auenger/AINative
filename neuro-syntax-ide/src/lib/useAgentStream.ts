@@ -75,7 +75,7 @@ export interface FeatureCreatedNotification {
 }
 
 export interface UseAgentStreamOptions {
-  /** The runtime to use: 'claude-code' | 'gemini-http' | etc. */
+  /** The runtime to use: 'claude-code' | 'codex' | 'http' | etc. */
   runtimeId: string;
   /** Optional system prompt prepended to messages. */
   systemPrompt?: string;
@@ -517,8 +517,8 @@ export function useAgentStream(options: UseAgentStreamOptions) {
 
         // Build message payload
         let messagePayload: string;
-        if (currentRuntimeId === 'gemini-http') {
-          // Gemini runtime expects full conversation history as JSON
+        if (currentRuntimeId === 'http') {
+          // HTTP runtime expects full conversation history as JSON
           const chatMessages = [...messages, userMessage]
             .filter((m) => !(m.role === 'assistant' && m.content.includes(greetingMessage)))
             .map((m) => {
@@ -553,7 +553,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
   );
 
   // ---------------------------------------------------------------------------
-  // Feature plan helpers (for PM Agent / gemini-http runtime)
+  // Feature plan helpers (for PM Agent / http runtime)
   // ---------------------------------------------------------------------------
 
   /** Ask the AI to generate a Feature plan (structured JSON) */
@@ -579,7 +579,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
         const plan: FeaturePlanOutput = await invoke('agent_generate_feature_plan', {
           request: {
             messages: [{ role: 'user', content: description }],
-            model: 'gemini-2.0-flash',
+            model: '',
           },
         });
         return plan;

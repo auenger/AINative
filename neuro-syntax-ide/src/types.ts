@@ -223,10 +223,12 @@ export interface CommitGraphResult {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-/** A single LLM provider configuration (OpenAI-compatible). */
+/** A single LLM provider configuration. */
 export interface ProviderConfig {
   api_key: string;
   api_base: string;
+  /** Chat protocol: "openai" (default) or "anthropic" */
+  protocol?: 'openai' | 'anthropic';
 }
 
 /** LLM model selection and parameters. */
