@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Settings as SettingsIcon,
   Cpu,
@@ -17,15 +17,17 @@ import {
   Package,
   Terminal as TerminalIcon,
   ChevronDown,
+  AlertTriangle,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
 import { useSettings } from '../../lib/useSettings';
 import { useWorkspace } from '../../lib/useWorkspace';
 import { ProfilePanel } from '../common/ProfilePanel';
 import { WorkflowPanel } from '../common/WorkflowPanel';
 import { SkillPanel } from '../common/SkillPanel';
-import type { AppSettings, ProviderConfig } from '../../types';
+import type { AppSettings, ProviderConfig, SdkConfigMode } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -670,32 +672,279 @@ function LlmPanel({
       })}
 
       {/* Agent Runtime Mode Selector */}
-      <div className="config-card">
-        <div className="flex items-center gap-2 mb-3">
-          <Cpu size={14} className="text-primary" />
-          <span className="config-label">Agent Runtime</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <select
-            value={settings.agent_runtime || 'claude-code'}
-            onChange={(e) => onUpdate({ agent_runtime: e.target.value })}
-            className="config-input flex-1"
-          >
-            <option value="claude-code">Claude Code CLI (claude -p)</option>
-            <option value="agent-sdk">Agent SDK (Claude Agent SDK sidecar)</option>
-          </select>
-        </div>
-        {settings.agent_runtime === 'agent-sdk' && settings.llm.provider && settings.providers[settings.llm.provider]?.protocol !== 'anthropic' && (
-          <div className="mt-2 text-xs text-error bg-error/10 rounded px-3 py-2">
-            SDK 模式要求 Provider 协议为 Anthropic。请切换到 Anthropic 兼容的 Provider，或新增一个 protocol=anthropic 的 Provider。
-          </div>
-        )}
-        {settings.agent_runtime === 'agent-sdk' && settings.llm.provider && settings.providers[settings.llm.provider]?.protocol === 'anthropic' && (
-          <div className="mt-2 text-xs text-success bg-success/10 rounded px-3 py-2">
-            当前 Provider ({settings.llm.provider}) 兼容 Anthropic 协议 ✓
-          </div>
-        )}
+      <AgentRuntimeCard settings={settings} onUpdate={onUpdate} />
+    </div>
+  );
+}
+
+/** Agent Runtime card with SDK config mode support. */
+function AgentRuntimeCard({
+  settings,
+  onUpdate,
+}: {
+  settings: AppSettings;
+  onUpdate: (patch: Partial<AppSettings>) => void;
+}) {
+  const { t } = useTranslation();
+  const [runtimeDropdownOpen, setRuntimeDropdownOpen] = useState(false);
+  const [configModeDropdownOpen, setConfigModeDropdownOpen] = useState(false);
+  const [providerDropdownOpen, setProviderDropdownOpen] = useState(false);
+  const [claudeConfigStatus, setClaudeConfigStatus] = useState<{
+    exists: boolean;
+    has_api_key: boolean;
+    model?: string;
+  } | null>(null);
+  const runtimeRef = useRef<HTMLDivElement>(null);
+  const configModeRef = useRef<HTMLDivElement>(null);
+  const providerRef = useRef<HTMLDivElement>(null);
+
+  const sdkRuntime = settings.sdk_runtime || {
+    config_mode: 'claude-config' as SdkConfigMode,
+    custom_provider: '',
+    custom_model: '',
+  };
+  const isAgentSdk = settings.agent_runtime === 'agent-sdk';
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (!runtimeRef.current?.contains(e.target as Node)) setRuntimeDropdownOpen(false);
+      if (!configModeRef.current?.contains(e.target as Node)) setConfigModeDropdownOpen(false);
+      if (!providerRef.current?.contains(e.target as Node)) setProviderDropdownOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  // Check .claude/settings.json when in agent-sdk mode
+  useEffect(() => {
+    if (!isAgentSdk || sdkRuntime.config_mode !== 'claude-config') return;
+    invoke<{ exists: boolean; has_api_key: boolean; model?: string }>('check_claude_config')
+      .then(setClaudeConfigStatus)
+      .catch(() => setClaudeConfigStatus(null));
+  }, [isAgentSdk, sdkRuntime.config_mode]);
+
+  const runtimeOptions = [
+    { value: 'claude-code', label: 'Claude Code CLI (claude -p)' },
+    { value: 'agent-sdk', label: 'Agent SDK (Claude Agent SDK sidecar)' },
+  ];
+  const currentRuntime = runtimeOptions.find(o => o.value === (settings.agent_runtime || 'claude-code'));
+
+  const configModeOptions: { value: SdkConfigMode; label: string }[] = [
+    { value: 'claude-config', label: 'Claude Config' },
+    { value: 'custom-provider', label: 'Custom Provider' },
+  ];
+  const currentConfigMode = configModeOptions.find(o => o.value === sdkRuntime.config_mode);
+
+  // Custom provider: resolve which provider is being used
+  const customProviderKey = sdkRuntime.custom_provider || settings.llm.provider;
+  const customProviderConfig = customProviderKey ? settings.providers[customProviderKey] : undefined;
+  const isProtocolAnthropic = customProviderConfig?.protocol === 'anthropic';
+
+  // Available providers for dropdown
+  const anthropicProviders = Object.entries(settings.providers)
+    .filter(([, cfg]) => cfg.protocol === 'anthropic');
+
+  return (
+    <div className="config-card">
+      <div className="flex items-center gap-2 mb-3">
+        <Cpu size={14} className="text-primary" />
+        <span className="config-label">Agent Runtime</span>
       </div>
+
+      {/* Runtime type dropdown */}
+      <div className="relative mb-3" ref={runtimeRef}>
+        <button
+          onClick={() => setRuntimeDropdownOpen(prev => !prev)}
+          className={cn(
+            "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest w-full",
+            "border border-outline-variant/20 bg-surface-container-high hover:bg-surface-container-highest transition-all",
+            runtimeDropdownOpen && "border-primary/50 ring-1 ring-primary/30"
+          )}
+        >
+          <Cpu size={12} className="text-outline" />
+          <span className="text-on-surface flex-1 text-left">{currentRuntime?.label}</span>
+          <ChevronDown size={12} className={cn("text-outline transition-transform", runtimeDropdownOpen && "rotate-180")} />
+        </button>
+        <AnimatePresence>
+          {runtimeDropdownOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              className="absolute left-0 mt-1 w-full bg-surface-container-low border border-outline-variant/20 rounded-lg shadow-xl z-20 overflow-hidden"
+            >
+              {runtimeOptions.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => { onUpdate({ agent_runtime: opt.value }); setRuntimeDropdownOpen(false); }}
+                  className={cn(
+                    "w-full px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wider transition-all",
+                    settings.agent_runtime === opt.value
+                      ? "bg-primary/10 text-primary"
+                      : "text-on-surface hover:bg-surface-container-high"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* SDK Config Mode (only when agent-sdk selected) */}
+      {isAgentSdk && (
+        <>
+          {/* Config mode dropdown */}
+          <div className="mb-3">
+            <span className="text-[10px] font-medium text-on-surface-variant uppercase tracking-wider mb-1 block">SDK 配置模式</span>
+            <div className="relative" ref={configModeRef}>
+              <button
+                onClick={() => setConfigModeDropdownOpen(prev => !prev)}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest w-full",
+                  "border border-outline-variant/20 bg-surface-container-high hover:bg-surface-container-highest transition-all",
+                  configModeDropdownOpen && "border-primary/50 ring-1 ring-primary/30"
+                )}
+              >
+                <span className="text-on-surface flex-1 text-left">{currentConfigMode?.label}</span>
+                <ChevronDown size={12} className={cn("text-outline transition-transform", configModeDropdownOpen && "rotate-180")} />
+              </button>
+              <AnimatePresence>
+                {configModeDropdownOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="absolute left-0 mt-1 w-full bg-surface-container-low border border-outline-variant/20 rounded-lg shadow-xl z-20 overflow-hidden"
+                  >
+                    {configModeOptions.map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => { onUpdate({ sdk_runtime: { ...sdkRuntime, config_mode: opt.value } }); setConfigModeDropdownOpen(false); }}
+                        className={cn(
+                          "w-full px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wider transition-all",
+                          sdkRuntime.config_mode === opt.value
+                            ? "bg-primary/10 text-primary"
+                            : "text-on-surface hover:bg-surface-container-high"
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+
+          {/* Claude Config mode info */}
+          {sdkRuntime.config_mode === 'claude-config' && (
+            <div className="space-y-2">
+              <div className="text-xs text-on-surface-variant bg-surface-container-high rounded px-3 py-2">
+                SDK 将使用 ~/.claude/settings.json 的配置
+              </div>
+              {claudeConfigStatus && !claudeConfigStatus.exists && (
+                <div className="flex items-center gap-2 text-xs text-warning bg-warning/10 rounded px-3 py-2">
+                  <AlertTriangle size={12} />
+                  未检测到 Claude 配置，请先运行 claude 命令完成初始化配置
+                </div>
+              )}
+              {claudeConfigStatus?.exists && !claudeConfigStatus.has_api_key && (
+                <div className="flex items-center gap-2 text-xs text-warning bg-warning/10 rounded px-3 py-2">
+                  <AlertTriangle size={12} />
+                  检测到 .claude/settings.json 但未配置 api_key
+                </div>
+              )}
+              {claudeConfigStatus?.exists && claudeConfigStatus.has_api_key && (
+                <div className="text-xs text-success bg-success/10 rounded px-3 py-2">
+                  Claude 配置检测通过 ✓{claudeConfigStatus.model ? ` (model: ${claudeConfigStatus.model})` : ''}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Custom Provider mode */}
+          {sdkRuntime.config_mode === 'custom-provider' && (
+            <div className="space-y-3">
+              {/* Provider dropdown */}
+              <div>
+                <span className="text-[10px] font-medium text-on-surface-variant uppercase tracking-wider mb-1 block">Provider</span>
+                <div className="relative" ref={providerRef}>
+                  <button
+                    onClick={() => setProviderDropdownOpen(prev => !prev)}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest w-full",
+                      "border border-outline-variant/20 bg-surface-container-high hover:bg-surface-container-highest transition-all",
+                      providerDropdownOpen && "border-primary/50 ring-1 ring-primary/30"
+                    )}
+                  >
+                    <span className="text-on-surface flex-1 text-left">
+                      {customProviderKey || '选择 Provider'}
+                    </span>
+                    <ChevronDown size={12} className={cn("text-outline transition-transform", providerDropdownOpen && "rotate-180")} />
+                  </button>
+                  <AnimatePresence>
+                    {providerDropdownOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        className="absolute left-0 mt-1 w-full bg-surface-container-low border border-outline-variant/20 rounded-lg shadow-xl z-20 overflow-hidden max-h-40 overflow-y-auto"
+                      >
+                        {anthropicProviders.length === 0 && (
+                          <div className="px-4 py-2 text-[10px] text-on-surface-variant">
+                            无 Anthropic 兼容 Provider，请先在上方新增
+                          </div>
+                        )}
+                        {anthropicProviders.map(([key]) => (
+                          <button
+                            key={key}
+                            onClick={() => { onUpdate({ sdk_runtime: { ...sdkRuntime, custom_provider: key } }); setProviderDropdownOpen(false); }}
+                            className={cn(
+                              "w-full px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wider transition-all",
+                              customProviderKey === key
+                                ? "bg-primary/10 text-primary"
+                                : "text-on-surface hover:bg-surface-container-high"
+                            )}
+                          >
+                            {key}
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              {/* Model override input */}
+              <div>
+                <span className="text-[10px] font-medium text-on-surface-variant uppercase tracking-wider mb-1 block">Model 覆盖</span>
+                <input
+                  type="text"
+                  value={sdkRuntime.custom_model}
+                  onChange={(e) => onUpdate({ sdk_runtime: { ...sdkRuntime, custom_model: e.target.value } })}
+                  placeholder={settings.llm.model || '留空使用当前 LLM Model'}
+                  className="config-input-mono w-full"
+                />
+              </div>
+
+              {/* Protocol compatibility warning */}
+              {customProviderConfig && !isProtocolAnthropic && (
+                <div className="text-xs text-error bg-error/10 rounded px-3 py-2">
+                  SDK Custom Provider 模式要求 Anthropic 兼容的 Provider
+                </div>
+              )}
+              {customProviderConfig && isProtocolAnthropic && (
+                <div className="text-xs text-success bg-success/10 rounded px-3 py-2">
+                  当前 Provider ({customProviderKey}) 兼容 Anthropic 协议 ✓
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

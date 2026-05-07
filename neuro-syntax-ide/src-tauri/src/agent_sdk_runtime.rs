@@ -15,7 +15,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 // Re-export types from parent that we need
 use crate::{
     AgentCapability, AgentRuntime, AgentRuntimeInfo, AgentRuntimeStatus, ExecuteParams, StreamEvent,
-    ChatProtocol, ProviderConfig, AppSettings,
+    ChatProtocol, ProviderConfig, AppSettings, SdkConfigMode,
 };
 
 // ---------------------------------------------------------------------------
@@ -83,8 +83,9 @@ impl AgentSdkRuntime {
         None
     }
 
-    /// Read active provider config from settings.yaml, validating protocol.
-    fn get_active_provider(workspace: &str) -> Result<ProviderInfo, String> {
+    /// Read settings and resolve provider config based on sdk_runtime.config_mode.
+    /// Returns None for claude-config mode (no env injection).
+    fn resolve_provider(workspace: &str) -> Result<Option<ProviderInfo>, String> {
         let settings_path = PathBuf::from(workspace)
             .join(".neuro")
             .join("settings.yaml");
@@ -98,38 +99,54 @@ impl AgentSdkRuntime {
         let settings: AppSettings = serde_yaml::from_str(&content)
             .map_err(|e| format!("解析 settings.yaml 失败: {}", e))?;
 
-        let provider_name = &settings.llm.provider;
-        if provider_name.is_empty() {
-            return Err("未配置 LLM Provider，请在 Settings 中选择或新增一个 Provider".to_string());
+        match settings.sdk_runtime.config_mode {
+            SdkConfigMode::ClaudeConfig => Ok(None),
+            SdkConfigMode::CustomProvider => {
+                // Use custom_provider if set, otherwise active provider
+                let provider_name = if !settings.sdk_runtime.custom_provider.is_empty() {
+                    &settings.sdk_runtime.custom_provider
+                } else {
+                    &settings.llm.provider
+                };
+
+                if provider_name.is_empty() {
+                    return Err("未配置 LLM Provider，请在 Settings 中选择或新增一个 Provider".to_string());
+                }
+
+                let provider_config = settings.providers.get(provider_name)
+                    .ok_or_else(|| format!("Provider '{}' 不存在，请检查 Settings 配置", provider_name))?;
+
+                if provider_config.api_key.is_empty() {
+                    return Err("API Key 为空，请在 Settings 中配置有效的 API Key".to_string());
+                }
+
+                if provider_config.api_base.is_empty() {
+                    return Err("API Base URL 为空，请在 Settings 中配置有效的 API Base URL".to_string());
+                }
+
+                // Protocol check: SDK mode requires anthropic protocol
+                if provider_config.protocol != ChatProtocol::Anthropic {
+                    return Err(
+                        "SDK Custom Provider 模式要求 Provider 协议为 anthropic，请切换或新增一个 Anthropic 兼容的 Provider".to_string()
+                    );
+                }
+
+                // Model: custom_model override > llm.model > default
+                let model = if !settings.sdk_runtime.custom_model.is_empty() {
+                    settings.sdk_runtime.custom_model.clone()
+                } else if !settings.llm.model.is_empty() {
+                    settings.llm.model.clone()
+                } else {
+                    "claude-sonnet-4-20250514".to_string()
+                };
+
+                Ok(Some(ProviderInfo {
+                    api_key: provider_config.api_key.clone(),
+                    api_base: provider_config.api_base.clone(),
+                    model,
+                }))
+            }
         }
-
-        let provider_config = settings.providers.get(provider_name)
-            .ok_or_else(|| format!("Provider '{}' 不存在，请检查 Settings 配置", provider_name))?;
-
-        if provider_config.api_key.is_empty() {
-            return Err("API Key 为空，请在 Settings 中配置有效的 API Key".to_string());
-        }
-
-        if provider_config.api_base.is_empty() {
-            return Err("API Base URL 为空，请在 Settings 中配置有效的 API Base URL".to_string());
-        }
-
-        // Protocol check: SDK mode requires anthropic protocol
-        if provider_config.protocol != ChatProtocol::Anthropic {
-            return Err(
-                "SDK 模式要求 Provider 协议为 anthropic，请在 Settings 中切换或新增一个 Anthropic 兼容的 Provider".to_string()
-            );
-        }
-
-        Ok(ProviderInfo {
-            api_key: provider_config.api_key.clone(),
-            api_base: provider_config.api_base.clone(),
-            model: if settings.llm.model.is_empty() {
-                "claude-sonnet-4-20250514".to_string()
-            } else {
-                settings.llm.model.clone()
-            },
-        })
     }
 }
 
@@ -221,9 +238,9 @@ impl AgentRuntime for AgentSdkRuntime {
         let sidecar_path = Self::find_sidecar_path()
             .ok_or_else(|| "未找到 agent-sdk-bridge.mjs sidecar 脚本".to_string())?;
 
-        // Read provider config from settings
+        // Read provider config from settings based on config_mode
         let workspace = params.workspace.as_deref().unwrap_or("");
-        let provider = Self::get_active_provider(workspace)?;
+        let provider_opt = Self::resolve_provider(workspace)?;
 
         // Spawn sidecar process
         let mut child = Command::new(&node_path)
@@ -237,19 +254,37 @@ impl AgentRuntime for AgentSdkRuntime {
         // Store PID for monitoring
         self.pid.store(child.id() as u64, Ordering::Relaxed);
 
-        // Send initial query command via stdin
-        let query_msg = serde_json::json!({
-            "type": "query",
-            "prompt": params.message,
-            "sessionId": params.session_id,
-            "options": {
-                "model": provider.model,
-                "env": {
+        // Build query message based on config_mode
+        let query_msg = match provider_opt {
+            Some(provider) => {
+                // Custom Provider mode: inject env vars + model override
+                let mut env = serde_json::json!({
                     "ANTHROPIC_BASE_URL": provider.api_base,
                     "ANTHROPIC_API_KEY": provider.api_key,
+                });
+                if !provider.model.is_empty() {
+                    env["ANTHROPIC_MODEL"] = serde_json::json!(provider.model);
                 }
+                serde_json::json!({
+                    "type": "query",
+                    "prompt": params.message,
+                    "sessionId": params.session_id,
+                    "options": {
+                        "model": provider.model,
+                        "env": env,
+                    }
+                })
             }
-        });
+            None => {
+                // Claude Config mode: no env injection
+                serde_json::json!({
+                    "type": "query",
+                    "prompt": params.message,
+                    "sessionId": params.session_id,
+                    "options": {}
+                })
+            }
+        };
 
         {
             let stdin = child.stdin.as_mut().ok_or("无法获取 sidecar stdin")?;

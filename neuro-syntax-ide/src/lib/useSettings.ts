@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { AppSettings } from '../types';
+import type { AppSettings, SdkRuntimeConfig } from '../types';
 
 // ---------------------------------------------------------------------------
 // Tauri helpers (safe no-op outside Tauri)
@@ -16,6 +16,12 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
 // ---------------------------------------------------------------------------
 // Default settings (used as fallback in dev mode)
 // ---------------------------------------------------------------------------
+
+const DEFAULT_SDK_RUNTIME: SdkRuntimeConfig = {
+  config_mode: 'claude-config',
+  custom_provider: '',
+  custom_model: '',
+};
 
 const DEFAULT_SETTINGS: AppSettings = {
   providers: {
@@ -43,6 +49,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     default_shell: '',
   },
   agent_runtime: 'claude-code',
+  sdk_runtime: { ...DEFAULT_SDK_RUNTIME },
 };
 
 // ---------------------------------------------------------------------------
@@ -77,6 +84,7 @@ export function useSettings() {
         user: { ...DEFAULT_SETTINGS.user, ...loaded.user },
         terminal: { ...DEFAULT_SETTINGS.terminal, ...loaded.terminal },
         agent_runtime: loaded.agent_runtime || DEFAULT_SETTINGS.agent_runtime,
+        sdk_runtime: { ...DEFAULT_SDK_RUNTIME, ...loaded.sdk_runtime },
       });
       setDirty(false);
     } catch (e: unknown) {
@@ -121,6 +129,7 @@ export function useSettings() {
       if (patch.user !== undefined) next.user = { ...prev.user, ...patch.user };
       if (patch.terminal !== undefined) next.terminal = { ...prev.terminal, ...patch.terminal };
       if (patch.agent_runtime !== undefined) next.agent_runtime = patch.agent_runtime;
+      if (patch.sdk_runtime !== undefined) next.sdk_runtime = { ...prev.sdk_runtime, ...patch.sdk_runtime };
       return next;
     });
     setDirty(true);

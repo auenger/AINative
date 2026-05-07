@@ -974,6 +974,40 @@ pub struct TerminalConfigYaml {
     pub default_shell: String,
 }
 
+/// SDK Runtime configuration mode.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum SdkConfigMode {
+    /// Use .claude/settings.json — no env injection
+    #[default]
+    ClaudeConfig,
+    /// Inject env vars from a selected Provider
+    CustomProvider,
+}
+
+/// SDK Runtime independent configuration.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SdkRuntimeConfig {
+    #[serde(default)]
+    pub config_mode: SdkConfigMode,
+    /// Provider key to use in custom-provider mode (empty = use active provider)
+    #[serde(default)]
+    pub custom_provider: String,
+    /// Model override in custom-provider mode (empty = use llm.model)
+    #[serde(default)]
+    pub custom_model: String,
+}
+
+impl Default for SdkRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            config_mode: SdkConfigMode::ClaudeConfig,
+            custom_provider: String::new(),
+            custom_model: String::new(),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AppSettings {
     #[serde(default)]
@@ -989,6 +1023,9 @@ pub struct AppSettings {
     /// Agent runtime type: "claude-code" (default) or "agent-sdk"
     #[serde(default = "default_agent_runtime")]
     pub agent_runtime: String,
+    /// SDK Runtime independent configuration
+    #[serde(default)]
+    pub sdk_runtime: SdkRuntimeConfig,
 }
 
 fn default_agent_runtime() -> String { "claude-code".to_string() }
@@ -1010,6 +1047,7 @@ impl Default for AppSettings {
             user: UserProfile::default(),
             terminal: TerminalConfigYaml::default(),
             agent_runtime: default_agent_runtime(),
+            sdk_runtime: SdkRuntimeConfig::default(),
         }
     }
 }
@@ -10190,6 +10228,44 @@ async fn reveal_in_file_manager(path: String) -> Result<(), String> {
 // Tauri commands - Settings & LLM Provider (feat-settings-llm-config)
 // ===========================================================================
 
+/// Check whether ~/.claude/settings.json exists and contains an api_key.
+/// Returns a JSON object: { exists: bool, has_api_key: bool, model?: string }
+#[tauri::command]
+async fn check_claude_config() -> Result<serde_json::Value, String> {
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .map_err(|_| "无法获取 HOME 目录".to_string())?;
+    let claude_settings_path = PathBuf::from(home).join(".claude").join("settings.json");
+
+    if !claude_settings_path.exists() {
+        return Ok(serde_json::json!({
+            "exists": false,
+            "has_api_key": false,
+        }));
+    }
+
+    let content = std::fs::read_to_string(&claude_settings_path)
+        .map_err(|e| format!("读取 .claude/settings.json 失败: {}", e))?;
+
+    let parsed: serde_json::Value = serde_json::from_str(&content).unwrap_or_default();
+
+    let has_api_key = parsed.get("apiKey")
+        .or_else(|| parsed.get("api_key"))
+        .and_then(|v| v.as_str())
+        .map(|s| !s.is_empty())
+        .unwrap_or(false);
+
+    let model = parsed.get("model")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    Ok(serde_json::json!({
+        "exists": true,
+        "has_api_key": has_api_key,
+        "model": model,
+    }))
+}
+
 /// Read the application settings from {workspace}/.neuro/settings.yaml.
 /// Returns default settings if the file does not exist.
 #[tauri::command]
@@ -11501,6 +11577,8 @@ pub fn run() {
             read_settings,
             write_settings,
             test_llm_connection,
+            // SDK Runtime Config (feat-sdk-runtime-config)
+            check_claude_config,
             // User Profile (feat-user-profile)
             read_git_user_info,
             // PMFile management (feat-agent-multimodal-upload)
