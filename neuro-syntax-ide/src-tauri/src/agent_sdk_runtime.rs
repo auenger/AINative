@@ -322,7 +322,7 @@ impl AgentRuntime for AgentSdkRuntime {
                             Err(e) => {
                                 // Log parse error but don't crash
                                 eprintln!("[agent-sdk] NDJSON parse error: {} (line: {})",
-                                    e, &trimmed[..trimmed.len().min(200)]);
+                                    e, trimmed.chars().take(200).collect::<String>());
                                 continue;
                             }
                         };

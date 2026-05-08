@@ -2903,7 +2903,7 @@ impl AgentRuntime for ClaudeCodeRuntime {
                                                             .and_then(|i| serde_json::to_string(i).ok())
                                                             .map(|s| {
                                                                 let s = s.replace('\n', " ");
-                                                                if s.len() > 100 { format!("{}...", &s[..100]) } else { s }
+                                                                if s.len() > 100 { format!("{}...", s.chars().take(100).collect::<String>()) } else { s }
                                                             })
                                                             .unwrap_or_default();
                                                         Some(format!("[tool: {}] {}", name, input_preview))
@@ -7629,7 +7629,7 @@ async fn req_agent_send_message(
                                                         .and_then(|i| serde_json::to_string(i).ok())
                                                         .map(|s| {
                                                             let s = s.replace('\n', " ");
-                                                            if s.len() > 100 { format!("{}...", &s[..100]) } else { s }
+                                                            if s.len() > 100 { format!("{}...", s.chars().take(100).collect::<String>()) } else { s }
                                                         })
                                                         .unwrap_or_default();
                                                     Some(format!("[tool: {}] {}", name, input_preview))
@@ -7880,7 +7880,7 @@ async fn runtime_execute(
     eprintln!("[runtime_execute] runtimeId={}, has_session_id={}, session_id={:?}",
         runtime_id,
         session_id.is_some(),
-        session_id.as_deref().map(|s| if s.len() > 8 { &s[..8] } else { s })
+        session_id.as_deref().map(|s| if s.len() > 8 { s.chars().take(8).collect::<String>() } else { s.to_string() })
     );
 
     // We need to call execute() while holding the registry lock briefly
