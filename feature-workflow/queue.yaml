@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-05-07T23:30:00Z'
+  last_updated: '2026-05-11T12:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -47,10 +47,39 @@ parents:
   - feat-shell-detect
   - feat-shell-settings-ui
   - feat-windows-pty
+- id: feat-agent-provider
+  name: Agent Provider Runtime — OpenClaw / Hermes Agent 统一集成
+  split: true
+  features:
+  - feat-agent-provider-core
+  - feat-agent-runtime-skills
+  - feat-agent-runtime-workflow
 active: []
-pending: []
-blocked: []
+pending:
+- id: feat-task-agent-multiturn
+  name: Task Detail Agent Tab 多轮对话与富内容渲染
+  priority: 72
+- id: feat-chat-panel-md-resize
+  name: Agent 对话窗口 Markdown 渲染优化与面板横向拖拽调整
+  priority: 70
+blocked:
+- id: feat-agent-provider-core
+  name: Agent Provider 核心抽象层 — OpenClaw WebSocket 接入 + Hermes 增强
+  priority: 40
+  reason: '等待进一步需求确认和资源排期'
+- id: feat-agent-runtime-skills
+  name: Agent Skill 生态管理 — ClawHub + Skills Hub 浏览与安装
+  priority: 40
+  reason: '依赖 feat-agent-provider-core'
+- id: feat-agent-runtime-workflow
+  name: Agent-Driven Feature Workflow — Agent 自动执行开发任务
+  priority: 40
+  reason: '依赖 feat-agent-provider-core'
 completed:
+- id: feat-newtask-dialog-adaptive
+  name: NewTask Modal 多轮对话自适应布局与富内容渲染
+  completed_at: '2026-05-11T12:30:00Z'
+  tag: feat-newtask-dialog-adaptive-20260511
 - id: feat-sdk-runtime-config
   name: SDK Runtime 独立配置页面（支持 Claude Config / Custom Provider 双模式）
   completed_at: '2026-05-07T23:30:00Z'

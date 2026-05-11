@@ -1,10 +1,31 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-05-07T21:30:00Z"
+  last_updated: "2026-05-11T12:30:00Z"
   version: 1
-  total_completed: 124
+  total_completed: 125
 
 records:
+  - id: feat-newtask-dialog-adaptive
+    name: "NewTask Modal 多轮对话自适应布局与富内容渲染"
+    completed_at: "2026-05-11T12:30:00Z"
+    tag: feat-newtask-dialog-adaptive-20260511
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-newtask-dialog-adaptive
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-newtask-dialog-adaptive
+    conflicts:
+      had_conflict: false
+    verification:
+      status: passed
+      scenarios_total: 5
+      scenarios_passed: 5
+    stats:
+      started: "2026-05-11T12:00:00Z"
+      duration: "~30min"
+      commits: 1
+      files_changed: 1
+
   - id: feat-agent-sdk-runtime
     name: "Claude Agent SDK Runtime（新增 SDK 模式替代 claude -p）"
     completed_at: "2026-05-07T21:30:00Z"
