@@ -16,6 +16,9 @@ import {
   Send,
   MessageSquare,
   RotateCcw,
+  Wrench,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
@@ -35,6 +38,14 @@ type ModalStep = 'select-agent' | 'input-requirement' | 'executing' | 'result';
 interface ExtChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  /** Whether this message is a tool call event */
+  isToolCall?: boolean;
+  /** Tool name for tool call messages */
+  toolName?: string;
+  /** Tool execution status */
+  toolStatus?: 'running' | 'success' | 'error';
+  /** Tool result summary */
+  toolResult?: string;
 }
 
 interface AgentOption {
@@ -80,6 +91,79 @@ function statusLabel(status: AgentRuntimeStatusType): string {
     case 'not-installed': return 'Not Installed';
     default: return status;
   }
+}
+
+/** Renders a tool call message with visual status indicator (reused from ProjectView pattern). */
+function ExtToolCallMessage({ msg }: { msg: ExtChatMessage }) {
+  const [expanded, setExpanded] = React.useState(false);
+  const isRunning = msg.toolStatus === 'running';
+  const isSuccess = msg.toolStatus === 'success';
+  const isError = msg.toolStatus === 'error';
+
+  const statusConfig = {
+    running: {
+      bg: 'bg-yellow-500/10 border-yellow-400/30',
+      icon: <Loader2 size={11} className="animate-spin text-yellow-400" />,
+      label: 'text-yellow-400',
+      resultBg: '',
+    },
+    success: {
+      bg: 'bg-green-500/10 border-green-400/30',
+      icon: <CheckCircle2 size={11} className="text-green-400" />,
+      label: 'text-green-400',
+      resultBg: 'text-green-300',
+    },
+    error: {
+      bg: 'bg-red-500/10 border-red-400/30',
+      icon: <AlertTriangle size={11} className="text-red-400" />,
+      label: 'text-red-400',
+      resultBg: 'text-red-300',
+    },
+  };
+
+  const config = statusConfig[msg.toolStatus ?? 'running'];
+
+  return (
+    <div className="flex flex-col gap-1 max-w-[85%] items-start">
+      <div className={cn(
+        "p-2.5 rounded-lg border text-xs leading-relaxed min-w-[200px]",
+        config.bg,
+      )}>
+        {/* Tool header */}
+        <div
+          className="flex items-center gap-1.5 cursor-pointer"
+          onClick={() => setExpanded(!expanded)}
+        >
+          <Wrench size={10} className={config.label} />
+          <span className={cn("text-[9px] font-bold uppercase tracking-wider", config.label)}>
+            {msg.toolName ? msg.toolName : 'Tool'}
+          </span>
+          {isRunning && (
+            <span className="text-[8px] text-yellow-400/70 animate-pulse">running</span>
+          )}
+          <div className="flex-1" />
+          {(msg.toolResult || msg.content) && !isRunning && (
+            expanded ? <ChevronUp size={10} className="text-outline" /> : <ChevronDown size={10} className="text-outline" />
+          )}
+        </div>
+        {/* Tool summary / content (expanded) */}
+        {expanded && msg.content && (
+          <div className="mt-1.5 text-on-surface text-[10px] leading-relaxed">
+            {msg.content}
+          </div>
+        )}
+        {/* Tool result (when completed, expanded) */}
+        {expanded && msg.toolResult && !isRunning && (
+          <div className={cn(
+            "mt-1.5 pt-1.5 border-t border-outline-variant/10 text-[9px] leading-relaxed",
+            config.resultBg,
+          )}>
+            {msg.toolResult}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -381,12 +465,74 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
             extStreamingRef.current += chunk.text;
             setExtMessages(prev => {
               const last = prev[prev.length - 1];
-              if (last && last.role === 'assistant') {
+              if (last && last.role === 'assistant' && !last.isToolCall) {
                 return [...prev.slice(0, -1), { ...last, content: extStreamingRef.current }];
               }
               return [...prev, { role: 'assistant', content: extStreamingRef.current }];
             });
           }
+
+          // Handle tool_use events — create a new tool call message with running status
+          if (chunk.type === 'tool_use') {
+            const toolText = chunk.text || '';
+            const colonIdx = toolText.indexOf(':');
+            const toolName = colonIdx > 0 ? toolText.slice(0, colonIdx).trim() : '';
+            const toolSummary = colonIdx > 0 ? toolText.slice(colonIdx + 1).trim() : toolText;
+
+            setExtMessages(prev => {
+              // Close any previous running tool call
+              const updated = prev.map((msg) =>
+                msg.isToolCall && msg.toolStatus === 'running'
+                  ? { ...msg, toolStatus: 'success' as const, toolResult: '' }
+                  : msg
+              );
+              return [
+                ...updated,
+                {
+                  role: 'assistant' as const,
+                  content: toolSummary || toolText || 'Executing tool...',
+                  isToolCall: true,
+                  toolName: toolName || undefined,
+                  toolStatus: 'running' as const,
+                },
+              ];
+            });
+          }
+
+          // Handle tool_result events — update the running tool call message
+          if (chunk.type === 'tool_result') {
+            const isSuccess = !chunk.error;
+            const resultText = chunk.text || '';
+            setExtMessages(prev => {
+              let lastToolIdx = -1;
+              for (let i = prev.length - 1; i >= 0; i--) {
+                if (prev[i].isToolCall && prev[i].toolStatus === 'running') {
+                  lastToolIdx = i;
+                  break;
+                }
+              }
+              if (lastToolIdx >= 0) {
+                const updated = [...prev];
+                updated[lastToolIdx] = {
+                  ...updated[lastToolIdx],
+                  toolStatus: isSuccess ? 'success' : 'error',
+                  toolResult: resultText || (isSuccess ? 'Done' : chunk.error || 'Failed'),
+                };
+                return updated;
+              }
+              return [
+                ...prev,
+                {
+                  role: 'assistant' as const,
+                  content: resultText || (isSuccess ? 'Tool completed' : 'Tool failed'),
+                  isToolCall: true,
+                  toolStatus: (isSuccess ? 'success' : 'error') as 'success' | 'error',
+                  toolResult: resultText,
+                },
+              ];
+            });
+          }
+
           if (chunk.is_done) {
             setExtStreaming(false);
             unlisten();
@@ -760,7 +906,10 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
         </div>
 
         {/* Body */}
-        <div className="flex-1 p-6 overflow-y-auto">
+        <div className={cn(
+          "flex-1 overflow-hidden",
+          step === 'input-requirement' ? "flex flex-col" : "p-6 overflow-y-auto",
+        )}>
           <AnimatePresence mode="wait">
             {/* ---- Step 1: Agent Selection ---- */}
             {step === 'select-agent' && (
@@ -865,9 +1014,9 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: -20, opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="space-y-4"
+                className="flex flex-col h-full p-6"
               >
-                <div className="flex items-center gap-2">
+                <div className="shrink-0 flex items-center gap-2 mb-3">
                   <div className="p-1.5 rounded-lg bg-primary/10">
                     {selectedAgent && <selectedAgent.icon size={14} className="text-primary" />}
                   </div>
@@ -885,9 +1034,9 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
 
                 {/* PM Agent path: Chat panel */}
                 {selectedAgent?.isBuiltIn ? (
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-3 flex-1 min-h-0">
                     {/* Messages list */}
-                    <div className="flex-1 min-h-[200px] max-h-[320px] overflow-y-auto rounded-lg bg-surface-container-high border border-outline-variant/10 p-3 space-y-3">
+                    <div className="flex-1 min-h-0 overflow-y-auto rounded-lg bg-surface-container-high border border-outline-variant/10 p-3 space-y-3">
                       {messages.map((msg, idx) => (
                         <div
                           key={idx}
@@ -937,7 +1086,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
                     </div>
 
                     {/* Chat input */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 shrink-0">
                       <textarea
                         value={chatInput}
                         onChange={e => {
@@ -986,10 +1135,10 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
                   </div>
                 ) : (
                   /* External runtime path: chat panel (mirrors PM Agent style) */
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-3 flex-1 min-h-0">
                     {/* Runtime status hint */}
                     {selectedAgent?.status !== 'available' && (
-                      <div className="rounded-lg bg-warning/10 border border-warning/20 px-3 py-2">
+                      <div className="shrink-0 rounded-lg bg-warning/10 border border-warning/20 px-3 py-2">
                         <span className="text-[10px] text-warning font-medium">
                           {selectedAgent?.name} is {statusLabel(selectedAgent?.status ?? 'not-installed')} — chat may not work
                         </span>
@@ -997,7 +1146,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
                     )}
 
                     {/* Messages list */}
-                    <div className="flex-1 min-h-[200px] max-h-[320px] overflow-y-auto rounded-lg bg-surface-container-high border border-outline-variant/10 p-3 space-y-3">
+                    <div className="flex-1 min-h-0 overflow-y-auto rounded-lg bg-surface-container-high border border-outline-variant/10 p-3 space-y-3">
                       {extMessages.length === 0 && (
                         <div className="text-center py-8">
                           <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-surface-container-highest mb-2">
@@ -1016,25 +1165,29 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
                             msg.role === 'user' ? 'justify-end' : 'justify-start',
                           )}
                         >
-                          {msg.role === 'assistant' && (
+                          {msg.role === 'assistant' && !msg.isToolCall && (
                             <div className="shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center mt-0.5">
                               <Terminal size={12} className="text-primary" />
                             </div>
                           )}
-                          <div
-                            className={cn(
-                              'max-w-[80%] rounded-lg px-3 py-2 text-[11px] leading-relaxed',
-                              msg.role === 'user'
-                                ? 'bg-primary text-on-primary'
-                                : 'bg-surface-container-highest text-on-surface-variant border border-outline-variant/10',
-                            )}
-                          >
-                            {msg.role === 'assistant' ? (
-                              <MarkdownRenderer content={msg.content} />
-                            ) : (
-                              <span className="whitespace-pre-wrap">{msg.content}</span>
-                            )}
-                          </div>
+                          {msg.isToolCall ? (
+                            <ExtToolCallMessage msg={msg} />
+                          ) : (
+                            <div
+                              className={cn(
+                                'max-w-[80%] rounded-lg px-3 py-2 text-[11px] leading-relaxed',
+                                msg.role === 'user'
+                                  ? 'bg-primary text-on-primary'
+                                  : 'bg-surface-container-highest text-on-surface-variant border border-outline-variant/10',
+                              )}
+                            >
+                              {msg.role === 'assistant' ? (
+                                <MarkdownRenderer content={msg.content} />
+                              ) : (
+                                <span className="whitespace-pre-wrap">{msg.content}</span>
+                              )}
+                            </div>
+                          )}
                           {msg.role === 'user' && (
                             <div className="shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
                               <MessageSquare size={12} className="text-primary" />
@@ -1057,7 +1210,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
                     </div>
 
                     {/* Chat input */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 shrink-0">
                       <textarea
                         value={extChatInput}
                         onChange={e => {
@@ -1106,7 +1259,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
 
                 {/* Validation error */}
                 {validationError && (
-                  <div className="flex items-center gap-2 text-[10px] text-error font-medium">
+                  <div className="shrink-0 flex items-center gap-2 text-[10px] text-error font-medium mt-2">
                     <AlertCircle size={12} />
                     {validationError}
                   </div>
@@ -1114,7 +1267,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({ open, onClose, onFea
 
                 {/* Chat error */}
                 {chatError && step === 'input-requirement' && (
-                  <div className="rounded-lg bg-error/10 border border-error/20 p-3">
+                  <div className="shrink-0 rounded-lg bg-error/10 border border-error/20 p-3 mt-2">
                     <div className="flex items-start gap-2">
                       <AlertCircle size={14} className="text-error shrink-0 mt-0.5" />
                       <p className="text-[11px] text-error font-medium">{chatError}</p>
