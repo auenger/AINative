@@ -1,10 +1,35 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-05-13T00:00:00Z"
+  last_updated: "2026-05-13T15:00:00Z"
   version: 1
-  total_completed: 126
+  total_completed: 127
 
 records:
+  - id: feat-chat-panel-md-resize
+    name: "Agent 对话窗口 Markdown 渲染优化与面板横向拖拽调整"
+    completed_at: "2026-05-13T15:00:00Z"
+    tag: feat-chat-panel-md-resize-20260513
+    merge_commit: "1df4982"
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/chat-panel-md-resize
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-chat-panel-md-resize
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-05-13T14:00:00Z"
+      duration: ~1h
+      commits: 1
+      files_changed: 1
+      insertions: 66
+      deletions: 8
+
   - id: feat-task-agent-multiturn
     name: "Task Detail Agent Tab 多轮对话与富内容渲染"
     completed_at: "2026-05-13T00:00:00Z"

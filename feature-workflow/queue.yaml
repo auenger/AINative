@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-05-13T12:00:00Z'
+  last_updated: '2026-05-13T15:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -55,10 +55,7 @@ parents:
   - feat-agent-runtime-skills
   - feat-agent-runtime-workflow
 active: []
-pending:
-- id: feat-chat-panel-md-resize
-  name: Agent 对话窗口 Markdown 渲染优化与面板横向拖拽调整
-  priority: 70
+pending: []
 blocked:
 - id: feat-agent-provider-core
   name: Agent Provider 核心抽象层 — OpenClaw WebSocket 接入 + Hermes 增强
@@ -73,6 +70,10 @@ blocked:
   priority: 40
   reason: '依赖 feat-agent-provider-core'
 completed:
+- id: feat-chat-panel-md-resize
+  name: Agent 对话窗口 Markdown 渲染优化与面板横向拖拽调整
+  completed_at: '2026-05-13T15:00:00Z'
+  tag: feat-chat-panel-md-resize-20260513
 - id: feat-task-agent-multiturn
   name: Task Detail Agent Tab 多轮对话与富内容渲染
   completed_at: '2026-05-13T12:00:00Z'
