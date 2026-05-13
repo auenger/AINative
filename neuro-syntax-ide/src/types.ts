@@ -578,6 +578,22 @@ export type MdEditorMode = 'preview' | 'edit';
 /** Agent action types for Feature Detail Modal Agent tab. */
 export type AgentActionType = 'review' | 'modify' | 'develop';
 
+/** Chat message for Task Detail Agent Tab multi-turn conversation. */
+export interface AgentChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system' | 'tool_call' | 'tool_result';
+  content: string;
+  timestamp: number;
+  /** Tool name for tool_call / tool_result messages */
+  toolName?: string;
+  /** Tool input/params for tool_call messages */
+  toolInput?: string;
+  /** Tool execution status for tool_call messages */
+  toolStatus?: 'running' | 'success' | 'error';
+  /** Tool result summary for tool_result messages */
+  toolResult?: string;
+}
+
 // ---------------------------------------------------------------------------
 // PMFile types (feat-agent-multimodal-upload)
 // ---------------------------------------------------------------------------
@@ -705,6 +721,7 @@ export interface StreamEventChunk {
 export interface TaskSessionState {
   featureId: string;
   agentOutput: string;
+  agentMessages: AgentChatMessage[];
   agentAction: AgentActionType;
   agentDone: boolean;
   agentError: string | null;
