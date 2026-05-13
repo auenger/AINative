@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-05-11T12:30:00Z'
+  last_updated: '2026-05-13T12:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -56,9 +56,6 @@ parents:
   - feat-agent-runtime-workflow
 active: []
 pending:
-- id: feat-task-agent-multiturn
-  name: Task Detail Agent Tab 多轮对话与富内容渲染
-  priority: 72
 - id: feat-chat-panel-md-resize
   name: Agent 对话窗口 Markdown 渲染优化与面板横向拖拽调整
   priority: 70
@@ -76,6 +73,10 @@ blocked:
   priority: 40
   reason: '依赖 feat-agent-provider-core'
 completed:
+- id: feat-task-agent-multiturn
+  name: Task Detail Agent Tab 多轮对话与富内容渲染
+  completed_at: '2026-05-13T12:00:00Z'
+  tag: feat-task-agent-multiturn-20260513
 - id: feat-newtask-dialog-adaptive
   name: NewTask Modal 多轮对话自适应布局与富内容渲染
   completed_at: '2026-05-11T12:30:00Z'
