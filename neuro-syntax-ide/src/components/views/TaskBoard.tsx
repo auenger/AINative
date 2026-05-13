@@ -33,6 +33,10 @@ import {
   ArrowUpDown,
   Timer,
   CalendarClock,
+  Wrench,
+  ChevronUp,
+  MessageSquare,
+  Terminal,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
@@ -40,7 +44,7 @@ import { cn } from '../../lib/utils';
 import { useQueueData, FeatureNode } from '../../lib/useQueueData';
 import { useAgentRuntimes } from '../../lib/useAgentRuntimes';
 import { useSessionStore } from '../../lib/SessionStore';
-import type { AgentActionType, TaskExecutionOverlay, GhostCard, QueueName, AgentRuntimeInfo, TaskSchedule } from '../../types';
+import type { AgentActionType, TaskExecutionOverlay, GhostCard, QueueName, AgentRuntimeInfo, TaskSchedule, AgentChatMessage } from '../../types';
 import { useTaskScheduler } from '../../lib/useTaskScheduler';
 import { SchedulePickerModal } from './SchedulePickerModal';
 import { SkillInitPrompt } from '../SkillInitPrompt';
@@ -93,6 +97,79 @@ import { NewTaskModal } from './NewTaskModal';
 import { TaskGraphView } from './TaskGraphView';
 
 const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+// ---------------------------------------------------------------------------
+// ToolCallMessage — renders a tool call/result as a structured card
+// ---------------------------------------------------------------------------
+
+function ToolCallMessage({ msg }: { msg: AgentChatMessage }) {
+  const [expanded, setExpanded] = React.useState(false);
+  const isRunning = msg.toolStatus === 'running';
+  const isSuccess = msg.toolStatus === 'success';
+  const isError = msg.toolStatus === 'error';
+
+  const statusConfig = {
+    running: {
+      bg: 'bg-yellow-500/10 border-yellow-400/30',
+      icon: <Loader2 size={11} className="animate-spin text-yellow-400" />,
+      label: 'text-yellow-400',
+    },
+    success: {
+      bg: 'bg-green-500/10 border-green-400/30',
+      icon: <CheckCircle2 size={11} className="text-green-400" />,
+      label: 'text-green-400',
+    },
+    error: {
+      bg: 'bg-red-500/10 border-red-400/30',
+      icon: <AlertTriangle size={11} className="text-red-400" />,
+      label: 'text-red-400',
+    },
+  };
+
+  const config = statusConfig[msg.toolStatus ?? 'running'];
+
+  return (
+    <div className="flex flex-col gap-1 max-w-[85%] items-start">
+      <div className={cn(
+        "p-2.5 rounded-lg border text-xs leading-relaxed min-w-[200px]",
+        config.bg,
+      )}>
+        {/* Tool header */}
+        <div
+          className="flex items-center gap-1.5 cursor-pointer"
+          onClick={() => setExpanded(!expanded)}
+        >
+          <Wrench size={10} className={config.label} />
+          <span className={cn("text-[9px] font-bold uppercase tracking-wider", config.label)}>
+            {msg.toolName || 'Tool'}
+          </span>
+          {isRunning && (
+            <span className="text-[8px] text-yellow-400/70 animate-pulse">running</span>
+          )}
+          <div className="flex-1" />
+          {(msg.toolResult || msg.content) && !isRunning && (
+            expanded ? <ChevronUp size={10} className="text-outline" /> : <ChevronDown size={10} className="text-outline" />
+          )}
+        </div>
+        {/* Tool content (expanded) */}
+        {expanded && msg.content && (
+          <div className="mt-1.5 text-on-surface text-[10px] leading-relaxed">
+            <MarkdownRenderer content={msg.content} />
+          </div>
+        )}
+        {/* Tool result (when completed, expanded) */}
+        {expanded && msg.toolResult && !isRunning && (
+          <div className={cn(
+            "mt-1.5 pt-1.5 border-t border-outline-variant/10 text-[9px] leading-relaxed",
+            isError ? 'text-red-300' : 'text-green-300',
+          )}>
+            {msg.toolResult}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Board column config
@@ -855,9 +932,11 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
   const [agentInput, setAgentInput] = useState('');
   const [agentSending, setAgentSending] = useState(false);
   const [agentOutput, setAgentOutput] = useState('');
+  const [agentMessages, setAgentMessages] = useState<AgentChatMessage[]>([]);
   const [agentError, setAgentError] = useState<string | null>(null);
   const [agentDone, setAgentDone] = useState(false);
   const agentStreamingRef = useRef<string>('');
+  const agentMessagesEndRef = useRef<HTMLDivElement>(null);
 
   // Session resume indicator state
   const [resumedSession, setResumedSession] = useState(false);
@@ -916,6 +995,11 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
     };
   }, [isDraggingModal]);
 
+  // Auto-scroll agent messages to bottom
+  useEffect(() => {
+    agentMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [agentMessages]);
+
   // Close modal helper: resets modal position, saves session before clearing
   const closeModal = useCallback(() => {
     // Save current agent state to SessionStore before clearing
@@ -924,6 +1008,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
         sessionStore.saveTaskSession({
           featureId: selectedFeature.id,
           agentOutput,
+          agentMessages,
           agentAction,
           agentDone,
           agentError,
@@ -944,11 +1029,12 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
     setAgentInput('');
     setAgentSending(false);
     setAgentOutput('');
+    setAgentMessages([]);
     setAgentError(null);
     setAgentDone(false);
     agentStreamingRef.current = '';
     setResumedSession(false);
-  }, [selectedFeature, agentOutput, agentAction, agentDone, agentError, detailTab, sessionStore]);
+  }, [selectedFeature, agentOutput, agentMessages, agentAction, agentDone, agentError, detailTab, sessionStore]);
 
   // Whether the agent is currently active (streaming / sending)
   const isAgentActive = agentSending && !agentDone;
@@ -1004,6 +1090,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
       const session = sessionStore.loadTaskSession(feature.id);
       if (session) {
         setAgentOutput(session.agentOutput);
+        setAgentMessages(session.agentMessages ?? []);
         setAgentAction(session.agentAction);
         setAgentDone(session.agentDone);
         setAgentError(session.agentError);
@@ -1013,11 +1100,13 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
         if (resumedTimerRef.current) clearTimeout(resumedTimerRef.current);
         resumedTimerRef.current = setTimeout(() => setResumedSession(false), 3000);
       } else {
+        setAgentMessages([]);
         setResumedSession(false);
       }
     } catch {
       // Stale/corrupted session: fallback to default state, clear silently
       sessionStore.clearTaskSession(feature.id);
+      setAgentMessages([]);
       setResumedSession(false);
     }
   }, [readDetail, sessionStore]);
@@ -1039,7 +1128,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
     return result;
   }, [queueState]);
 
-  // Agent tab: send handler (with overlay integration)
+  // Agent tab: send handler (multi-turn for review/modify, single-shot for develop)
   const handleAgentSend = useCallback(async () => {
     if (!selectedFeature) return;
     if (agentAction === 'modify' && !agentInput.trim()) return;
@@ -1050,13 +1139,28 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
       return;
     }
 
+    const featureId = selectedFeature.id;
+    const isMultiTurn = agentAction === 'review' || agentAction === 'modify';
+
+    // ─── Multi-turn: add user message to chat ───
+    if (isMultiTurn) {
+      const userMsg: AgentChatMessage = {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: agentInput.trim(),
+        timestamp: Date.now(),
+      };
+      setAgentMessages(prev => [...prev, userMsg]);
+      setAgentInput('');
+    }
+
     setAgentSending(true);
-    setAgentOutput('');
+    if (!isMultiTurn) {
+      setAgentOutput('');
+    }
     setAgentError(null);
     setAgentDone(false);
     agentStreamingRef.current = '';
-
-    const featureId = selectedFeature.id;
 
     // ─── Layer A: Set dispatching overlay immediately ───
     setOverlay(featureId, { status: 'dispatching', action: agentAction });
@@ -1065,46 +1169,72 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
       const specContent = selectedDetail?.['spec.md'] ?? '';
       const taskContent = selectedDetail?.['task.md'] ?? '';
 
-      let prompt = '';
-      let skill = '/new-feature';
-
-      if (agentAction === 'review') {
-        prompt = `Review this feature spec for completeness and consistency:\n\n<spec>\n${specContent}\n</spec>\n\nUser notes: ${agentInput.trim() || '(none)'}`;
-      } else if (agentAction === 'modify') {
-        prompt = `Modify feature ${featureId}:\n\nUser modification request: ${agentInput.trim()}\n\nCurrent spec:\n<spec>\n${specContent}\n</spec>\n\nCurrent tasks:\n<tasks>\n${taskContent}\n</tasks>`;
-      } else {
-        // develop
-        skill = '/dev-agent';
-        prompt = featureId;
-      }
-
       if (!isTauri) {
         // Dev fallback: simulate agent execution
+        if (isMultiTurn) {
+          // Multi-turn simulated response
+          const currentUserInput = agentInput.trim();
+          setOverlay(featureId, { status: 'streaming', action: agentAction, outputPreview: 'Connecting to Claude Code...' });
+          const assistantMsg: AgentChatMessage = {
+            id: `assistant-${Date.now()}`,
+            role: 'assistant',
+            content: '',
+            timestamp: Date.now(),
+          };
+          setAgentMessages(prev => [...prev, assistantMsg]);
+
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const mockResult = agentAction === 'review'
+            ? '## Review Result\n\nThe feature spec is well-structured. Consider:\n\n1. Adding more edge cases to acceptance criteria\n2. Clarifying error handling behavior\n3. Specifying performance requirements\n\n```typescript\n// Example: add edge case handling\nfunction validate(input: unknown): boolean {\n  if (!input) return false;\n  return true;\n}\n```'
+            : `## Modification Applied\n\nFeature \`${featureId}\` has been updated according to your instructions.\n\n### Changes\n- Updated spec section\n- Revised task breakdown\n\n> Note: Please review the changes before proceeding.`;
+
+          setAgentMessages(prev => {
+            const updated = [...prev];
+            const lastIdx = updated.length - 1;
+            if (lastIdx >= 0 && updated[lastIdx].role === 'assistant') {
+              updated[lastIdx] = { ...updated[lastIdx], content: mockResult };
+            }
+            return updated;
+          });
+          setAgentDone(true);
+          setAgentSending(false);
+          setOverlay(featureId, { status: 'done', action: agentAction });
+          const detail = await readDetail(featureId);
+          if (detail) setSelectedDetail(detail);
+          await refresh();
+          return;
+        }
+
+        // Develop single-shot fallback
         setOverlay(featureId, { status: 'streaming', action: agentAction, outputPreview: 'Connecting to Claude Code...' });
         setAgentOutput('Connecting to Claude Code...\n');
         await new Promise(resolve => setTimeout(resolve, 1000));
-        setAgentOutput(prev => prev + `Executing ${skill}...\n`);
-        setOverlay(featureId, { status: 'streaming', action: agentAction, outputPreview: `Executing ${skill}...` });
+        setAgentOutput(prev => prev + `Executing /dev-agent...\n`);
+        setOverlay(featureId, { status: 'streaming', action: agentAction, outputPreview: 'Executing /dev-agent...' });
         await new Promise(resolve => setTimeout(resolve, 1500));
-        const mockResult = agentAction === 'review'
-          ? 'Spec review complete. The feature spec looks well-structured. Consider adding more edge cases to the acceptance criteria.'
-          : agentAction === 'modify'
-          ? `Feature ${featureId} has been modified according to your instructions.`
-          : `Development started for feature ${featureId}.`;
-        setAgentOutput(prev => prev + '\n' + mockResult);
+        setAgentOutput(prev => prev + `\nDevelopment started for feature ${featureId}.`);
         setAgentDone(true);
         setAgentSending(false);
-        // Overlay: done state
         setOverlay(featureId, { status: 'done', action: agentAction });
-        // Auto-refresh detail after completion
-        const detail = await readDetail(featureId);
-        if (detail) setSelectedDetail(detail);
+        const devDetail = await readDetail(featureId);
+        if (devDetail) setSelectedDetail(devDetail);
         await refresh();
         return;
       }
 
       const { invoke } = await import('@tauri-apps/api/core');
       const { listen } = await import('@tauri-apps/api/event');
+
+      // For multi-turn, add an empty assistant message placeholder for streaming
+      if (isMultiTurn) {
+        const assistantMsg: AgentChatMessage = {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          content: '',
+          timestamp: Date.now(),
+        };
+        setAgentMessages(prev => [...prev, assistantMsg]);
+      }
 
       // Listen for streaming output via agent://chunk (with overlay updates)
       const unlisten = await listen<{ text: string; is_done: boolean; error?: string; type?: string }>(
@@ -1120,10 +1250,79 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
             }
             return;
           }
+
+          // Handle tool_use events for multi-turn
+          if (isMultiTurn && chunk.type === 'tool_use') {
+            const toolText = chunk.text || '';
+            const colonIdx = toolText.indexOf(':');
+            const toolName = colonIdx > 0 ? toolText.slice(0, colonIdx).trim() : '';
+            const toolSummary = colonIdx > 0 ? toolText.slice(colonIdx + 1).trim() : toolText;
+
+            // Close any previous running tool call
+            setAgentMessages(prev => {
+              const updated = prev.map((msg) =>
+                msg.role === 'tool_call' && msg.toolStatus === 'running'
+                  ? { ...msg, toolStatus: 'success' as const }
+                  : msg
+              );
+              return [
+                ...updated,
+                {
+                  id: `tool-${Date.now()}`,
+                  role: 'tool_call' as const,
+                  content: toolSummary || toolText || 'Executing tool...',
+                  timestamp: Date.now(),
+                  toolName: toolName || undefined,
+                  toolStatus: 'running' as const,
+                },
+              ];
+            });
+          }
+
+          // Handle tool_result events for multi-turn
+          if (isMultiTurn && chunk.type === 'tool_result') {
+            const isSuccess = !chunk.error;
+            const resultText = chunk.text || '';
+            setAgentMessages(prev => {
+              let lastToolIdx = -1;
+              for (let i = prev.length - 1; i >= 0; i--) {
+                if (prev[i].role === 'tool_call' && prev[i].toolStatus === 'running') {
+                  lastToolIdx = i;
+                  break;
+                }
+              }
+              if (lastToolIdx >= 0) {
+                const updated = [...prev];
+                updated[lastToolIdx] = {
+                  ...updated[lastToolIdx],
+                  toolStatus: isSuccess ? 'success' : 'error',
+                  toolResult: resultText || (isSuccess ? 'Done' : chunk.error || 'Failed'),
+                };
+                return updated;
+              }
+              return prev;
+            });
+          }
+
           // Stream text from assistant / system / raw messages
           if (chunk.text && (chunk.type === 'assistant' || chunk.type === 'system' || chunk.type === 'raw' || !chunk.type)) {
             agentStreamingRef.current += chunk.text;
             setAgentOutput(agentStreamingRef.current);
+
+            if (isMultiTurn) {
+              // Update the last assistant message in the messages array
+              setAgentMessages(prev => {
+                const updated = [...prev];
+                // Find the last assistant message that is NOT a tool_call
+                for (let i = updated.length - 1; i >= 0; i--) {
+                  if (updated[i].role === 'assistant') {
+                    updated[i] = { ...updated[i], content: agentStreamingRef.current };
+                    break;
+                  }
+                }
+                return updated;
+              });
+            }
 
             // Update overlay: streaming with last 2 lines as preview
             const lines = agentStreamingRef.current.split('\n').filter(Boolean);
@@ -1147,8 +1346,30 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
       // Start runtime session
       await invoke('runtime_session_start', { runtimeId: 'claude-code' });
 
-      // Send message via runtime_execute
-      const message = agentAction === 'develop' ? `/dev-agent ${featureId}` : `${skill} ${prompt}`;
+      // Build the message to send
+      let message: string;
+      if (agentAction === 'develop') {
+        message = `/dev-agent ${featureId}`;
+      } else {
+        const isFirstMessage = agentMessages.length === 0;
+        if (agentAction === 'review') {
+          if (isFirstMessage) {
+            const reviewPrompt = `Review this feature spec for completeness and consistency:\n\n<spec>\n${specContent}\n</spec>\n\nUser notes: ${agentInput.trim() || '(none)'}`;
+            message = `${skill} ${reviewPrompt}`;
+          } else {
+            message = agentInput.trim();
+          }
+        } else {
+          // modify
+          if (isFirstMessage) {
+            const modifyPrompt = `Modify feature ${featureId}:\n\nUser modification request: ${agentInput.trim()}\n\nCurrent spec:\n<spec>\n${specContent}\n</spec>\n\nCurrent tasks:\n<tasks>\n${taskContent}\n</tasks>`;
+            message = `${skill} ${modifyPrompt}`;
+          } else {
+            message = agentInput.trim();
+          }
+        }
+      }
+
       await invoke('runtime_execute', {
         runtimeId: 'claude-code',
         message,
@@ -1161,7 +1382,7 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
     } finally {
       setAgentSending(false);
     }
-  }, [selectedFeature, selectedDetail, agentAction, agentInput, runtimes, readDetail, refresh, setOverlay, setOverlayError]);
+  }, [selectedFeature, selectedDetail, agentAction, agentInput, agentMessages, runtimes, readDetail, refresh, setOverlay, setOverlayError]);
 
   // ─── Ghost card creation handler (passed to NewTaskModal) ───
   const handleGhostCardCreate = useCallback((ghost: Omit<GhostCard, 'startedAt'>) => {
@@ -1871,7 +2092,15 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
               </div>
 
               {/* Modal body */}
-              <div className="p-8 space-y-8 overflow-y-auto flex-1">
+              <div className={cn(
+                'flex-1 min-h-0',
+                detailTab === 'agent'
+                  ? 'flex flex-col p-0'
+                  : 'p-8 space-y-8 overflow-y-auto',
+              )}>
+                <div className={cn(
+                  detailTab === 'agent' ? 'hidden' : 'space-y-8',
+                )}>
                 <div className="space-y-2">
                   <h2 className="text-2xl font-bold text-on-surface leading-tight">
                     {selectedFeature.name}
@@ -2009,153 +2238,279 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
                         </div>
                       )
                     )}
-                    {detailTab === 'agent' && (() => {
+                    </div>
+                  </div>
+                </div>
+
+                {/* ─── Agent Tab: Multi-turn Chat UI ─── */}
+                {detailTab === 'agent' && (() => {
                       const claudeRuntime = runtimes.find(r => r.id === 'claude-code');
                       const isRuntimeInstalled = claudeRuntime && claudeRuntime.status !== 'not-installed';
+                      const isMultiTurn = agentAction === 'review' || agentAction === 'modify';
                       const isSendDisabled = agentSending || !isRuntimeInstalled || (agentAction === 'modify' && !agentInput.trim());
 
                       return (
-                        <div className="space-y-4">
-                          {/* Resumed session indicator */}
-                          {resumedSession && (
-                            <div
-                              onClick={() => setResumedSession(false)}
-                              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary/10 border border-secondary/20 cursor-pointer hover:bg-secondary/20 transition-all animate-in fade-in"
-                            >
-                              <RotateCcw size={11} className="text-secondary" />
-                              <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Resumed session</span>
-                              <span className="text-[9px] text-on-surface-variant ml-auto">click to dismiss</span>
-                            </div>
-                          )}
+                        <div className="flex flex-col h-full">
+                          {/* Header area: runtime status + action type + resumed indicator */}
+                          <div className="shrink-0 p-4 pb-2 space-y-3 border-b border-outline-variant/10">
+                            {/* Resumed session indicator */}
+                            {resumedSession && (
+                              <div
+                                onClick={() => setResumedSession(false)}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary/10 border border-secondary/20 cursor-pointer hover:bg-secondary/20 transition-all animate-in fade-in"
+                              >
+                                <RotateCcw size={11} className="text-secondary" />
+                                <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Resumed session</span>
+                                <span className="text-[9px] text-on-surface-variant ml-auto">click to dismiss</span>
+                              </div>
+                            )}
 
-                          {/* Runtime status */}
-                          {!isRuntimeInstalled ? (
-                            <div className="rounded-lg bg-[#ffb4ab]/10 border border-[#ffb4ab]/20 p-3">
-                              <div className="flex items-start gap-2">
-                                <AlertCircle size={14} className="text-[#ffb4ab] shrink-0 mt-0.5" />
-                                <div>
-                                  <p className="text-[11px] text-[#ffb4ab] font-medium">
-                                    Claude Code runtime is not available
-                                  </p>
+                            {/* Runtime status */}
+                            <div className="flex items-center justify-between">
+                              {!isRuntimeInstalled ? (
+                                <div className="rounded-lg bg-[#ffb4ab]/10 border border-[#ffb4ab]/20 px-3 py-1.5 flex items-center gap-2">
+                                  <AlertCircle size={12} className="text-[#ffb4ab]" />
+                                  <span className="text-[10px] text-[#ffb4ab] font-medium">Claude Code not available</span>
                                   {claudeRuntime?.install_hint && (
-                                    <p className="text-[9px] text-on-surface-variant mt-1 font-mono">
-                                      Install: {claudeRuntime.install_hint}
-                                    </p>
+                                    <span className="text-[9px] text-on-surface-variant font-mono">Install: {claudeRuntime.install_hint}</span>
                                   )}
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2 h-2 rounded-full bg-tertiary" />
+                                  <span className="text-[10px] font-bold text-tertiary uppercase tracking-wider">Claude Code</span>
+                                  <span className="text-[9px] text-on-surface-variant">connected</span>
+                                </div>
+                              )}
+
+                              {/* Action type selector */}
+                              <div className="flex gap-1.5">
+                                {([
+                                  { value: 'review' as const, label: 'Review', icon: FileText },
+                                  { value: 'modify' as const, label: 'Modify', icon: Sparkles },
+                                  { value: 'develop' as const, label: 'Develop', icon: PlayCircle },
+                                ]).map(opt => {
+                                  const Icon = opt.icon;
+                                  return (
+                                    <button
+                                      key={opt.value}
+                                      onClick={() => { setAgentAction(opt.value); setAgentError(null); }}
+                                      className={cn(
+                                        'px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1',
+                                        agentAction === opt.value
+                                          ? 'bg-primary/10 text-primary border border-primary/30'
+                                          : 'text-on-surface-variant hover:bg-surface-container-high border border-transparent',
+                                      )}
+                                    >
+                                      <Icon size={10} />
+                                      {opt.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Error display */}
+                            {agentError && (
+                              <div className="rounded-lg bg-error/10 border border-error/20 px-3 py-2 flex items-start gap-2">
+                                <AlertCircle size={12} className="text-error shrink-0 mt-0.5" />
+                                <p className="text-[10px] text-error font-medium">{agentError}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* ─── Chat content area ─── */}
+                          {isMultiTurn ? (
+                            /* Multi-turn chat layout */
+                            <div className="flex-1 min-h-0 flex flex-col">
+                              {/* Messages list */}
+                              <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+                                {agentMessages.length === 0 && (
+                                  <div className="text-center py-12">
+                                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-surface-container-highest mb-3">
+                                      <Bot size={20} className="text-on-surface-variant" />
+                                    </div>
+                                    <p className="text-[11px] text-on-surface-variant font-medium mb-1">
+                                      {agentAction === 'review' ? 'Review Agent' : 'Modify Agent'}
+                                    </p>
+                                    <p className="text-[9px] text-on-surface-variant/60 max-w-[240px] mx-auto">
+                                      {agentAction === 'review'
+                                        ? 'Send a message to review this feature spec'
+                                        : 'Describe modifications to update the feature'}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {agentMessages.map((msg) => (
+                                  <div
+                                    key={msg.id}
+                                    className={cn(
+                                      'flex gap-2',
+                                      msg.role === 'user' ? 'justify-end' : 'justify-start',
+                                    )}
+                                  >
+                                    {/* Assistant / Tool icon */}
+                                    {(msg.role === 'assistant' || msg.role === 'tool_call') && (
+                                      <div className="shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center mt-0.5">
+                                        {msg.role === 'tool_call' ? (
+                                          <Wrench size={11} className="text-primary" />
+                                        ) : (
+                                          <Terminal size={11} className="text-primary" />
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Message bubble */}
+                                    {msg.role === 'tool_call' ? (
+                                      <ToolCallMessage msg={msg} />
+                                    ) : (
+                                      <div
+                                        className={cn(
+                                          'max-w-[80%] rounded-lg px-3 py-2 text-[11px] leading-relaxed',
+                                          msg.role === 'user'
+                                            ? 'bg-primary text-on-primary'
+                                            : 'bg-surface-container-highest text-on-surface-variant border border-outline-variant/10',
+                                        )}
+                                      >
+                                        {msg.role === 'assistant' ? (
+                                          <MarkdownRenderer content={msg.content} />
+                                        ) : (
+                                          <span className="whitespace-pre-wrap">{msg.content}</span>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* User icon */}
+                                    {msg.role === 'user' && (
+                                      <div className="shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
+                                        <MessageSquare size={11} className="text-primary" />
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+
+                                {/* Streaming indicator */}
+                                {agentSending && agentMessages.length > 0 && (
+                                  <div className="flex gap-2 justify-start">
+                                    <div className="shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center mt-0.5">
+                                      <Terminal size={11} className="text-primary" />
+                                    </div>
+                                    <div className="bg-surface-container-highest border border-outline-variant/10 rounded-lg px-3 py-2">
+                                      <div className="flex items-center gap-1.5">
+                                        <Loader2 size={10} className="animate-spin text-primary" />
+                                        <span className="text-[10px] text-on-surface-variant">Thinking...</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                <div ref={agentMessagesEndRef} />
+                              </div>
+
+                              {/* Input area */}
+                              <div className="shrink-0 p-4 pt-2 border-t border-outline-variant/10">
+                                <div className="flex gap-2">
+                                  <textarea
+                                    value={agentInput}
+                                    onChange={e => setAgentInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        if (agentInput.trim() && !agentSending && isRuntimeInstalled) {
+                                          handleAgentSend();
+                                        }
+                                      }
+                                    }}
+                                    placeholder={
+                                      agentAction === 'review' ? 'Ask about the spec or request a review...'
+                                      : 'Describe your modifications...'
+                                    }
+                                    className={cn(
+                                      'flex-1 px-3 py-2 rounded-lg text-[11px] bg-surface-container-high text-on-surface',
+                                      'border border-outline-variant/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/30',
+                                      'placeholder:text-on-surface-variant/40 resize-none outline-none transition-all',
+                                      'font-body min-h-[36px] max-h-[80px]',
+                                      agentSending && 'opacity-50',
+                                    )}
+                                    rows={1}
+                                    disabled={agentSending}
+                                    autoFocus
+                                  />
+                                  <button
+                                    onClick={handleAgentSend}
+                                    disabled={!agentInput.trim() || agentSending || !isRuntimeInstalled}
+                                    className={cn(
+                                      'shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all',
+                                      agentInput.trim() && !agentSending && isRuntimeInstalled
+                                        ? 'bg-primary text-on-primary hover:bg-primary/90'
+                                        : 'bg-surface-container-highest text-outline',
+                                    )}
+                                  >
+                                    {agentSending ? (
+                                      <Loader2 size={14} className="animate-spin" />
+                                    ) : (
+                                      <Send size={14} />
+                                    )}
+                                  </button>
                                 </div>
                               </div>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-2">
-                              <span className="w-2 h-2 rounded-full bg-tertiary" />
-                              <span className="text-[10px] font-bold text-tertiary uppercase tracking-wider">Claude Code</span>
-                              <span className="text-[9px] text-on-surface-variant">connected</span>
-                            </div>
-                          )}
-
-                          {/* Action type radio */}
-                          <div className="space-y-2">
-                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-outline">Action Type</h4>
-                            <div className="flex gap-2">
-                              {([
-                                { value: 'review' as const, label: 'Review', desc: 'Review spec completeness' },
-                                { value: 'modify' as const, label: 'Modify', desc: 'Modify requirements' },
-                                { value: 'develop' as const, label: 'Develop', desc: 'Start development' },
-                              ]).map(opt => (
-                                <button
-                                  key={opt.value}
-                                  onClick={() => { setAgentAction(opt.value); setAgentError(null); }}
+                            /* Develop mode: single-shot layout */
+                            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+                              <div className="space-y-1">
+                                <h4 className="text-[10px] font-bold uppercase tracking-widest text-outline">
+                                  Additional Notes
+                                </h4>
+                                <textarea
+                                  value={agentInput}
+                                  onChange={e => setAgentInput(e.target.value)}
+                                  placeholder="Optional: additional context for development..."
                                   className={cn(
-                                    'flex-1 p-2.5 rounded-lg border-2 text-center transition-all',
-                                    agentAction === opt.value
-                                      ? 'border-primary bg-primary/5'
-                                      : 'border-outline-variant/10 hover:border-primary/30',
+                                    'w-full h-20 px-3 py-2 rounded-lg text-[11px] bg-surface-container-high text-on-surface',
+                                    'border border-outline-variant/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/30',
+                                    'placeholder:text-on-surface-variant/40 resize-none outline-none transition-all',
+                                    'font-body',
                                   )}
-                                >
-                                  <span className={cn(
-                                    "text-[10px] font-bold uppercase tracking-wider block",
-                                    agentAction === opt.value ? 'text-primary' : 'text-on-surface-variant'
-                                  )}>
-                                    {opt.label}
-                                  </span>
-                                  <span className="text-[8px] text-on-surface-variant/60 block mt-0.5">{opt.desc}</span>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
+                                />
+                              </div>
 
-                          {/* Additional input textarea */}
-                          <div className="space-y-1">
-                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-outline">
-                              Additional Notes
-                              {agentAction === 'modify' && <span className="text-[#ffb4ab] ml-1">(required)</span>}
-                            </h4>
-                            <textarea
-                              value={agentInput}
-                              onChange={e => setAgentInput(e.target.value)}
-                              placeholder={
-                                agentAction === 'review' ? 'Optional: specific areas to review...'
-                                : agentAction === 'modify' ? 'Describe your modifications...'
-                                : 'Optional: additional context for development...'
-                              }
-                              className={cn(
-                                'w-full h-20 px-3 py-2 rounded-lg text-[11px] bg-surface-container-high text-on-surface',
-                                'border border-outline-variant/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/30',
-                                'placeholder:text-on-surface-variant/40 resize-none outline-none transition-all',
-                                'font-body',
+                              <button
+                                onClick={handleAgentSend}
+                                disabled={isSendDisabled}
+                                className={cn(
+                                  'flex items-center gap-1.5 px-5 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all',
+                                  !isSendDisabled
+                                    ? 'bg-primary text-on-primary hover:bg-primary/90'
+                                    : 'bg-surface-container-highest text-outline cursor-not-allowed',
+                                )}
+                              >
+                                {agentSending ? (
+                                  <Loader2 size={12} className="animate-spin" />
+                                ) : (
+                                  <PlayCircle size={12} />
+                                )}
+                                {agentSending ? 'Starting...' : 'Start Development'}
+                              </button>
+
+                              {/* Develop output */}
+                              {agentOutput && (
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-outline">
+                                    <span>Execution Result</span>
+                                    {agentDone && <CheckCircle2 size={10} className="text-tertiary" />}
+                                  </div>
+                                  <div className="rounded-lg bg-surface-container-high border border-outline-variant/10 p-3 max-h-[240px] overflow-y-auto">
+                                    <MarkdownRenderer content={agentOutput} />
+                                  </div>
+                                </div>
                               )}
-                            />
-                          </div>
-
-                          {/* Send button */}
-                          <button
-                            onClick={handleAgentSend}
-                            disabled={isSendDisabled}
-                            className={cn(
-                              'flex items-center gap-1.5 px-5 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all',
-                              !isSendDisabled
-                                ? 'bg-primary text-on-primary hover:bg-primary/90'
-                                : 'bg-surface-container-highest text-outline cursor-not-allowed',
-                            )}
-                          >
-                            {agentSending ? (
-                              <Loader2 size={12} className="animate-spin" />
-                            ) : (
-                              <Send size={12} />
-                            )}
-                            {agentSending ? 'Sending...' : 'Send to Claude Code'}
-                          </button>
-
-                          {/* Error display */}
-                          {agentError && (
-                            <div className="rounded-lg bg-error/10 border border-error/20 p-3">
-                              <div className="flex items-start gap-2">
-                                <AlertCircle size={14} className="text-error shrink-0 mt-0.5" />
-                                <p className="text-[11px] text-error font-medium">{agentError}</p>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Streaming output */}
-                          {agentOutput && (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-outline">
-                                <span>Execution Result</span>
-                                {agentDone && <CheckCircle2 size={10} className="text-tertiary" />}
-                              </div>
-                              <div className="rounded-lg bg-surface-container-high border border-outline-variant/10 p-3 max-h-[240px] overflow-y-auto">
-                                <pre className="text-[11px] text-on-surface-variant whitespace-pre-wrap font-mono leading-relaxed">
-                                  {agentOutput}
-                                </pre>
-                              </div>
                             </div>
                           )}
                         </div>
                       );
                     })()}
-                  </div>
                 </div>
-              </div>
 
               {/* Safe-close confirmation overlay */}
               <AnimatePresence>
@@ -2214,13 +2569,14 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ activeView, workspacePath 
               {/* Modal footer */}
               <div className="p-6 bg-surface-container-high/30 border-t border-outline-variant/10 flex justify-between gap-3 shrink-0">
                 {/* Clear session button — only show if agent tab has output */}
-                {agentOutput && (
+                {(agentOutput || agentMessages.length > 0) && (
                   <button
                     onClick={() => {
                       if (selectedFeature) {
                         sessionStore.clearTaskSession(selectedFeature.id);
                       }
                       setAgentOutput('');
+                      setAgentMessages([]);
                       setAgentDone(false);
                       setAgentError(null);
                       agentStreamingRef.current = '';

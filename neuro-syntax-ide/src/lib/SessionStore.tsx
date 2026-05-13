@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useRef, useCallback } from 'react';
-import type { TaskSessionState, NewTaskSessionState, SessionStoreAPI } from '../types';
+import type { TaskSessionState, NewTaskSessionState, SessionStoreAPI, AgentChatMessage } from '../types';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -76,6 +76,7 @@ export const SessionStoreProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const truncated: TaskSessionState = {
       ...state,
       agentOutput: truncateToNewest(state.agentOutput, AGENT_OUTPUT_MAX_BYTES),
+      agentMessages: truncateMessages(state.agentMessages ?? [], MESSAGE_CAP),
       savedAt: Date.now(),
     };
 
