@@ -33,7 +33,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
-import ReactMarkdown from 'react-markdown';
 import { useAgentStream } from '../../lib/useAgentStream';
 import type { ChatMessage } from '../../lib/useAgentStream';
 import { useSettings } from '../../lib/useSettings';
@@ -113,7 +112,7 @@ function ToolCallMessage({ msg }: { msg: ChatMessage }) {
         </div>
         {/* Tool summary / content */}
         <div className="text-on-surface text-[10px] leading-relaxed">
-          {msg.content}
+          <MarkdownRenderer content={msg.content} className="[&_p]:text-[10px] [&_p]:mb-1 [&_li]:text-[10px] [&_code]:text-[10px] [&_pre]:text-[10px]" />
         </div>
         {/* Tool result (when completed) */}
         {msg.toolResult && !isRunning && (
@@ -121,7 +120,7 @@ function ToolCallMessage({ msg }: { msg: ChatMessage }) {
             "mt-1.5 pt-1.5 border-t border-outline-variant/10 text-[9px] leading-relaxed",
             config.resultBg,
           )}>
-            {msg.toolResult}
+            <MarkdownRenderer content={msg.toolResult} className="[&_p]:text-[9px] [&_p]:mb-1 [&_li]:text-[9px] [&_code]:text-[9px] [&_pre]:text-[9px]" />
           </div>
         )}
       </div>
@@ -269,6 +268,55 @@ When the user describes what they want:
   const [reqChatInput, setReqChatInput] = useState('');
   const [activeChatTab, setActiveChatTab] = useState<'pm' | 'req'>('pm');
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // --- Chat Panel resize state ---
+  const DEFAULT_CHAT_PANEL_WIDTH = 400;
+  const MIN_CHAT_PANEL_WIDTH = 280;
+  const MIN_MD_FILES_WIDTH = 300;
+  const [chatPanelWidth, setChatPanelWidth] = useState(DEFAULT_CHAT_PANEL_WIDTH);
+  const isDraggingChatPanel = useRef(false);
+  const chatDragStartX = useRef(0);
+  const chatDragStartWidth = useRef(0);
+
+  // Chat panel drag-resize handler
+  const handleChatPanelDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingChatPanel.current = true;
+    chatDragStartX.current = e.clientX;
+    chatDragStartWidth.current = chatPanelWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [chatPanelWidth]);
+
+  // Double-click to reset chat panel width
+  const handleChatPanelDoubleClick = useCallback(() => {
+    setChatPanelWidth(DEFAULT_CHAT_PANEL_WIDTH);
+  }, []);
+
+  // Chat panel drag-resize mousemove/mouseup effect
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingChatPanel.current) return;
+      const delta = e.clientX - chatDragStartX.current;
+      const maxWidth = window.innerWidth - MIN_MD_FILES_WIDTH;
+      const newWidth = Math.max(MIN_CHAT_PANEL_WIDTH, Math.min(maxWidth, chatDragStartWidth.current + delta));
+      setChatPanelWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      if (!isDraggingChatPanel.current) return;
+      isDraggingChatPanel.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
 
   // --- Project Context: dynamic file loading ---
   const [projectContext, setProjectContext] = useState<string | null>(null);
@@ -609,7 +657,7 @@ When the user describes what they want:
       {workspacePath && (
         <div className="flex-1 flex overflow-hidden">
           {/* Left: Agent Chat Panel with Tab Switcher */}
-          <div className="w-[400px] border-r border-outline-variant/10 flex flex-col bg-surface-container-lowest shrink-0">
+          <div style={{ width: chatPanelWidth }} className="border-r border-outline-variant/10 flex flex-col bg-surface-container-lowest shrink-0">
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* Tab Bar */}
               <div className="flex border-b border-outline-variant/10 bg-surface-container-low">
@@ -749,8 +797,8 @@ When the user describes what they want:
                             : "bg-surface-container-high text-on-surface rounded-tl-none border border-outline-variant/10"
                         )}>
                           {msg.role === 'assistant' ? (
-                            <div className="prose prose-invert prose-xs [&_pre]:text-[10px] [&_p]:text-[10px] [&_pre]:p-2 [&_pre]:bg-surface-container-lowest [&_pre]:rounded [&_code]:text-[10px]">
-                              <ReactMarkdown>{msg.content}</ReactMarkdown>
+                            <div className="[&_p]:text-[10px] [&_pre]:text-[10px] [&_code]:text-[10px]">
+                              <MarkdownRenderer content={msg.content} />
                               {idx === pmAgent.messages.length - 1 && pmAgent.isStreaming && (
                                 <span className="inline-block w-1.5 h-3 bg-primary/70 animate-pulse ml-0.5 align-middle"></span>
                               )}
@@ -1105,8 +1153,8 @@ When the user describes what they want:
                               : "bg-surface-container-high text-on-surface rounded-tl-none border border-outline-variant/10"
                           )}>
                             {msg.role === 'assistant' ? (
-                              <div className="prose prose-invert prose-xs [&_pre]:text-[10px] [&_p]:text-[10px] [&_pre]:p-2 [&_pre]:bg-surface-container-lowest [&_pre]:rounded [&_code]:text-[10px]">
-                                <ReactMarkdown>{msg.content}</ReactMarkdown>
+                              <div className="[&_p]:text-[10px] [&_pre]:text-[10px] [&_code]:text-[10px]">
+                                <MarkdownRenderer content={msg.content} />
                                 {idx === reqAgent.messages.length - 1 && reqAgent.isStreaming && (
                                   <span className="inline-block w-1.5 h-3 bg-primary/70 animate-pulse ml-0.5 align-middle"></span>
                                 )}
@@ -1240,6 +1288,16 @@ When the user describes what they want:
                 </>
               )}
             </div>
+          </div>
+
+          {/* Chat panel resize divider */}
+          <div
+            onMouseDown={handleChatPanelDragStart}
+            onDoubleClick={handleChatPanelDoubleClick}
+            className="w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/30 transition-colors shrink-0 relative group"
+            title="Drag to resize chat panel, double-click to reset"
+          >
+            <div className="absolute inset-y-0 -left-1 -right-1" />
           </div>
 
           {/* Right: MD Explorer — File List + Content Area */}
