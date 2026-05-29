@@ -1,6 +1,6 @@
-meta:
-  last_updated: '2026-05-29T16:30:00Z'
-  version: 1
+  meta:
+    last_updated: '2026-05-29T17:00:00Z'
+    version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
   name: Neuro Syntax IDE — 从原型到桌面 App
@@ -62,13 +62,15 @@ parents:
     - feat-bmad-brainstorm
     - feat-bmad-party-mode
     - feat-bmad-prd
-active: []
-pending:
+active:
 - id: feat-bmad-brainstorm
   name: 头脑风暴 Skill（BMAD Brainstorming）
+  branch: feature/feat-bmad-brainstorm
+  worktree: ../NeuroSyntaxIDE-feat-bmad-brainstorm
+  started_at: '2026-05-29T17:00:00Z'
+  parent: feat-bmad-workshop
   priority: 55
-  depends_on:
-  - feat-bmad-workspace
+pending:
 - id: feat-bmad-party-mode
   name: Party Mode Skill（BMAD 多角色圆桌）
   priority: 55
