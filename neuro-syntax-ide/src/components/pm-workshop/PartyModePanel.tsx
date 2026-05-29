@@ -425,8 +425,16 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
   // ─── Build display messages ───
   const displayMessages: ChatMessage[] = useMemo(() => {
     const messages: ChatMessage[] = [];
+    const hasUserMessage = orchestrator.messages.some((m) => m.role === 'user');
 
-    for (const msg of orchestrator.messages) {
+    for (let i = 0; i < orchestrator.messages.length; i++) {
+      const msg = orchestrator.messages[i];
+
+      // Skip greeting message once user has sent their first message
+      if (hasUserMessage && i === 0 && msg.role === 'assistant' && !msg.isToolCall && !msg.workshopType) {
+        continue;
+      }
+
       if (msg.role === 'user') {
         messages.push(msg);
         continue;
