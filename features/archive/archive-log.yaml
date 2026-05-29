@@ -1,10 +1,33 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-05-29T16:30:00Z"
+  last_updated: "2026-05-29T17:30:00Z"
   version: 1
-  total_completed: 128
+  total_completed: 129
 
 records:
+  - id: feat-bmad-brainstorm
+    name: "头脑风暴 Skill（BMAD Brainstorming）"
+    completed_at: "2026-05-29T17:30:00Z"
+    tag: feat-bmad-brainstorm-20260529
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-bmad-brainstorm
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-bmad-brainstorm
+    parent: feat-bmad-workshop
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 4
+      scenarios_passed: 4
+    stats:
+      started: "2026-05-29T17:00:00Z"
+      duration: ~30m
+      commits: 2
+      files_changed: 9
+
   - id: feat-bmad-workspace
     name: "PM Workshop Tab 基础设施"
     completed_at: "2026-05-29T16:30:00Z"

@@ -1,5 +1,5 @@
   meta:
-    last_updated: '2026-05-29T17:00:00Z'
+    last_updated: '2026-05-29T17:30:00Z'
     version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -62,14 +62,7 @@ parents:
     - feat-bmad-brainstorm
     - feat-bmad-party-mode
     - feat-bmad-prd
-active:
-- id: feat-bmad-brainstorm
-  name: 头脑风暴 Skill（BMAD Brainstorming）
-  branch: feature/feat-bmad-brainstorm
-  worktree: ../NeuroSyntaxIDE-feat-bmad-brainstorm
-  started_at: '2026-05-29T17:00:00Z'
-  parent: feat-bmad-workshop
-  priority: 55
+active: []
 pending:
 - id: feat-bmad-party-mode
   name: Party Mode Skill（BMAD 多角色圆桌）
@@ -97,6 +90,11 @@ blocked:
   priority: 40
   reason: '依赖 feat-agent-provider-core'
 completed:
+- id: feat-bmad-brainstorm
+  name: 头脑风暴 Skill（BMAD Brainstorming）
+  completed_at: '2026-05-29T17:30:00Z'
+  tag: feat-bmad-brainstorm-20260529
+  parent: feat-bmad-workshop
 - id: feat-bmad-workspace
   name: PM Workshop Tab 基础设施
   completed_at: '2026-05-29T16:30:00Z'
