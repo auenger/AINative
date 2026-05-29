@@ -1,5 +1,5 @@
   meta:
-    last_updated: '2026-05-29T20:30:00Z'
+    last_updated: '2026-05-29T22:35:00Z'
     version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -62,8 +62,9 @@ parents:
     - feat-bmad-brainstorm
     - feat-bmad-party-mode
     - feat-bmad-prd
+    - feat-party-mode-optim
 active: []
-pending: []
+pending:
 blocked:
 - id: feat-agent-provider-core
   name: Agent Provider 核心抽象层 — OpenClaw WebSocket 接入 + Hermes 增强
@@ -78,6 +79,11 @@ blocked:
   priority: 40
   reason: '依赖 feat-agent-provider-core'
 completed:
+- id: fix-workshop-session-state
+  name: "PM Workshop 会话状态修复 — Tab 保持 + 清除对话 + 工具调用渲染"
+  completed_at: '2026-05-29T22:45:00Z'
+  tag: fix-workshop-session-state-20260529
+  parent: feat-bmad-workshop
 - id: feat-party-mode-optim
   name: "Party Mode 引擎优化（动态角色 + 受控进程 + 流水线 + 收敛）"
   completed_at: '2026-05-29T21:30:00Z'

@@ -1,3012 +1,2924 @@
-# features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-05-29T21:30:00Z"
+  last_updated: '2026-05-29T21:30:00Z'
   version: 1
   total_completed: 132
-
 records:
-  - id: feat-party-mode-optim
-    name: "Party Mode 引擎优化（动态角色 + 受控进程 + 流水线 + 收敛）"
-    completed_at: "2026-05-29T21:30:00Z"
-    tag: feat-party-mode-optim-20260529
-    merged_to: main
-    merge_commit: adca241
-    branch_deleted: true
-    branch_name: feature/feat-party-mode-optim
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-party-mode-optim
-    parent: feat-bmad-workshop
-    conflicts:
-      had_conflict: false
-    verification:
-      status: warning
-      scenarios_total: 8
-      scenarios_passed: 6
-    stats:
-      started: "2026-05-29T21:15:00Z"
-      duration: "15min"
-      commits: 1
-      files_changed: 8
-  - id: feat-bmad-prd
-    name: "PRD 创建 Skill（BMAD Create PRD）"
-    completed_at: "2026-05-29T20:30:00Z"
-    tag: feat-bmad-prd-20260529
-    merged_to: main
-    merge_commit: 8f62b54
-    branch_deleted: true
-    branch_name: feature/feat-bmad-prd
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-bmad-prd
-    parent: feat-bmad-workshop
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 8
-      scenarios_passed: 8
-    stats:
-      started: "2026-05-29T20:00:00Z"
-      duration: "30m"
-      commits: 2
-      files_changed: 9
-  - id: feat-bmad-party-mode
-    name: "Party Mode Skill（BMAD 多角色圆桌）"
-    completed_at: "2026-05-29T19:00:00Z"
-    tag: feat-bmad-party-mode-20260529
-    merged_to: main
-    merge_commit: d85f6bb
-    branch_deleted: true
-    branch_name: feature/feat-bmad-party-mode
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-bmad-party-mode
-    parent: feat-bmad-workshop
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-05-29T18:00:00Z"
-      duration: ~60m
-      commits: 1
-      files_changed: 7
-
-  - id: feat-bmad-brainstorm
-    name: "头脑风暴 Skill（BMAD Brainstorming）"
-    completed_at: "2026-05-29T17:30:00Z"
-    tag: feat-bmad-brainstorm-20260529
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-bmad-brainstorm
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-bmad-brainstorm
-    parent: feat-bmad-workshop
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-05-29T17:00:00Z"
-      duration: ~30m
-      commits: 2
-      files_changed: 9
-
-  - id: feat-bmad-workspace
-    name: "PM Workshop Tab 基础设施"
-    completed_at: "2026-05-29T16:30:00Z"
-    tag: feat-bmad-workspace-20260529
-    merge_commit: "b6474e3"
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-bmad-workspace
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-bmad-workspace
-    parent: feat-bmad-workshop
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-05-29T16:00:00Z"
-      duration: ~30m
-      commits: 1
-      files_changed: 12
-      insertions: 565
-
-  - id: feat-chat-panel-md-resize
-    name: "Agent 对话窗口 Markdown 渲染优化与面板横向拖拽调整"
-    completed_at: "2026-05-13T15:00:00Z"
-    tag: feat-chat-panel-md-resize-20260513
-    merge_commit: "1df4982"
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/chat-panel-md-resize
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-chat-panel-md-resize
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-05-13T14:00:00Z"
-      duration: ~1h
-      commits: 1
-      files_changed: 1
-      insertions: 66
-      deletions: 8
-
-  - id: feat-task-agent-multiturn
-    name: "Task Detail Agent Tab 多轮对话与富内容渲染"
-    completed_at: "2026-05-13T00:00:00Z"
-    tag: feat-task-agent-multiturn-20260513
-    merge_commit: "4622069"
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-task-agent-multiturn
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-task-agent-multiturn
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 6
-      scenarios_passed: 6
-    stats:
-      started: "2026-05-13T00:00:00Z"
-      duration: ~1h
-      commits: 1
-      files_changed: 3
-      insertions: 534
-      deletions: 160
-  - id: feat-newtask-dialog-adaptive
-    name: "NewTask Modal 多轮对话自适应布局与富内容渲染"
-    completed_at: "2026-05-11T12:30:00Z"
-    tag: feat-newtask-dialog-adaptive-20260511
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-newtask-dialog-adaptive
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-newtask-dialog-adaptive
-    conflicts:
-      had_conflict: false
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-05-11T12:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 1
-
-  - id: feat-agent-sdk-runtime
-    name: "Claude Agent SDK Runtime（新增 SDK 模式替代 claude -p）"
-    completed_at: "2026-05-07T21:30:00Z"
-    tag: feat-agent-sdk-runtime-20260507
-    merge_commit: 0ce1e46fbcae1a265e64b12d725e6b93aec33c08
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/agent-sdk-runtime
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-agent-sdk-runtime
-    conflicts:
-      had_conflict: false
-    verification:
-      status: passed
-      scenarios_total: 8
-      scenarios_passed: 8
-    stats:
-      started: "2026-05-07T21:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 14
-
-  - id: feat-remove-gemini-builtin
-    name: "移除 Gemini 内置 Key、API Key Modal 与 Gemini 终端"
-    completed_at: "2026-05-07T12:00:00Z"
-    tag: feat-remove-gemini-builtin-20260507
-    merged_to: main
-    branch_deleted: true
-    worktree_deleted: true
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      files_changed: 11
-      insertions: 62
-      deletions: 371
-
-  - id: feat-agent-tool-ui
-    name: "Agent 工具事件 UI 渲染"
-    completed_at: "2026-05-06T19:30:00Z"
-    tag: feat-agent-tool-ui-20260506
-    parent: feat-agent-tool-loop
-    depends_on:
-      - feat-agent-tool-exec
-    merge_commit: 59ac7ec
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-agent-tool-ui
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-agent-tool-ui
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-05-06T19:00:00Z"
-      duration: 30m
-      commits: 1
-      files_changed: 2
-
-  - id: feat-agent-multimodal-chat
-    name: "Agent 多模态消息支持"
-    completed_at: "2026-05-06T18:30:00Z"
-    tag: feat-agent-multimodal-chat-20260506
-    parent: feat-agent-tool-loop
-    depends_on:
-      - feat-agent-tool-exec
-    merge_commit: a285ad1
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-agent-multimodal-chat
-    worktree_deleted: true
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-05-06T18:00:00Z"
-      duration: 30m
-      commits: 1
-      files_changed: 8
-
-  - id: feat-agent-tool-exec
-    name: "PM Agent 工具执行循环"
-    completed_at: "2026-05-06T17:30:00Z"
-    tag: feat-agent-tool-exec-20260506
-    merge_commit: 301f8c5
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-agent-tool-exec
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-agent-tool-exec
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-05-06T17:00:00Z"
-      duration: "30m"
-      commits: 1
-      files_changed: 2
-  - id: feat-skill-init
-    name: "IDE Skill 初始化能力（自动检测 + 一键安装）"
-    completed_at: "2026-05-06T12:30:00Z"
-    tag: feat-skill-init-20260506
-    merge_commit: 2f117dfc
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-skill-init
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-skill-init
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 6
-      scenarios_passed: 6
-    stats:
-      started: "2026-05-06T12:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 40
-      insertions: 5127
-
-  - id: feat-task-scheduler
-    name: "Task 定时调度服务（一次性定时器 + 自动驱动 /run-feature 或 /dev-agent）"
-    completed_at: "2026-05-05T17:30:00Z"
-    tag: feat-task-scheduler-20260505
-    merge_commit: 09a9335
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-task-scheduler
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-task-scheduler
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 6
-      scenarios_passed: 6
-    stats:
-      started: "2026-05-05T17:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 5
-      insertions: 809
-      deletions: 2
-    archive_path: features/archive/done-feat-task-scheduler-20260505
-
-  - id: feat-task-board-search-sort
-    name: "Task Board 模糊搜索与时间排序"
-    completed_at: "2026-05-05T16:30:00Z"
-    tag: feat-task-board-search-sort-20260505
-    merge_commit: ba6c16d
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-task-board-search-sort
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-task-board-search-sort
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 6
-      scenarios_passed: 6
-    stats:
-      started: "2026-05-05T16:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 3
-    archive_path: features/archive/done-feat-task-board-search-sort-20260505
-
-  - id: feat-task-exec-button
-    name: "Task Board Pending Task 执行按钮（Run Feature 一键触发）"
-    completed_at: "2026-05-05T15:30:00Z"
-    tag: feat-task-exec-button-20260505
-    merge_commit: 5722685
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-task-exec-button
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-task-exec-button
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 6
-      scenarios_passed: 6
-    stats:
-      started: "2026-05-05T15:00:00Z"
-      duration: "~30min"
-      commits: 3
-      files_changed: 4
-    archive_path: features/archive/done-feat-task-exec-button-20260505
-
-  - id: feat-windows-pty
-    name: "Windows PTY 兼容"
-    completed_at: "2026-05-05T14:30:00Z"
-    tag: feat-windows-pty-20260505
-    merge_commit: d87ef23
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-windows-pty
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-windows-pty
-    parent: feat-cross-platform-terminal
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-05-05T14:00:00Z"
-      duration: "30m"
-      commits: 2
-      files_changed: 5
-
-  - id: feat-shell-settings-ui
-    name: "Settings Shell 切换 UI"
-    completed_at: "2026-05-05T13:30:00Z"
-    tag: feat-shell-settings-ui-20260505
-    merge_commit: c7f6df7
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-shell-settings-ui
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-shell-settings-ui
-    parent: feat-cross-platform-terminal
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-05-05T13:00:00Z"
-      duration: "30m"
-      commits: 1
-      files_changed: 6
-
-  - id: feat-shell-detect
-    name: "Shell 自动发现与检测"
-    completed_at: "2026-05-05T12:30:00Z"
-    tag: feat-shell-detect-20260505
-    merge_commit: 87c6104
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-shell-detect
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-shell-detect
-    parent: feat-cross-platform-terminal
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-05-05T12:00:00Z"
-      duration: "30m"
-      commits: 1
-      files_changed: 6
-
-  - id: fix-settings-workflow-tab
-    name: "修复 Settings Workflow Tab 加载报错（Command read_text_file not found）"
-    completed_at: "2026-04-30T20:00:00Z"
-    tag: fix-settings-workflow-tab-20260430
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/fix-settings-workflow-tab
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-fix-settings-workflow-tab
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 2
-      scenarios_passed: 2
-    stats:
-      started: "2026-04-30T20:00:00Z"
-      duration: "~5min"
-      commits: 1
-      files_changed: 1
-  - id: feat-agent-acp-adapter
-    name: "ACP JSON-RPC 2.0 Adapter (Codex / Hermes / Kiro / Kimi / Pi)"
-    completed_at: "2026-04-30T16:45:00Z"
-    tag: feat-agent-acp-adapter-20260430
-    merge_commit: 03162f9
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-agent-acp-adapter
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-agent-acp-adapter
-    parent: feat-universal-agent-runtime
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 6
-      scenarios_passed: 6
-    stats:
-      started: "2026-04-30T16:00:00Z"
-      duration: "~45min"
-      commits: 3
-      files_changed: 6
-
-  - id: feat-agent-pipe-adapter
-    name: "NDJSON Pipe Adapter（Claude Code / Cursor / OpenCode）"
-    completed_at: "2026-04-30T15:30:00Z"
-    tag: feat-agent-pipe-adapter-20260430
-    merge_commit: b4b63a4
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/agent-pipe-adapter
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-agent-pipe-adapter
-    parent: feat-universal-agent-runtime
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-30T15:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 2
-      insertions: 886
-      deletions: 4
-    archive_path: features/archive/done-feat-agent-pipe-adapter-20260430
-
-  - id: feat-agent-stdio-core
-    name: "Agent Stdio 通信核心抽象层"
-    completed_at: "2026-04-30T14:30:00Z"
-    tag: feat-agent-stdio-core-20260430
-    merge_commit: fdd4948
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/agent-stdio-core
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-agent-stdio-core
-    parent: feat-universal-agent-runtime
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-30T14:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 2
-      insertions: 1322
-      deletions: 0
-    archive_path: features/archive/done-feat-agent-stdio-core-20260430
-
-  - id: feat-file-tree-ops
-    name: "文件树编辑器操作增强"
-    completed_at: "2026-04-30T12:00:00Z"
-    split: true
-    children:
-      - feat-file-tree-context-menu
-      - feat-file-tree-clipboard
-      - feat-file-tree-navigation
-  - id: feat-reveal-in-file-manager
-    name: "文件树「在文件管理器中显示」Tauri 后端实现"
-    completed_at: "2026-04-30T11:30:00Z"
-    tag: feat-reveal-in-file-manager-20260430
-    merge_commit: c3e1113
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/reveal-in-file-manager
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-reveal-in-file-manager
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-04-30T11:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 1
-      insertions: 18
-      deletions: 0
-    archive_path: features/archive/done-feat-reveal-in-file-manager-20260430
-
-  - id: feat-modal-safe-close
-    name: "Modal 安全关闭保护"
-    completed_at: "2026-04-29T20:20:00Z"
-    tag: feat-modal-safe-close-20260429
-    merge_commit: 4b16f65
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/modal-safe-close
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-modal-safe-close
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-29T20:00:00Z"
-      duration: "20m"
-      commits: 2
-      files_changed: 2
-
-  - id: feat-task-execution-overlay
-    name: "任务执行乐观状态（Execution Overlay + Ghost Card）"
-    completed_at: "2026-04-29T19:30:00Z"
-    tag: feat-task-execution-overlay-20260429
-    merge_commit: 3a16279
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-task-execution-overlay
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-task-execution-overlay
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-      resolved_at: null
-      re_verified: false
-    verification:
-      status: passed
-      scenarios_total: 7
-      scenarios_passed: 7
-    stats:
-      started: "2026-04-29T19:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 5
-      insertions: 441
-      deletions: 62
-    archive_path: features/archive/done-feat-task-execution-overlay-20260429
-
-  - id: feat-task-board-layout-optim
-    name: "Task Board 列排序与显示优化"
-    completed_at: "2026-04-29T18:30:00Z"
-    tag: feat-task-board-layout-optim-20260429
-    merge_commit: c505761
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-task-board-layout-optim
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-task-board-layout-optim
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-      resolved_at: null
-      re_verified: false
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-29T18:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 1
-      insertions: 73
-      deletions: 23
-    archive_path: features/archive/done-feat-task-board-layout-optim-20260429
-
-  - id: feat-settings-workflow-config
-    name: "Settings 工作流参数配置（并行/自动化/清理）"
-    completed_at: "2026-04-29T17:30:00Z"
-    tag: feat-settings-workflow-config-20260429
-    merge_commit: a685c31
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-settings-workflow-config
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-settings-workflow-config
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-      resolved_at: null
-      re_verified: false
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-29T17:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 5
-  - id: feat-claude-session-history
-    name: "Claude Code 会话历史回看"
-    completed_at: "2026-04-29T16:00:00Z"
-    tag: feat-claude-session-history-20260429
-    merge_commit: 1d5e25f
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-claude-session-history
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-claude-session-history
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-29T15:00:00Z"
-      duration: "60m"
-      commits: 1
-      files_changed: 5
-
-  - id: feat-git-display-enhance
-    name: "Git 信息展示强化"
-    completed_at: "2026-04-29T14:30:00Z"
-    tag: feat-git-display-enhance-20260429
-    merge_commit: 3af897b
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-git-display-enhance
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-git-display-enhance
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-29T14:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 10
-      insertions: 1089
-      deletions: 124
-    archive_path: features/archive/done-feat-git-display-enhance-20260429
-  - id: feat-file-tree-navigation
-    name: "文件树快速导航（定位/跳转/路径复制）"
-    completed_at: "2026-04-29T13:30:00Z"
-    tag: feat-file-tree-navigation-20260429
-    merge_commit: 2359abd
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-file-tree-navigation
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-file-tree-navigation
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-29T13:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 2
-      insertions: 268
-      deletions: 5
-    archive_path: features/archive/done-feat-file-tree-navigation-20260429
-
-  - id: feat-file-tree-clipboard
-    name: "文件树剪贴板操作（复制/剪切/粘贴/移动）"
-    completed_at: "2026-04-29T12:30:00Z"
-    tag: feat-file-tree-clipboard-20260429
-    merge_commit: 29fdb1e
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-file-tree-clipboard
-    worktree_deleted: true
-    worktree_path: /Users/ryan/mycode/NeuroSyntaxIDE-feat-file-tree-clipboard
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-29T12:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 3
-
-  - id: feat-git-file-interaction
-    name: "文件变更交互增强"
-    completed_at: "2026-04-28T16:30:00Z"
-    tag: feat-git-file-interaction-20260428
-    merge_commit: f8c401d
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-git-file-interaction
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-git-file-interaction
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 6
-      scenarios_passed: 6
-    stats:
-      started: "2026-04-28T16:00:00Z"
-      duration: "~30min"
-      commits: 2
-      files_changed: 5
-
-  - id: feat-file-tree-context-menu
-    name: "文件树右键上下文菜单与基础操作"
-    completed_at: "2026-04-29T10:05:00Z"
-    tag: feat-file-tree-context-menu-20260429
-    merge_commit: ccf4b9f
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-file-tree-context-menu
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-file-tree-context-menu
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 6
-      scenarios_passed: 6
-    stats:
-      started: "2026-04-29T10:00:00Z"
-      duration: "~5min"
-      commits: 1
-      files_changed: 11
-
-  - id: feat-git-tab-page
-    name: "Git 独立 Tab 页"
-    completed_at: "2026-04-29T09:40:00Z"
-    tag: feat-git-tab-page-20260429
-    merge_commit: f9b6796
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/git-tab-page
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-git-tab-page
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-28T14:00:00Z"
-      duration: "~19h"
-      commits: 1
-      files_changed: 6
-
-  - id: feat-modal-session-store
-    name: "Modal 会话持久化层（SessionStore）"
-    completed_at: "2026-04-28T12:00:00Z"
-    tag: feat-modal-session-store-20260428
-    merge_commit: b0e1787
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/modal-session-store
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-modal-session-store
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 8
-      scenarios_passed: 8
-    stats:
-      started: "2026-04-28T12:00:00Z"
-      duration: "~session"
-      commits: 1
-      files_changed: 5
-      insertions: 379
-      deletions: 14
-    archive_path: features/archive/done-feat-modal-session-store-20260428
-
-  - id: feat-task-graph-timeline
-    name: "Task Graph Timeline View（时间轴依赖图谱视图）"
-    completed_at: "2026-04-23T13:00:00Z"
-    tag: feat-task-graph-timeline-20260423
-    merge_commit: 68e33c3
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-task-graph-timeline
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-task-graph-timeline
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-23T12:30:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 2
-    archive_path: features/archive/done-feat-task-graph-timeline-20260423
-
-  - id: fix-settings-api-base-url
-    name: "修复 LLM 供应商 API Base URL 无法修改"
-    completed_at: "2026-04-15T11:00:00Z"
-    tag: fix-settings-api-base-url-20260415
-    merge_commit: 12437c8
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/fix-settings-api-base-url
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-fix-settings-api-base-url
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-15T10:00:00Z"
-      duration: "~1h"
-      commits: 1
-      files_changed: 1
-    archive_path: features/archive/done-fix-settings-api-base-url-20260415
-
-  - id: feat-user-profile
-    name: "用户资料管理（名称/邮箱/头像/Git 信息）"
-    completed_at: "2026-04-14T16:45:00Z"
-    tag: feat-user-profile-20260414
-    merge_commit: 3fb44e7
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-user-profile
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-user-profile
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-14T16:00:00Z"
-      duration: "~45min"
-      commits: 1
-      files_changed: 8
-
-  - id: feat-newtask-runtime-multiturn
-    name: "New Task 外部 Runtime 多轮对话支持"
-    completed_at: "2026-04-14T15:00:00Z"
-    tag: feat-newtask-runtime-multiturn-20260414
-    merge_commit: 8c95282
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-newtask-runtime-multiturn
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-newtask-runtime-multiturn
-    parent: feat-pm-newtask-role-separation
-    depends_on:
-      - feat-newtask-built-in-pm
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-04-14T14:00:00Z"
-      duration: "~1h"
-      commits: 3
-      files_changed: 6
-      insertions: 486
-      deletions: 35
-    archive_path: features/archive/done-feat-newtask-runtime-multiturn-20260414
-
-  - id: feat-newtask-built-in-pm
-    name: "New Task 内置 PM 独立 Prompt 体系"
-    completed_at: "2026-04-14T13:00:00Z"
-    tag: feat-newtask-built-in-pm-20260414
-    merge_commit: 926581d
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-newtask-built-in-pm
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-newtask-built-in-pm
-    parent: feat-pm-newtask-role-separation
-    depends_on:
-      - feat-pm-role-separation
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 2
-      scenarios_passed: 2
-    stats:
-      started: "2026-04-14T12:30:00Z"
-      duration: "~30min"
-      commits: 3
-      files_changed: 5
-      insertions: 267
-      deletions: 28
-    archive_path: features/archive/done-feat-newtask-built-in-pm-20260414
-
-  - id: feat-pm-role-separation
-    name: "PM Agent 职责分离与 Prompt 拆分"
-    completed_at: "2026-04-14T12:00:00Z"
-    tag: feat-pm-role-separation-20260414
-    merge_commit: 9995894
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-pm-role-separation
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-pm-role-separation
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-04-14T11:00:00Z"
-      duration: "~1h"
-      commits: 2
-      files_changed: 1
-      insertions: 30
-      deletions: 202
-    archive_path: features/archive/done-feat-pm-role-separation-20260414
-
-  - id: fix-queue-resilient-parsing
-    name: "Task Board YAML 解析容错与字段兼容"
-    completed_at: "2026-04-14T10:30:00Z"
-    tag: fix-queue-resilient-parsing-20260414
-    merge_commit: 01fbe5e
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/fix-queue-resilient-parsing
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-fix-queue-resilient-parsing
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 7
-      scenarios_passed: 7
-    stats:
-      started: "2026-04-14T10:00:00Z"
-      duration: "~30min"
-      commits: 2
-      files_changed: 1
-      insertions: 189
-      deletions: 3
-    archive_path: features/archive/done-fix-queue-resilient-parsing-20260414
-
-  - id: feat-chat-style-newtask
-    name: "Chat-style NewTask Modal（需求多轮对话 + 精准触达 new-feature）"
-    completed_at: "2026-04-13T17:00:00Z"
-    tag: feat-chat-style-newtask-20260413
-    merge_commit: 01af9cc
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-chat-style-newtask
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-chat-style-newtask
-    conflicts:
-      had_conflict: true
-      conflict_files:
-        - features/active-feat-chat-style-newtask/checklist.md
-        - features/active-feat-chat-style-newtask/task.md
-      resolved_at: "2026-04-13T17:00:00Z"
-      resolution: "Took feature branch versions (completed checkmarks + verification record)"
-      re_verified: false
-    verification:
-      status: passed
-      scenarios_total: 6
-      scenarios_passed: 6
-    stats:
-      started: "2026-04-13T16:00:00Z"
-      duration: "~1h"
-      commits: 2
-      files_changed: 2
-      insertions: 235
-      deletions: 51
-    archive_path: features/archive/done-feat-chat-style-newtask-20260413
-
-  - id: feat-i18n-complete
-    name: "中英文国际化完善"
-    completed_at: "2026-04-10T23:30:00Z"
-    tag: feat-i18n-complete-20260410
-    merge_commit: 236c7be
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/i18n-complete
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-i18n-complete
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 27
-      scenarios_passed: 27
-    stats:
-      started: "2026-04-10T22:10:00Z"
-      duration: "~1h20min"
-      commits: 1
-      files_changed: 10
-      insertions: 155
-      deletions: 63
-    archive_path: features/archive/done-feat-i18n-complete-20260410
-
-  - id: fix-terminal-add-tab
-    name: "终端 Tab 新增与切换修复"
-    completed_at: "2026-04-10T19:15:00Z"
-    tag: fix-terminal-add-tab-20260410
-    merge_commit: eacbfb7
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/fix-terminal-add-tab
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-fix-terminal-add-tab
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 6
-      scenarios_passed: 6
-    stats:
-      started: "2026-04-10T12:00:00Z"
-      duration: "~7h"
-      commits: 1
-      files_changed: 1
-    archive_path: features/archive/done-fix-terminal-add-tab-20260410
-
-  - id: feat-pixel-observatory-rework
-    name: "Pixel Agent Observatory 100% 复刻（MIT Reference 直接移植）"
-    completed_at: "2026-04-09T21:00:00Z"
-    tag: feat-pixel-observatory-rework-20260409
-
-  - id: feat-runtime-timeout-reminder
-    name: "Runtime Session 超时策略优化（智能超时 + 静默提醒）"
-    completed_at: "2026-04-09T12:42:00Z"
-    tag: feat-runtime-timeout-reminder-20260409
-    merge_commit: "b81c23f"
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-runtime-timeout-reminder
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-runtime-timeout-reminder
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-09T17:00:00Z"
-      duration: "~1h"
-      commits: 1
-      files_changed: 5
-
-  - id: feat-pixel-agent-observatory
-    name: "Pixel Agent 可观测 Tab — Claude Code Agent 像素小人实时可视化"
-    completed_at: "2026-04-09T16:30:00Z"
-    tag: feat-pixel-agent-observatory-20260409
-    merge_commit: "2487d64"
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-pixel-agent-observatory
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-pixel-agent-observatory
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 6
-      scenarios_passed: 6
-    stats:
-      started: "2026-04-09T15:00:00Z"
-      duration: "~90min"
-      commits: 3
-      files_changed: 18
-      insertions: 3200
-      deletions: 10
-    archive_path: features/archive/done-feat-pixel-agent-observatory-20260409
-
-  - id: fix-runtime-output-render
-    name: "Runtime Output 弹窗宽度与内容渲染修复"
-    completed_at: "2026-04-08T23:30:00Z"
-    tag: fix-runtime-output-render-20260408
-    merge_commit: "33a519a"
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/fix-runtime-output-render
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-fix-runtime-output-render
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-08T23:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 5
-      insertions: 170
-      deletions: 25
-    archive_path: features/archive/done-fix-runtime-output-render-20260408
-  - id: feat-runtime-process-stop
-    name: "Agent Runtime 进程 Stop 按钮（PID Kill）"
-    completed_at: "2026-04-08T22:36:00Z"
-    tag: feat-runtime-process-stop-20260408
-    merge_commit: "4349f65"
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-runtime-process-stop
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-runtime-process-stop
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-04-08T22:10:00Z"
-      duration: "~26min"
-      commits: 1
-      files_changed: 2
-      insertions: 116
-      deletions: 6
-    archive_path: features/archive/done-feat-runtime-process-stop-20260408
-  - id: fix-terminal-tab-render
-    name: "Terminal Tab 渲染修复（初始宽度 + 切换 + 缩放）"
-    completed_at: "2026-04-08T22:40:00Z"
-    tag: fix-terminal-tab-render-20260408
-    merge_commit: 4a68e85
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/fix-terminal-tab-render
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-fix-terminal-tab-render
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-08T22:30:00Z"
-      duration: "~15min"
-      commits: 1
-      files_changed: 1
-      insertions: 19
-      deletions: 10
-    archive_path: features/archive/done-fix-terminal-tab-render-20260408
-  - id: feat-runtime-output-polish
-    name: "Runtime Session Output 弹窗与渲染优化"
-    completed_at: "2026-04-08T15:53:00Z"
-    tag: feat-runtime-output-polish-20260408
-    merge_commit: 7b1e16b
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-runtime-output-polish
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-runtime-output-polish
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 6
-      scenarios_passed: 6
-    stats:
-      started: "2026-04-08T20:30:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 3
-      insertions: 456
-      deletions: 62
-    archive_path: features/archive/done-feat-runtime-output-polish-20260408
-  - id: feat-runtime-session-output
-    name: "Claude Code Runtime Session 输出持久化与监控"
-    completed_at: "2026-04-08T19:35:00Z"
-    tag: feat-runtime-session-output-20260408
-    merge_commit: e555dcf
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-runtime-session-output
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-runtime-session-output
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-08T19:05:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 4
-      insertions: 422
-      deletions: 2
-    archive_path: features/archive/done-feat-runtime-session-output-20260408
-
-  - id: feat-file-tree-resizable
-    name: "文件树横向拖拽调整宽度"
-    completed_at: "2026-04-08T19:30:00Z"
-    tag: feat-file-tree-resizable-20260408
-    merge_commit: 561b4ce
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-file-tree-resizable
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-file-tree-resizable
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-08T19:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 1
-      insertions: 62
-      deletions: 1
-    archive_path: features/archive/done-feat-file-tree-resizable-20260408
-
-  - id: fix-analyze-all-state
-    name: "Analyze All 按钮状态管理与防重复分析"
-    completed_at: "2026-04-08T16:30:00Z"
-    tag: fix-analyze-all-state-20260408
-    merge_commit: 7f9bccf
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/fix-analyze-all-state
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-fix-analyze-all-state
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-04-08T16:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 3
-      insertions: 34
-      deletions: 3
-    archive_path: features/archive/done-fix-analyze-all-state-20260408
-
-  - id: feat-claude-code-runtime-monitor
-    name: "Claude Code Runtime 状态监听"
-    completed_at: "2026-04-08T15:30:00Z"
-    tag: feat-claude-code-runtime-monitor-20260408
-    merge_commit: ab3b2dc
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-claude-code-runtime-monitor
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-claude-code-runtime-monitor
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 6
-      scenarios_passed: 6
-    stats:
-      started: "2026-04-08T14:00:00Z"
-      duration: "~90min"
-      commits: 1
-      files_changed: 7
-      insertions: 847
-      deletions: 28
-    archive_path: features/archive/done-feat-claude-code-runtime-monitor-20260408
-
-  - id: fix-terminal-io-resize
-    name: "终端输入输出修复 + 面板动态调整"
-    completed_at: "2026-04-08T00:00:00Z"
-    tag: fix-terminal-io-resize-20260408
-    merge_commit: ac355e1
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/fix-terminal-io-resize
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-fix-terminal-io-resize
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-08T00:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 3
-      insertions: 93
-      deletions: 8
-    archive_path: features/archive/done-fix-terminal-io-resize-20260408
-  - id: feat-editor-terminal-workspace
-    name: "编辑器终端工作空间目录绑定"
-    completed_at: "2026-04-07T17:45:00Z"
-    tag: feat-editor-terminal-workspace-20260407
-    merge_commit: 7d4c4f3
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-editor-terminal-workspace
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-editor-terminal-workspace
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-07T17:15:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 3
-      insertions: 20
-      deletions: 2
-    archive_path: features/archive/done-feat-editor-terminal-workspace-20260407
-
-  - id: feat-editor-tab-overflow
-    name: "编辑器 Tab 溢出优化"
-    completed_at: "2026-04-07T17:36:00Z"
-    tag: feat-editor-tab-overflow-20260407
-    merge_commit: b56c043
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-editor-tab-overflow
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-editor-tab-overflow
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-07T17:20:00Z"
-      duration: "~16min"
-      commits: 5
-      files_changed: 7
-    archive_path: features/archive/done-feat-editor-tab-overflow-20260407
-
-  - id: feat-file-preview-image-enhance
-    name: "图片预览增强"
-    completed_at: "2026-04-07T16:01:00Z"
-    tag: feat-file-preview-image-enhance-20260407
-    merge_commit: "219611b"
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-file-preview-image-enhance
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-file-preview-image-enhance
-    parent: feat-file-preview-multi
-    depends_on:
-      - feat-file-preview-media
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-07T15:30:00Z"
-      duration: "~31min"
-      commits: 1
-      files_changed: 3
-
-  - id: feat-file-preview-media
-    name: "视频/音频预览"
-    completed_at: "2026-04-07T14:55:00Z"
-    tag: feat-file-preview-media-20260407
-    merge_commit: 458ac77
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-file-preview-media
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-file-preview-media
-    parent: feat-file-preview-multi
-    depends_on:
-      - feat-file-preview-pdf
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-07T14:00:00Z"
-      duration: "~55min"
-      commits: 1
-      files_changed: 8
-      insertions: 570
-      deletions: 29
-    archive_path: features/archive/done-feat-file-preview-media-20260407
-
-  - id: feat-file-preview-pdf
-    name: "PDF 文件预览"
-    completed_at: "2026-04-07T13:00:00Z"
-    tag: feat-file-preview-pdf-20260407
-    merge_commit: 278137d
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-file-preview-pdf
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-file-preview-pdf
-    parent: feat-file-preview-multi
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-07T12:30:00Z"
-      duration: "~30min"
-      commits: 2
-      files_changed: 13
-      insertions: 767
-      deletions: 44
-    archive_path: features/archive/done-feat-file-preview-pdf-20260407
-
-  - id: feat-new-task-runtime-execute
-    name: "New Task Runtime 直接执行（对齐 REQ Agent 方案）"
-    completed_at: "2026-04-07T10:40:00Z"
-    tag: feat-new-task-runtime-execute-20260407
-    merge_commit: 15c560c
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-new-task-runtime-execute
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-new-task-runtime-execute
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-07T10:15:00Z"
-      duration: "~25min"
-      commits: 3
-      files_changed: 8
-      insertions: 429
-      deletions: 199
-    archive_path: features/archive/done-feat-new-task-runtime-execute-20260407
-
-  - id: feat-dispatch-runtime-graceful
-    name: "Fix dispatch_to_runtime Command Not Found"
-    completed_at: "2026-04-07T09:47:00Z"
-    tag: feat-dispatch-runtime-graceful-20260407
-    merge_commit: 95a9ef0
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-dispatch-runtime-graceful
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-dispatch-runtime-graceful
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-07T09:31:00Z"
-      duration: "~16min"
-      commits: 2
-      files_changed: 3
-      insertions: 302
-      deletions: 31
-    archive_path: features/archive/done-feat-dispatch-runtime-graceful-20260407
-
-  - id: feat-agent-multimodal-chat
-    name: "Agent 对话多模态集成"
-    completed_at: "2026-04-07T06:00:00Z"
-    tag: feat-agent-multimodal-chat-20260407
-    merge_commit: 83401eb
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-agent-multimodal-chat
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-agent-multimodal-chat
-    parent: feat-agent-multimodal
-    depends_on:
-      - feat-agent-multimodal-upload
-      - feat-agent-multimodal-analyze
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-07T05:00:00Z"
-      duration: "~1h"
-      commits: 2
-      files_changed: 8
-      insertions: 1054
-      deletions: 8
-    archive_path: features/archive/done-feat-agent-multimodal-chat-20260407
-
-  - id: feat-agent-multimodal-analyze
-    name: "多模态文件分析与 MD 文档生成"
-    completed_at: "2026-04-07T04:30:00Z"
-    tag: feat-agent-multimodal-analyze-20260407
-    merge_commit: a29884e
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-agent-multimodal-analyze
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-agent-multimodal-analyze
-    parent: feat-agent-multimodal
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-07T04:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 5
-      insertions: 1029
-      deletions: 25
-    archive_path: features/archive/done-feat-agent-multimodal-analyze-20260407
-
-  - id: feat-agent-multimodal-upload
-    name: "Agent 多模态文件上传与管理"
-    completed_at: "2026-04-07T03:30:00Z"
-    tag: feat-agent-multimodal-upload-20260407
-    merge_commit: cb7a9aa
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-agent-multimodal-upload
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-agent-multimodal-upload
-    parent: feat-agent-multimodal
-    conflicts:
-      had_conflict: true
-      conflict_files:
-        - neuro-syntax-ide/src/types.ts
-      resolved_at: "2026-04-07T03:30:00Z"
-      resolution: "Merged both Agent Conversation types and PMFile types sections"
-      re_verified: false
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-07T00:00:00Z"
-      duration: "~3.5h"
-      commits: 1
-      files_changed: 5
-      insertions: 1037
-      deletions: 48
-    archive_path: features/archive/done-feat-agent-multimodal-upload-20260407
-  - id: feat-agent-conversation
-    name: "Feature Detail Modal Agent 对话区（Review/Modify/Develop）"
-    completed_at: "2026-04-07T02:00:00Z"
-    tag: feat-agent-conversation-20260407
-    merge_commit: 12b34eb
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-agent-conversation
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-agent-conversation
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-07T01:00:00Z"
-      duration: "~1h"
-      commits: 1
-      files_changed: 2
-      insertions: 277
-      deletions: 5
-    archive_path: features/archive/done-feat-agent-conversation-20260407
-
-  - id: feat-modal-drag-resize
-    name: "NewTaskModal 拖拽移动与调整大小"
-    completed_at: "2026-04-07T00:00:00Z"
-    tag: feat-modal-drag-resize-20260406
-    merge_commit: 0ecdde3
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-modal-drag-resize
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-modal-drag-resize
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-04-06T23:45:00Z"
-      duration: "~15min"
-      commits: 1
-      files_changed: 1
-
-  - id: feat-project-md-explorer
-    name: "Project MD Explorer（项目首页 Markdown 文件浏览器）"
-    completed_at: "2026-04-06T23:30:00Z"
-    tag: feat-project-md-explorer-20260406
-    merge_commit: 167ce25
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-project-md-explorer
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-project-md-explorer
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 6
-      scenarios_passed: 6
-    stats:
-      started: "2026-04-06T22:30:00Z"
-      duration: "~1h"
-      commits: 1
-      files_changed: 5
-      insertions: 604
-      deletions: 82
-    archive_path: features/archive/done-feat-project-md-explorer-20260406
-  - id: feat-load-project-context
-    name: "Project Context 真实文件加载"
-    completed_at: "2026-04-05T22:15:00Z"
-    tag: feat-load-project-context-20260405
-    merge_commit: 3ea4b5d
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-load-project-context
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-load-project-context
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-04-05T22:30:00Z"
-      duration: "~15min"
-      commits: 1
-      files_changed: 1
-      insertions: 121
-      deletions: 27
-    archive_path: features/archive/done-feat-load-project-context-20260405
-
-  - id: fix-req-agent-multiturn-v2
-    name: "REQ Agent 多轮对话修复 V2（第二轮无响应根因修复）"
-    completed_at: "2026-04-05T20:25:00Z"
-    tag: fix-req-agent-multiturn-v2-20260405
-    merge_commit: 934313a
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/fix-req-agent-multiturn-v2
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-fix-req-agent-multiturn-v2
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-05T12:00:00Z"
-      duration: "~1hr"
-      commits: 1
-      files_changed: 6
-      insertions: 151
-      deletions: 38
-
-  - id: feat-pm-agent-provider-switch
-    name: "PM Agent LLM 提供商切换（Settings 默认值 + 聊天区下拉覆盖）"
-    completed_at: "2026-04-06T10:30:00Z"
-    tag: feat-pm-agent-provider-switch-20260405
-    merge_commit: 1ca69f5
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-pm-agent-provider-switch
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-pm-agent-provider-switch
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-06T22:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 8
-      insertions: 359
-      deletions: 74
-    archive_path: features/archive/done-feat-pm-agent-provider-switch-20260405
-
-  - id: feat-git-branch-graph
-    name: "Branch & Feature 连线图（拓扑可视化）"
-    completed_at: "2026-04-06T21:00:00Z"
-    tag: feat-git-branch-graph-20260406
-    merge_commit: b92b7a9
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-git-branch-graph
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-git-branch-graph
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-04-06T19:00:00Z"
-      duration: "~2h"
-      commits: 2
-      files_changed: 4
-      insertions: 671
-      deletions: 4
-      parent: feat-git-tag-detail-graph
-
-  - id: feat-editor-save-status
-    name: "编辑器保存状态优化（移除 Run + 状态可视化 + 快捷键）"
-    completed_at: "2026-04-06T17:00:00Z"
-    tag: feat-editor-save-status-20260406
-    merge_commit: 78765de
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-editor-save-status
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-editor-save-status
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-06T16:30:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 2
-      insertions: 22
-      deletions: 20
-
-  - id: fix-req-agent-multiturn
-    name: "REQ Agent 多轮对话修复 + 状态初始化"
-    completed_at: "2026-04-06T15:20:00Z"
-    tag: fix-req-agent-multiturn-20260406
-    merge_commit: 8c7e3ee
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/fix-req-agent-multiturn
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-fix-req-agent-multiturn
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-06T15:00:00Z"
-      duration: "~20min"
-      commits: 2
-      files_changed: 1
-      insertions: 31
-      deletions: 9
-
-  - id: feat-agent-unified-stream
-    name: "统一事件格式 + 前端 Hook 合并"
-    completed_at: "2026-04-05T19:00:00Z"
-    tag: feat-agent-unified-stream-20260405
-    merge_commit: 1c688f7
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-agent-unified-stream
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-agent-unified-stream
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-04-05T18:00:00Z"
-      duration: "1h"
-      commits: 1
-      files_changed: 2
-      parent: feat-agent-unified-exec
-
-  - id: feat-task-board-updated-time
-    name: "Task Board Updated 时间显示优化"
-    completed_at: "2026-04-04T19:36:00Z"
-    tag: feat-task-board-updated-time-20260404
-    merge_commit: ffa43e4
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-task-board-updated-time
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-task-board-updated-time
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 6
-      scenarios_passed: 6
-    stats:
-      started: "2026-04-04T19:30:00Z"
-      duration: "6min"
-      commits: 1
-      files_changed: 1
-
-  - id: feat-pipeline-dual-mode
-    name: "Pipeline 双模式切换与实时同步"
-    completed_at: "2026-04-04T17:30:00Z"
-    tag: feat-pipeline-dual-mode-20260404
-    merge_commit: 46de373b891c0077f5f6050a7916bbfcc8fe3b61
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-pipeline-dual-mode
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-pipeline-dual-mode
-    parent: feat-pipeline-editor
-    depends_on:
-      - feat-pipeline-visual-editor
-      - feat-pipeline-yaml-editor
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-04-04T17:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 4
-      insertions: 805
-      deletions: 41
-  - id: feat-agent-gemini-bridge
-    name: "GeminiHttpRuntime 实现 + PM Agent 迁移"
-    completed_at: "2026-04-05T17:00:00Z"
-    tag: feat-agent-gemini-bridge-20260405
-    merge_commit: d6d9148
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-agent-gemini-bridge
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-agent-gemini-bridge
+- id: feat-party-mode-optim
+  name: Party Mode 引擎优化（动态角色 + 受控进程 + 流水线 + 收敛）
+  completed_at: '2026-05-29T21:30:00Z'
+  tag: feat-party-mode-optim-20260529
+  merged_to: main
+  merge_commit: adca241
+  branch_deleted: true
+  branch_name: feature/feat-party-mode-optim
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-party-mode-optim
+  parent: feat-bmad-workshop
+  conflicts:
+    had_conflict: false
+  verification:
+    status: warning
+    scenarios_total: 8
+    scenarios_passed: 6
+  stats:
+    started: '2026-05-29T21:15:00Z'
+    duration: 15min
+    commits: 1
+    files_changed: 8
+- id: feat-bmad-prd
+  name: PRD 创建 Skill（BMAD Create PRD）
+  completed_at: '2026-05-29T20:30:00Z'
+  tag: feat-bmad-prd-20260529
+  merged_to: main
+  merge_commit: 8f62b54
+  branch_deleted: true
+  branch_name: feature/feat-bmad-prd
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-bmad-prd
+  parent: feat-bmad-workshop
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 8
+    scenarios_passed: 8
+  stats:
+    started: '2026-05-29T20:00:00Z'
+    duration: 30m
+    commits: 2
+    files_changed: 9
+- id: feat-bmad-party-mode
+  name: Party Mode Skill（BMAD 多角色圆桌）
+  completed_at: '2026-05-29T19:00:00Z'
+  tag: feat-bmad-party-mode-20260529
+  merged_to: main
+  merge_commit: d85f6bb
+  branch_deleted: true
+  branch_name: feature/feat-bmad-party-mode
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-bmad-party-mode
+  parent: feat-bmad-workshop
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-05-29T18:00:00Z'
+    duration: ~60m
+    commits: 1
+    files_changed: 7
+- id: feat-bmad-brainstorm
+  name: 头脑风暴 Skill（BMAD Brainstorming）
+  completed_at: '2026-05-29T17:30:00Z'
+  tag: feat-bmad-brainstorm-20260529
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-bmad-brainstorm
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-bmad-brainstorm
+  parent: feat-bmad-workshop
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-05-29T17:00:00Z'
+    duration: ~30m
+    commits: 2
+    files_changed: 9
+- id: feat-bmad-workspace
+  name: PM Workshop Tab 基础设施
+  completed_at: '2026-05-29T16:30:00Z'
+  tag: feat-bmad-workspace-20260529
+  merge_commit: b6474e3
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-bmad-workspace
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-bmad-workspace
+  parent: feat-bmad-workshop
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-05-29T16:00:00Z'
+    duration: ~30m
+    commits: 1
+    files_changed: 12
+    insertions: 565
+- id: feat-chat-panel-md-resize
+  name: Agent 对话窗口 Markdown 渲染优化与面板横向拖拽调整
+  completed_at: '2026-05-13T15:00:00Z'
+  tag: feat-chat-panel-md-resize-20260513
+  merge_commit: 1df4982
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/chat-panel-md-resize
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-chat-panel-md-resize
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-05-13T14:00:00Z'
+    duration: ~1h
+    commits: 1
+    files_changed: 1
+    insertions: 66
+    deletions: 8
+- id: feat-task-agent-multiturn
+  name: Task Detail Agent Tab 多轮对话与富内容渲染
+  completed_at: '2026-05-13T00:00:00Z'
+  tag: feat-task-agent-multiturn-20260513
+  merge_commit: '4622069'
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-task-agent-multiturn
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-task-agent-multiturn
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 6
+    scenarios_passed: 6
+  stats:
+    started: '2026-05-13T00:00:00Z'
+    duration: ~1h
+    commits: 1
+    files_changed: 3
+    insertions: 534
+    deletions: 160
+- id: feat-newtask-dialog-adaptive
+  name: NewTask Modal 多轮对话自适应布局与富内容渲染
+  completed_at: '2026-05-11T12:30:00Z'
+  tag: feat-newtask-dialog-adaptive-20260511
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-newtask-dialog-adaptive
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-newtask-dialog-adaptive
+  conflicts:
+    had_conflict: false
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-05-11T12:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 1
+- id: feat-agent-sdk-runtime
+  name: Claude Agent SDK Runtime（新增 SDK 模式替代 claude -p）
+  completed_at: '2026-05-07T21:30:00Z'
+  tag: feat-agent-sdk-runtime-20260507
+  merge_commit: 0ce1e46fbcae1a265e64b12d725e6b93aec33c08
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/agent-sdk-runtime
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-agent-sdk-runtime
+  conflicts:
+    had_conflict: false
+  verification:
+    status: passed
+    scenarios_total: 8
+    scenarios_passed: 8
+  stats:
+    started: '2026-05-07T21:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 14
+- id: feat-remove-gemini-builtin
+  name: 移除 Gemini 内置 Key、API Key Modal 与 Gemini 终端
+  completed_at: '2026-05-07T12:00:00Z'
+  tag: feat-remove-gemini-builtin-20260507
+  merged_to: main
+  branch_deleted: true
+  worktree_deleted: true
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    files_changed: 11
+    insertions: 62
+    deletions: 371
+- id: feat-agent-tool-ui
+  name: Agent 工具事件 UI 渲染
+  completed_at: '2026-05-06T19:30:00Z'
+  tag: feat-agent-tool-ui-20260506
+  parent: feat-agent-tool-loop
+  depends_on:
+  - feat-agent-tool-exec
+  merge_commit: 59ac7ec
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-agent-tool-ui
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-agent-tool-ui
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-05-06T19:00:00Z'
+    duration: 30m
+    commits: 1
+    files_changed: 2
+- id: feat-agent-multimodal-chat
+  name: Agent 多模态消息支持
+  completed_at: '2026-05-06T18:30:00Z'
+  tag: feat-agent-multimodal-chat-20260506
+  parent: feat-agent-tool-loop
+  depends_on:
+  - feat-agent-tool-exec
+  merge_commit: a285ad1
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-agent-multimodal-chat
+  worktree_deleted: true
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-05-06T18:00:00Z'
+    duration: 30m
+    commits: 1
+    files_changed: 8
+- id: feat-agent-tool-exec
+  name: PM Agent 工具执行循环
+  completed_at: '2026-05-06T17:30:00Z'
+  tag: feat-agent-tool-exec-20260506
+  merge_commit: 301f8c5
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-agent-tool-exec
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-agent-tool-exec
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-05-06T17:00:00Z'
+    duration: 30m
+    commits: 1
+    files_changed: 2
+- id: feat-skill-init
+  name: IDE Skill 初始化能力（自动检测 + 一键安装）
+  completed_at: '2026-05-06T12:30:00Z'
+  tag: feat-skill-init-20260506
+  merge_commit: 2f117dfc
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-skill-init
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-skill-init
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 6
+    scenarios_passed: 6
+  stats:
+    started: '2026-05-06T12:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 40
+    insertions: 5127
+- id: feat-task-scheduler
+  name: Task 定时调度服务（一次性定时器 + 自动驱动 /run-feature 或 /dev-agent）
+  completed_at: '2026-05-05T17:30:00Z'
+  tag: feat-task-scheduler-20260505
+  merge_commit: 09a9335
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-task-scheduler
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-task-scheduler
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 6
+    scenarios_passed: 6
+  stats:
+    started: '2026-05-05T17:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 5
+    insertions: 809
+    deletions: 2
+  archive_path: features/archive/done-feat-task-scheduler-20260505
+- id: feat-task-board-search-sort
+  name: Task Board 模糊搜索与时间排序
+  completed_at: '2026-05-05T16:30:00Z'
+  tag: feat-task-board-search-sort-20260505
+  merge_commit: ba6c16d
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-task-board-search-sort
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-task-board-search-sort
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 6
+    scenarios_passed: 6
+  stats:
+    started: '2026-05-05T16:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 3
+  archive_path: features/archive/done-feat-task-board-search-sort-20260505
+- id: feat-task-exec-button
+  name: Task Board Pending Task 执行按钮（Run Feature 一键触发）
+  completed_at: '2026-05-05T15:30:00Z'
+  tag: feat-task-exec-button-20260505
+  merge_commit: 5722685
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-task-exec-button
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-task-exec-button
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 6
+    scenarios_passed: 6
+  stats:
+    started: '2026-05-05T15:00:00Z'
+    duration: ~30min
+    commits: 3
+    files_changed: 4
+  archive_path: features/archive/done-feat-task-exec-button-20260505
+- id: feat-windows-pty
+  name: Windows PTY 兼容
+  completed_at: '2026-05-05T14:30:00Z'
+  tag: feat-windows-pty-20260505
+  merge_commit: d87ef23
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-windows-pty
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-windows-pty
+  parent: feat-cross-platform-terminal
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-05-05T14:00:00Z'
+    duration: 30m
+    commits: 2
+    files_changed: 5
+- id: feat-shell-settings-ui
+  name: Settings Shell 切换 UI
+  completed_at: '2026-05-05T13:30:00Z'
+  tag: feat-shell-settings-ui-20260505
+  merge_commit: c7f6df7
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-shell-settings-ui
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-shell-settings-ui
+  parent: feat-cross-platform-terminal
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-05-05T13:00:00Z'
+    duration: 30m
+    commits: 1
+    files_changed: 6
+- id: feat-shell-detect
+  name: Shell 自动发现与检测
+  completed_at: '2026-05-05T12:30:00Z'
+  tag: feat-shell-detect-20260505
+  merge_commit: 87c6104
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-shell-detect
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-shell-detect
+  parent: feat-cross-platform-terminal
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-05-05T12:00:00Z'
+    duration: 30m
+    commits: 1
+    files_changed: 6
+- id: fix-settings-workflow-tab
+  name: 修复 Settings Workflow Tab 加载报错（Command read_text_file not found）
+  completed_at: '2026-04-30T20:00:00Z'
+  tag: fix-settings-workflow-tab-20260430
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/fix-settings-workflow-tab
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-fix-settings-workflow-tab
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 2
+    scenarios_passed: 2
+  stats:
+    started: '2026-04-30T20:00:00Z'
+    duration: ~5min
+    commits: 1
+    files_changed: 1
+- id: feat-agent-acp-adapter
+  name: ACP JSON-RPC 2.0 Adapter (Codex / Hermes / Kiro / Kimi / Pi)
+  completed_at: '2026-04-30T16:45:00Z'
+  tag: feat-agent-acp-adapter-20260430
+  merge_commit: 03162f9
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-agent-acp-adapter
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-agent-acp-adapter
+  parent: feat-universal-agent-runtime
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 6
+    scenarios_passed: 6
+  stats:
+    started: '2026-04-30T16:00:00Z'
+    duration: ~45min
+    commits: 3
+    files_changed: 6
+- id: feat-agent-pipe-adapter
+  name: NDJSON Pipe Adapter（Claude Code / Cursor / OpenCode）
+  completed_at: '2026-04-30T15:30:00Z'
+  tag: feat-agent-pipe-adapter-20260430
+  merge_commit: b4b63a4
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/agent-pipe-adapter
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-agent-pipe-adapter
+  parent: feat-universal-agent-runtime
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-30T15:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 2
+    insertions: 886
+    deletions: 4
+  archive_path: features/archive/done-feat-agent-pipe-adapter-20260430
+- id: feat-agent-stdio-core
+  name: Agent Stdio 通信核心抽象层
+  completed_at: '2026-04-30T14:30:00Z'
+  tag: feat-agent-stdio-core-20260430
+  merge_commit: fdd4948
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/agent-stdio-core
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-agent-stdio-core
+  parent: feat-universal-agent-runtime
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-30T14:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 2
+    insertions: 1322
+    deletions: 0
+  archive_path: features/archive/done-feat-agent-stdio-core-20260430
+- id: feat-file-tree-ops
+  name: 文件树编辑器操作增强
+  completed_at: '2026-04-30T12:00:00Z'
+  split: true
+  children:
+  - feat-file-tree-context-menu
+  - feat-file-tree-clipboard
+  - feat-file-tree-navigation
+- id: feat-reveal-in-file-manager
+  name: 文件树「在文件管理器中显示」Tauri 后端实现
+  completed_at: '2026-04-30T11:30:00Z'
+  tag: feat-reveal-in-file-manager-20260430
+  merge_commit: c3e1113
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/reveal-in-file-manager
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-reveal-in-file-manager
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-04-30T11:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 1
+    insertions: 18
+    deletions: 0
+  archive_path: features/archive/done-feat-reveal-in-file-manager-20260430
+- id: feat-modal-safe-close
+  name: Modal 安全关闭保护
+  completed_at: '2026-04-29T20:20:00Z'
+  tag: feat-modal-safe-close-20260429
+  merge_commit: 4b16f65
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/modal-safe-close
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-modal-safe-close
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-29T20:00:00Z'
+    duration: 20m
+    commits: 2
+    files_changed: 2
+- id: feat-task-execution-overlay
+  name: 任务执行乐观状态（Execution Overlay + Ghost Card）
+  completed_at: '2026-04-29T19:30:00Z'
+  tag: feat-task-execution-overlay-20260429
+  merge_commit: 3a16279
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-task-execution-overlay
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-task-execution-overlay
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+    resolved_at: null
+    re_verified: false
+  verification:
+    status: passed
+    scenarios_total: 7
+    scenarios_passed: 7
+  stats:
+    started: '2026-04-29T19:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 5
+    insertions: 441
+    deletions: 62
+  archive_path: features/archive/done-feat-task-execution-overlay-20260429
+- id: feat-task-board-layout-optim
+  name: Task Board 列排序与显示优化
+  completed_at: '2026-04-29T18:30:00Z'
+  tag: feat-task-board-layout-optim-20260429
+  merge_commit: c505761
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-task-board-layout-optim
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-task-board-layout-optim
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+    resolved_at: null
+    re_verified: false
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-29T18:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 1
+    insertions: 73
+    deletions: 23
+  archive_path: features/archive/done-feat-task-board-layout-optim-20260429
+- id: feat-settings-workflow-config
+  name: Settings 工作流参数配置（并行/自动化/清理）
+  completed_at: '2026-04-29T17:30:00Z'
+  tag: feat-settings-workflow-config-20260429
+  merge_commit: a685c31
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-settings-workflow-config
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-settings-workflow-config
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+    resolved_at: null
+    re_verified: false
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-29T17:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 5
+- id: feat-claude-session-history
+  name: Claude Code 会话历史回看
+  completed_at: '2026-04-29T16:00:00Z'
+  tag: feat-claude-session-history-20260429
+  merge_commit: 1d5e25f
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-claude-session-history
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-claude-session-history
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-29T15:00:00Z'
+    duration: 60m
+    commits: 1
+    files_changed: 5
+- id: feat-git-display-enhance
+  name: Git 信息展示强化
+  completed_at: '2026-04-29T14:30:00Z'
+  tag: feat-git-display-enhance-20260429
+  merge_commit: 3af897b
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-git-display-enhance
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-git-display-enhance
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-29T14:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 10
+    insertions: 1089
+    deletions: 124
+  archive_path: features/archive/done-feat-git-display-enhance-20260429
+- id: feat-file-tree-navigation
+  name: 文件树快速导航（定位/跳转/路径复制）
+  completed_at: '2026-04-29T13:30:00Z'
+  tag: feat-file-tree-navigation-20260429
+  merge_commit: 2359abd
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-file-tree-navigation
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-file-tree-navigation
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-29T13:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 2
+    insertions: 268
+    deletions: 5
+  archive_path: features/archive/done-feat-file-tree-navigation-20260429
+- id: feat-file-tree-clipboard
+  name: 文件树剪贴板操作（复制/剪切/粘贴/移动）
+  completed_at: '2026-04-29T12:30:00Z'
+  tag: feat-file-tree-clipboard-20260429
+  merge_commit: 29fdb1e
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-file-tree-clipboard
+  worktree_deleted: true
+  worktree_path: /Users/ryan/mycode/NeuroSyntaxIDE-feat-file-tree-clipboard
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-29T12:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 3
+- id: feat-git-file-interaction
+  name: 文件变更交互增强
+  completed_at: '2026-04-28T16:30:00Z'
+  tag: feat-git-file-interaction-20260428
+  merge_commit: f8c401d
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-git-file-interaction
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-git-file-interaction
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 6
+    scenarios_passed: 6
+  stats:
+    started: '2026-04-28T16:00:00Z'
+    duration: ~30min
+    commits: 2
+    files_changed: 5
+- id: feat-file-tree-context-menu
+  name: 文件树右键上下文菜单与基础操作
+  completed_at: '2026-04-29T10:05:00Z'
+  tag: feat-file-tree-context-menu-20260429
+  merge_commit: ccf4b9f
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-file-tree-context-menu
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-file-tree-context-menu
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 6
+    scenarios_passed: 6
+  stats:
+    started: '2026-04-29T10:00:00Z'
+    duration: ~5min
+    commits: 1
+    files_changed: 11
+- id: feat-git-tab-page
+  name: Git 独立 Tab 页
+  completed_at: '2026-04-29T09:40:00Z'
+  tag: feat-git-tab-page-20260429
+  merge_commit: f9b6796
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/git-tab-page
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-git-tab-page
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-28T14:00:00Z'
+    duration: ~19h
+    commits: 1
+    files_changed: 6
+- id: feat-modal-session-store
+  name: Modal 会话持久化层（SessionStore）
+  completed_at: '2026-04-28T12:00:00Z'
+  tag: feat-modal-session-store-20260428
+  merge_commit: b0e1787
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/modal-session-store
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-modal-session-store
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 8
+    scenarios_passed: 8
+  stats:
+    started: '2026-04-28T12:00:00Z'
+    duration: ~session
+    commits: 1
+    files_changed: 5
+    insertions: 379
+    deletions: 14
+  archive_path: features/archive/done-feat-modal-session-store-20260428
+- id: feat-task-graph-timeline
+  name: Task Graph Timeline View（时间轴依赖图谱视图）
+  completed_at: '2026-04-23T13:00:00Z'
+  tag: feat-task-graph-timeline-20260423
+  merge_commit: 68e33c3
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-task-graph-timeline
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-task-graph-timeline
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-23T12:30:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 2
+  archive_path: features/archive/done-feat-task-graph-timeline-20260423
+- id: fix-settings-api-base-url
+  name: 修复 LLM 供应商 API Base URL 无法修改
+  completed_at: '2026-04-15T11:00:00Z'
+  tag: fix-settings-api-base-url-20260415
+  merge_commit: 12437c8
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/fix-settings-api-base-url
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-fix-settings-api-base-url
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-15T10:00:00Z'
+    duration: ~1h
+    commits: 1
+    files_changed: 1
+  archive_path: features/archive/done-fix-settings-api-base-url-20260415
+- id: feat-user-profile
+  name: 用户资料管理（名称/邮箱/头像/Git 信息）
+  completed_at: '2026-04-14T16:45:00Z'
+  tag: feat-user-profile-20260414
+  merge_commit: 3fb44e7
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-user-profile
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-user-profile
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-14T16:00:00Z'
+    duration: ~45min
+    commits: 1
+    files_changed: 8
+- id: feat-newtask-runtime-multiturn
+  name: New Task 外部 Runtime 多轮对话支持
+  completed_at: '2026-04-14T15:00:00Z'
+  tag: feat-newtask-runtime-multiturn-20260414
+  merge_commit: 8c95282
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-newtask-runtime-multiturn
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-newtask-runtime-multiturn
+  parent: feat-pm-newtask-role-separation
+  depends_on:
+  - feat-newtask-built-in-pm
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-04-14T14:00:00Z'
+    duration: ~1h
+    commits: 3
+    files_changed: 6
+    insertions: 486
+    deletions: 35
+  archive_path: features/archive/done-feat-newtask-runtime-multiturn-20260414
+- id: feat-newtask-built-in-pm
+  name: New Task 内置 PM 独立 Prompt 体系
+  completed_at: '2026-04-14T13:00:00Z'
+  tag: feat-newtask-built-in-pm-20260414
+  merge_commit: 926581d
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-newtask-built-in-pm
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-newtask-built-in-pm
+  parent: feat-pm-newtask-role-separation
+  depends_on:
+  - feat-pm-role-separation
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 2
+    scenarios_passed: 2
+  stats:
+    started: '2026-04-14T12:30:00Z'
+    duration: ~30min
+    commits: 3
+    files_changed: 5
+    insertions: 267
+    deletions: 28
+  archive_path: features/archive/done-feat-newtask-built-in-pm-20260414
+- id: feat-pm-role-separation
+  name: PM Agent 职责分离与 Prompt 拆分
+  completed_at: '2026-04-14T12:00:00Z'
+  tag: feat-pm-role-separation-20260414
+  merge_commit: 9995894
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-pm-role-separation
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-pm-role-separation
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-04-14T11:00:00Z'
+    duration: ~1h
+    commits: 2
+    files_changed: 1
+    insertions: 30
+    deletions: 202
+  archive_path: features/archive/done-feat-pm-role-separation-20260414
+- id: fix-queue-resilient-parsing
+  name: Task Board YAML 解析容错与字段兼容
+  completed_at: '2026-04-14T10:30:00Z'
+  tag: fix-queue-resilient-parsing-20260414
+  merge_commit: 01fbe5e
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/fix-queue-resilient-parsing
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-fix-queue-resilient-parsing
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 7
+    scenarios_passed: 7
+  stats:
+    started: '2026-04-14T10:00:00Z'
+    duration: ~30min
+    commits: 2
+    files_changed: 1
+    insertions: 189
+    deletions: 3
+  archive_path: features/archive/done-fix-queue-resilient-parsing-20260414
+- id: feat-chat-style-newtask
+  name: Chat-style NewTask Modal（需求多轮对话 + 精准触达 new-feature）
+  completed_at: '2026-04-13T17:00:00Z'
+  tag: feat-chat-style-newtask-20260413
+  merge_commit: 01af9cc
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-chat-style-newtask
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-chat-style-newtask
+  conflicts:
+    had_conflict: true
+    conflict_files:
+    - features/active-feat-chat-style-newtask/checklist.md
+    - features/active-feat-chat-style-newtask/task.md
+    resolved_at: '2026-04-13T17:00:00Z'
+    resolution: Took feature branch versions (completed checkmarks + verification
+      record)
+    re_verified: false
+  verification:
+    status: passed
+    scenarios_total: 6
+    scenarios_passed: 6
+  stats:
+    started: '2026-04-13T16:00:00Z'
+    duration: ~1h
+    commits: 2
+    files_changed: 2
+    insertions: 235
+    deletions: 51
+  archive_path: features/archive/done-feat-chat-style-newtask-20260413
+- id: feat-i18n-complete
+  name: 中英文国际化完善
+  completed_at: '2026-04-10T23:30:00Z'
+  tag: feat-i18n-complete-20260410
+  merge_commit: 236c7be
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/i18n-complete
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-i18n-complete
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 27
+    scenarios_passed: 27
+  stats:
+    started: '2026-04-10T22:10:00Z'
+    duration: ~1h20min
+    commits: 1
+    files_changed: 10
+    insertions: 155
+    deletions: 63
+  archive_path: features/archive/done-feat-i18n-complete-20260410
+- id: fix-terminal-add-tab
+  name: 终端 Tab 新增与切换修复
+  completed_at: '2026-04-10T19:15:00Z'
+  tag: fix-terminal-add-tab-20260410
+  merge_commit: eacbfb7
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/fix-terminal-add-tab
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-fix-terminal-add-tab
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 6
+    scenarios_passed: 6
+  stats:
+    started: '2026-04-10T12:00:00Z'
+    duration: ~7h
+    commits: 1
+    files_changed: 1
+  archive_path: features/archive/done-fix-terminal-add-tab-20260410
+- id: feat-pixel-observatory-rework
+  name: Pixel Agent Observatory 100% 复刻（MIT Reference 直接移植）
+  completed_at: '2026-04-09T21:00:00Z'
+  tag: feat-pixel-observatory-rework-20260409
+- id: feat-runtime-timeout-reminder
+  name: Runtime Session 超时策略优化（智能超时 + 静默提醒）
+  completed_at: '2026-04-09T12:42:00Z'
+  tag: feat-runtime-timeout-reminder-20260409
+  merge_commit: b81c23f
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-runtime-timeout-reminder
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-runtime-timeout-reminder
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-09T17:00:00Z'
+    duration: ~1h
+    commits: 1
+    files_changed: 5
+- id: feat-pixel-agent-observatory
+  name: Pixel Agent 可观测 Tab — Claude Code Agent 像素小人实时可视化
+  completed_at: '2026-04-09T16:30:00Z'
+  tag: feat-pixel-agent-observatory-20260409
+  merge_commit: 2487d64
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-pixel-agent-observatory
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-pixel-agent-observatory
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 6
+    scenarios_passed: 6
+  stats:
+    started: '2026-04-09T15:00:00Z'
+    duration: ~90min
+    commits: 3
+    files_changed: 18
+    insertions: 3200
+    deletions: 10
+  archive_path: features/archive/done-feat-pixel-agent-observatory-20260409
+- id: fix-runtime-output-render
+  name: Runtime Output 弹窗宽度与内容渲染修复
+  completed_at: '2026-04-08T23:30:00Z'
+  tag: fix-runtime-output-render-20260408
+  merge_commit: 33a519a
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/fix-runtime-output-render
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-fix-runtime-output-render
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-08T23:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 5
+    insertions: 170
+    deletions: 25
+  archive_path: features/archive/done-fix-runtime-output-render-20260408
+- id: feat-runtime-process-stop
+  name: Agent Runtime 进程 Stop 按钮（PID Kill）
+  completed_at: '2026-04-08T22:36:00Z'
+  tag: feat-runtime-process-stop-20260408
+  merge_commit: 4349f65
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-runtime-process-stop
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-runtime-process-stop
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-04-08T22:10:00Z'
+    duration: ~26min
+    commits: 1
+    files_changed: 2
+    insertions: 116
+    deletions: 6
+  archive_path: features/archive/done-feat-runtime-process-stop-20260408
+- id: fix-terminal-tab-render
+  name: Terminal Tab 渲染修复（初始宽度 + 切换 + 缩放）
+  completed_at: '2026-04-08T22:40:00Z'
+  tag: fix-terminal-tab-render-20260408
+  merge_commit: 4a68e85
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/fix-terminal-tab-render
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-fix-terminal-tab-render
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-08T22:30:00Z'
+    duration: ~15min
+    commits: 1
+    files_changed: 1
+    insertions: 19
+    deletions: 10
+  archive_path: features/archive/done-fix-terminal-tab-render-20260408
+- id: feat-runtime-output-polish
+  name: Runtime Session Output 弹窗与渲染优化
+  completed_at: '2026-04-08T15:53:00Z'
+  tag: feat-runtime-output-polish-20260408
+  merge_commit: 7b1e16b
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-runtime-output-polish
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-runtime-output-polish
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 6
+    scenarios_passed: 6
+  stats:
+    started: '2026-04-08T20:30:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 3
+    insertions: 456
+    deletions: 62
+  archive_path: features/archive/done-feat-runtime-output-polish-20260408
+- id: feat-runtime-session-output
+  name: Claude Code Runtime Session 输出持久化与监控
+  completed_at: '2026-04-08T19:35:00Z'
+  tag: feat-runtime-session-output-20260408
+  merge_commit: e555dcf
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-runtime-session-output
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-runtime-session-output
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-08T19:05:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 4
+    insertions: 422
+    deletions: 2
+  archive_path: features/archive/done-feat-runtime-session-output-20260408
+- id: feat-file-tree-resizable
+  name: 文件树横向拖拽调整宽度
+  completed_at: '2026-04-08T19:30:00Z'
+  tag: feat-file-tree-resizable-20260408
+  merge_commit: 561b4ce
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-file-tree-resizable
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-file-tree-resizable
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-08T19:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 1
+    insertions: 62
+    deletions: 1
+  archive_path: features/archive/done-feat-file-tree-resizable-20260408
+- id: fix-analyze-all-state
+  name: Analyze All 按钮状态管理与防重复分析
+  completed_at: '2026-04-08T16:30:00Z'
+  tag: fix-analyze-all-state-20260408
+  merge_commit: 7f9bccf
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/fix-analyze-all-state
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-fix-analyze-all-state
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-04-08T16:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 3
+    insertions: 34
+    deletions: 3
+  archive_path: features/archive/done-fix-analyze-all-state-20260408
+- id: feat-claude-code-runtime-monitor
+  name: Claude Code Runtime 状态监听
+  completed_at: '2026-04-08T15:30:00Z'
+  tag: feat-claude-code-runtime-monitor-20260408
+  merge_commit: ab3b2dc
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-claude-code-runtime-monitor
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-claude-code-runtime-monitor
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 6
+    scenarios_passed: 6
+  stats:
+    started: '2026-04-08T14:00:00Z'
+    duration: ~90min
+    commits: 1
+    files_changed: 7
+    insertions: 847
+    deletions: 28
+  archive_path: features/archive/done-feat-claude-code-runtime-monitor-20260408
+- id: fix-terminal-io-resize
+  name: 终端输入输出修复 + 面板动态调整
+  completed_at: '2026-04-08T00:00:00Z'
+  tag: fix-terminal-io-resize-20260408
+  merge_commit: ac355e1
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/fix-terminal-io-resize
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-fix-terminal-io-resize
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-08T00:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 3
+    insertions: 93
+    deletions: 8
+  archive_path: features/archive/done-fix-terminal-io-resize-20260408
+- id: feat-editor-terminal-workspace
+  name: 编辑器终端工作空间目录绑定
+  completed_at: '2026-04-07T17:45:00Z'
+  tag: feat-editor-terminal-workspace-20260407
+  merge_commit: 7d4c4f3
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-editor-terminal-workspace
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-editor-terminal-workspace
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-07T17:15:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 3
+    insertions: 20
+    deletions: 2
+  archive_path: features/archive/done-feat-editor-terminal-workspace-20260407
+- id: feat-editor-tab-overflow
+  name: 编辑器 Tab 溢出优化
+  completed_at: '2026-04-07T17:36:00Z'
+  tag: feat-editor-tab-overflow-20260407
+  merge_commit: b56c043
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-editor-tab-overflow
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-editor-tab-overflow
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-07T17:20:00Z'
+    duration: ~16min
+    commits: 5
+    files_changed: 7
+  archive_path: features/archive/done-feat-editor-tab-overflow-20260407
+- id: feat-file-preview-image-enhance
+  name: 图片预览增强
+  completed_at: '2026-04-07T16:01:00Z'
+  tag: feat-file-preview-image-enhance-20260407
+  merge_commit: 219611b
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-file-preview-image-enhance
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-file-preview-image-enhance
+  parent: feat-file-preview-multi
+  depends_on:
+  - feat-file-preview-media
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-07T15:30:00Z'
+    duration: ~31min
+    commits: 1
+    files_changed: 3
+- id: feat-file-preview-media
+  name: 视频/音频预览
+  completed_at: '2026-04-07T14:55:00Z'
+  tag: feat-file-preview-media-20260407
+  merge_commit: 458ac77
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-file-preview-media
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-file-preview-media
+  parent: feat-file-preview-multi
+  depends_on:
+  - feat-file-preview-pdf
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-07T14:00:00Z'
+    duration: ~55min
+    commits: 1
+    files_changed: 8
+    insertions: 570
+    deletions: 29
+  archive_path: features/archive/done-feat-file-preview-media-20260407
+- id: feat-file-preview-pdf
+  name: PDF 文件预览
+  completed_at: '2026-04-07T13:00:00Z'
+  tag: feat-file-preview-pdf-20260407
+  merge_commit: 278137d
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-file-preview-pdf
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-file-preview-pdf
+  parent: feat-file-preview-multi
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-07T12:30:00Z'
+    duration: ~30min
+    commits: 2
+    files_changed: 13
+    insertions: 767
+    deletions: 44
+  archive_path: features/archive/done-feat-file-preview-pdf-20260407
+- id: feat-new-task-runtime-execute
+  name: New Task Runtime 直接执行（对齐 REQ Agent 方案）
+  completed_at: '2026-04-07T10:40:00Z'
+  tag: feat-new-task-runtime-execute-20260407
+  merge_commit: 15c560c
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-new-task-runtime-execute
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-new-task-runtime-execute
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-07T10:15:00Z'
+    duration: ~25min
+    commits: 3
+    files_changed: 8
+    insertions: 429
+    deletions: 199
+  archive_path: features/archive/done-feat-new-task-runtime-execute-20260407
+- id: feat-dispatch-runtime-graceful
+  name: Fix dispatch_to_runtime Command Not Found
+  completed_at: '2026-04-07T09:47:00Z'
+  tag: feat-dispatch-runtime-graceful-20260407
+  merge_commit: 95a9ef0
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-dispatch-runtime-graceful
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-dispatch-runtime-graceful
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-07T09:31:00Z'
+    duration: ~16min
+    commits: 2
+    files_changed: 3
+    insertions: 302
+    deletions: 31
+  archive_path: features/archive/done-feat-dispatch-runtime-graceful-20260407
+- id: feat-agent-multimodal-chat
+  name: Agent 对话多模态集成
+  completed_at: '2026-04-07T06:00:00Z'
+  tag: feat-agent-multimodal-chat-20260407
+  merge_commit: 83401eb
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-agent-multimodal-chat
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-agent-multimodal-chat
+  parent: feat-agent-multimodal
+  depends_on:
+  - feat-agent-multimodal-upload
+  - feat-agent-multimodal-analyze
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-07T05:00:00Z'
+    duration: ~1h
+    commits: 2
+    files_changed: 8
+    insertions: 1054
+    deletions: 8
+  archive_path: features/archive/done-feat-agent-multimodal-chat-20260407
+- id: feat-agent-multimodal-analyze
+  name: 多模态文件分析与 MD 文档生成
+  completed_at: '2026-04-07T04:30:00Z'
+  tag: feat-agent-multimodal-analyze-20260407
+  merge_commit: a29884e
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-agent-multimodal-analyze
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-agent-multimodal-analyze
+  parent: feat-agent-multimodal
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-07T04:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 5
+    insertions: 1029
+    deletions: 25
+  archive_path: features/archive/done-feat-agent-multimodal-analyze-20260407
+- id: feat-agent-multimodal-upload
+  name: Agent 多模态文件上传与管理
+  completed_at: '2026-04-07T03:30:00Z'
+  tag: feat-agent-multimodal-upload-20260407
+  merge_commit: cb7a9aa
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-agent-multimodal-upload
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-agent-multimodal-upload
+  parent: feat-agent-multimodal
+  conflicts:
+    had_conflict: true
+    conflict_files:
+    - neuro-syntax-ide/src/types.ts
+    resolved_at: '2026-04-07T03:30:00Z'
+    resolution: Merged both Agent Conversation types and PMFile types sections
+    re_verified: false
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-07T00:00:00Z'
+    duration: ~3.5h
+    commits: 1
+    files_changed: 5
+    insertions: 1037
+    deletions: 48
+  archive_path: features/archive/done-feat-agent-multimodal-upload-20260407
+- id: feat-agent-conversation
+  name: Feature Detail Modal Agent 对话区（Review/Modify/Develop）
+  completed_at: '2026-04-07T02:00:00Z'
+  tag: feat-agent-conversation-20260407
+  merge_commit: 12b34eb
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-agent-conversation
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-agent-conversation
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-07T01:00:00Z'
+    duration: ~1h
+    commits: 1
+    files_changed: 2
+    insertions: 277
+    deletions: 5
+  archive_path: features/archive/done-feat-agent-conversation-20260407
+- id: feat-modal-drag-resize
+  name: NewTaskModal 拖拽移动与调整大小
+  completed_at: '2026-04-07T00:00:00Z'
+  tag: feat-modal-drag-resize-20260406
+  merge_commit: 0ecdde3
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-modal-drag-resize
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-modal-drag-resize
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-04-06T23:45:00Z'
+    duration: ~15min
+    commits: 1
+    files_changed: 1
+- id: feat-project-md-explorer
+  name: Project MD Explorer（项目首页 Markdown 文件浏览器）
+  completed_at: '2026-04-06T23:30:00Z'
+  tag: feat-project-md-explorer-20260406
+  merge_commit: 167ce25
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-project-md-explorer
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-project-md-explorer
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 6
+    scenarios_passed: 6
+  stats:
+    started: '2026-04-06T22:30:00Z'
+    duration: ~1h
+    commits: 1
+    files_changed: 5
+    insertions: 604
+    deletions: 82
+  archive_path: features/archive/done-feat-project-md-explorer-20260406
+- id: feat-load-project-context
+  name: Project Context 真实文件加载
+  completed_at: '2026-04-05T22:15:00Z'
+  tag: feat-load-project-context-20260405
+  merge_commit: 3ea4b5d
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-load-project-context
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-load-project-context
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-04-05T22:30:00Z'
+    duration: ~15min
+    commits: 1
+    files_changed: 1
+    insertions: 121
+    deletions: 27
+  archive_path: features/archive/done-feat-load-project-context-20260405
+- id: fix-req-agent-multiturn-v2
+  name: REQ Agent 多轮对话修复 V2（第二轮无响应根因修复）
+  completed_at: '2026-04-05T20:25:00Z'
+  tag: fix-req-agent-multiturn-v2-20260405
+  merge_commit: 934313a
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/fix-req-agent-multiturn-v2
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-fix-req-agent-multiturn-v2
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-05T12:00:00Z'
+    duration: ~1hr
+    commits: 1
+    files_changed: 6
+    insertions: 151
+    deletions: 38
+- id: feat-pm-agent-provider-switch
+  name: PM Agent LLM 提供商切换（Settings 默认值 + 聊天区下拉覆盖）
+  completed_at: '2026-04-06T10:30:00Z'
+  tag: feat-pm-agent-provider-switch-20260405
+  merge_commit: 1ca69f5
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-pm-agent-provider-switch
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-pm-agent-provider-switch
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-06T22:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 8
+    insertions: 359
+    deletions: 74
+  archive_path: features/archive/done-feat-pm-agent-provider-switch-20260405
+- id: feat-git-branch-graph
+  name: Branch & Feature 连线图（拓扑可视化）
+  completed_at: '2026-04-06T21:00:00Z'
+  tag: feat-git-branch-graph-20260406
+  merge_commit: b92b7a9
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-git-branch-graph
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-git-branch-graph
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-04-06T19:00:00Z'
+    duration: ~2h
+    commits: 2
+    files_changed: 4
+    insertions: 671
+    deletions: 4
+    parent: feat-git-tag-detail-graph
+- id: feat-editor-save-status
+  name: 编辑器保存状态优化（移除 Run + 状态可视化 + 快捷键）
+  completed_at: '2026-04-06T17:00:00Z'
+  tag: feat-editor-save-status-20260406
+  merge_commit: 78765de
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-editor-save-status
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-editor-save-status
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-06T16:30:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 2
+    insertions: 22
+    deletions: 20
+- id: fix-req-agent-multiturn
+  name: REQ Agent 多轮对话修复 + 状态初始化
+  completed_at: '2026-04-06T15:20:00Z'
+  tag: fix-req-agent-multiturn-20260406
+  merge_commit: 8c7e3ee
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/fix-req-agent-multiturn
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-fix-req-agent-multiturn
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-06T15:00:00Z'
+    duration: ~20min
+    commits: 2
+    files_changed: 1
+    insertions: 31
+    deletions: 9
+- id: feat-agent-unified-stream
+  name: 统一事件格式 + 前端 Hook 合并
+  completed_at: '2026-04-05T19:00:00Z'
+  tag: feat-agent-unified-stream-20260405
+  merge_commit: 1c688f7
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-agent-unified-stream
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-agent-unified-stream
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-04-05T18:00:00Z'
+    duration: 1h
+    commits: 1
+    files_changed: 2
     parent: feat-agent-unified-exec
-    depends_on:
-      - feat-agent-runtime-execute
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-04-05T16:30:00Z"
-      duration: "30min"
-      commits: 1
-      files_changed: 2
-  - id: feat-pipeline-yaml-editor
-    name: "Pipeline YAML/JSON 直接编辑模式"
-    completed_at: "2026-04-05T16:00:00Z"
-    tag: feat-pipeline-yaml-editor-20260405
-    merge_commit: c6d95c2
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-pipeline-yaml-editor
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-pipeline-yaml-editor
-    parent: feat-pipeline-editor
-    depends_on:
-      - feat-pipeline-visual-editor
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-05T15:30:00Z"
-      duration: "30min"
-      commits: 1
-      files_changed: 2
-      insertions: 863
-      deletions: 13
-  - id: feat-new-task-agent-dispatch
-    name: "New Task 弹窗 Agent 分发（选择 Agent + 调用 /new-feature skill）"
-    completed_at: "2026-04-05T15:45:00Z"
-    tag: feat-new-task-agent-dispatch-20260405
-    merge_commit: 263f852
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-new-task-agent-dispatch
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-new-task-agent-dispatch
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-05T15:35:00Z"
-      duration: "10min"
-      commits: 1
-      files_changed: 2
-  - id: feat-pipeline-visual-editor
-    name: "Pipeline 可视化拖拽编辑器"
-    completed_at: "2026-04-05T15:00:00Z"
-    tag: feat-pipeline-visual-editor-20260405
-    merge_commit: ceb0a95
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-pipeline-visual-editor
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-pipeline-visual-editor
-    parent: feat-pipeline-editor
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-05T14:05:00Z"
-      duration: "55min"
-      commits: 1
-      files_changed: 3
-
-  - id: feat-agent-runtime-execute
-    name: "AgentRuntime execute() + ClaudeCodeRuntime 实现"
-    completed_at: "2026-04-05T14:15:00Z"
-    tag: feat-agent-runtime-execute-20260405
-    merge_commit: 04cac5a
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-agent-runtime-execute
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-agent-runtime-execute
-    parent: feat-agent-unified-exec
-    conflicts:
-      had_conflict: true
-      conflict_files:
-        - features/active-feat-agent-runtime-execute/task.md
-        - features/active-feat-agent-runtime-execute/checklist.md
-      resolved_at: "2026-04-05T14:15:00Z"
-      resolution: "Took feature branch versions (completed checkmarks)"
-      re_verified: false
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-05T14:00:00Z"
-      duration: "~15m"
-      commits: 1
-      files_changed: 2
-      insertions: 360
-      deletions: 17
-  - id: feat-git-modal-enhance
-    name: "Git 弹窗内容增强（全貌展示 + 可拖拽调整）"
-    completed_at: "2026-04-05T13:00:00Z"
-    tag: feat-git-modal-enhance-20260404
-    merge_commit: HEAD
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-git-modal-enhance
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-git-modal-enhance
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-05T12:00:00Z"
-      duration: "~60m"
-      commits: 1
-      files_changed: 4
-      insertions: 847
-      deletions: 286
-  - id: feat-agent-runtime-system
-    name: "Agent Runtime 系统（多 Agent 编排引擎）"
-    completed_at: "2026-04-05T13:00:00Z"
-    split: true
-    children:
-      - feat-agent-runtime-core
-      - feat-agent-runtime-pipeline
-      - feat-agent-runtime-router
-      - feat-agent-runtime-ui
-    archive_path: features/archive/done-feat-agent-runtime-system-20260405
-  - id: feat-agent-runtime-ui
-    name: "Agent 控制面板 UI"
-    completed_at: "2026-04-05T12:30:00Z"
-    tag: feat-agent-runtime-ui-20260405
-    merge_commit: 86a3ae5
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-agent-runtime-ui
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-agent-runtime-ui
-    parent: feat-agent-runtime-system
-    depends_on:
-      - feat-agent-runtime-core
-      - feat-agent-runtime-pipeline
-      - feat-agent-runtime-router
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-05T12:00:00Z"
-      duration: "30min"
-      commits: 1
-      files_changed: 7
-
-  - id: feat-agent-runtime-router
-    name: "智能路由分发引擎"
-    completed_at: "2026-04-03T16:30:00Z"
-    tag: feat-agent-runtime-router-20260403
-    merge_commit: 6a422ae
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-agent-runtime-router
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-agent-runtime-router
-    parent: feat-agent-runtime-system
-    depends_on: feat-agent-runtime-core
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-03T16:00:00Z"
-      duration: "30min"
-      commits: 1
-      files_changed: 3
-
-  - id: feat-agent-runtime-pipeline
-    name: "Pipeline 管道编排引擎"
-    completed_at: "2026-04-05T11:00:00Z"
-    tag: feat-agent-runtime-pipeline-20260405
-    merge_commit: 23e375a
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-agent-runtime-pipeline
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-agent-runtime-pipeline
-    parent: feat-agent-runtime-system
-    conflicts:
-      had_conflict: true
-      conflict_files:
-        - neuro-syntax-ide/src/types.ts
-      resolved_at: "2026-04-05T11:00:00Z"
-      resolution: "Combined both Router types (feat-agent-runtime-router) and Pipeline types (feat-agent-runtime-pipeline) in types.ts"
-      re_verified: true
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-05T10:00:00Z"
-      duration: "~60m"
-      commits: 1
-      files_changed: 4
-      insertions: 1183
-      deletions: 0
-
-  - id: feat-agent-runtime-core
-    name: "Agent 发现与 Runtime 抽象层"
-    completed_at: "2026-04-04T23:30:00Z"
-    tag: feat-agent-runtime-core-20260404
-    merge_commit: 8c6c5c5
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-agent-runtime-core
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-agent-runtime-core
-    parent: feat-agent-runtime-system
-    conflicts:
-      had_conflict: true
-      conflict_files:
-        - neuro-syntax-ide/src/types.ts
-      resolved_at: "2026-04-04T23:30:00Z"
-      resolution: "Combined both feature type sections (settings-llm-config + agent-runtime-core)"
-      re_verified: true
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-04T14:00:00Z"
-      duration: "9h 30m"
-      commits: 1
-      files_changed: 8
-      insertions: 963
-      deletions: 2
-
-  - id: fix-terminal-writer-tabs
-    name: "终端 Writer 不可重复获取 & 新增终端失效修复"
-    completed_at: "2026-04-03T19:00:00Z"
-    tag: fix-terminal-writer-tabs-20260403
-    merge_commit: 5458f46
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/fix-terminal-writer-tabs
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-fix-terminal-writer-tabs
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-      resolved_at: null
-      re_verified: false
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-03T18:00:00Z"
-      duration: "~60m"
-      commits: 1
-      files_changed: 2
-
-  - id: fix-reqagent-connection
-    name: "ReqAgent Claude Code 连接修复（首次无响应 + 重连自动断开）"
-    completed_at: "2026-04-03T23:00:00Z"
-    tag: fix-reqagent-connection-20260403
-    merge_commit: ec3266c
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/fix-reqagent-connection
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-fix-reqagent-connection
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-      resolved_at: null
-      re_verified: false
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-03T18:00:00Z"
-      duration: "~5h"
-      commits: 1
-      files_changed: 3
-
-  - id: feat-git-modal-compact
-    name: "Git 弹窗布局优化（高度限制 + 内容分组折叠）"
-    completed_at: "2026-04-04T11:00:00Z"
-    tag: feat-git-modal-compact-20260404
-    merge_commit: f0a4c931b3340b3c2a9eb7cc543c331d227c945f
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-git-modal-compact
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-git-modal-compact
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-      resolved_at: null
-      re_verified: false
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-04-04T10:00:00Z"
-      duration: "~60m"
-      commits: 1
-      files_changed: 1
-
-  - id: feat-git-integration
-    name: "Git 集成功能（状态展示 + Stage/Commit + Push/Pull）"
-    completed_at: "2026-04-04T02:30:00Z"
-    split: true
-    children:
-      - feat-git-status-read
-      - feat-git-stage-commit
-      - feat-git-push-pull
-    archive_path: features/archive/done-feat-git-integration-20260404
-
-  - id: feat-file-type-display
-    name: "文件类型差异化展示系统"
-    completed_at: "2026-04-04T02:30:00Z"
-    split: true
-    children:
-      - feat-file-type-router
-      - feat-markdown-split-preview
-      - feat-image-config-preview
-      - feat-syntax-highlight-lang
-    archive_path: features/archive/done-feat-file-type-display-20260404
-
-  - id: feat-image-config-preview
-    name: "图片可视化预览 + 配置文件结构化视图"
-    completed_at: "2026-04-04T02:00:00Z"
-    tag: feat-image-config-preview-20260404
-    merge_commit: 5d53dd7
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-image-config-preview
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-image-config-preview
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-      resolved_at: null
-      re_verified: false
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-04T01:30:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 5
-
-  - id: feat-syntax-highlight-lang
-    name: "多语言语法配色渲染增强"
-    completed_at: "2026-04-04T01:00:00Z"
-    tag: feat-syntax-highlight-lang-20260404
-    merge_commit: fb1e990
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-syntax-highlight-lang
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-syntax-highlight-lang
-    conflicts:
-      had_conflict: true
-      conflict_files:
-        - neuro-syntax-ide/src/components/views/EditorView.tsx
-      resolved_at: "2026-04-04T01:00:00Z"
-      re_verified: true
-    verification:
-      status: passed
-      scenarios_total: 6
-      scenarios_passed: 6
-    stats:
-      started: "2026-04-04T00:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 4
-
-  - id: feat-markdown-split-preview
-    name: "Markdown 分栏预览（左代码右渲染）"
-    completed_at: "2026-04-04T00:30:00Z"
-    tag: feat-markdown-split-preview-20260404
-    merge_commit: a7ec88a
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-markdown-split-preview
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-markdown-split-preview
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-      resolved_at: null
-      re_verified: false
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-04T00:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 5
-
-  - id: feat-file-type-router
-    name: "文件类型路由 + 代码语言风格差异化"
-    completed_at: "2026-04-03T23:30:00Z"
-    tag: feat-file-type-router-20260403
-    merge_commit: f556a96
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-file-type-router
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-file-type-router
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-      resolved_at: null
-      re_verified: false
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-03T23:00:00Z"
-      duration: "~30min"
-      commits: 1
-      files_changed: 4
-
-  - id: feat-terminal-enhance
-    name: "编辑器终端能力增强（可用性 + hover 样式 + 新建终端）"
-    completed_at: "2026-04-03T22:30:00Z"
-    tag: feat-terminal-enhance-20260403
-    merge_commit: bc092e0
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-terminal-enhance
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-terminal-enhance
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-03T22:10:00Z"
-      duration: "20m"
-      commits: 1
-      files_changed: 5
-
-  - id: feat-tauri-v2-init
-    name: "Tauri V2 工程初始化"
-    completed_at: "2026-04-01T10:00:00Z"
-    tag: feat-tauri-v2-init-20260401
-    size: M
-
-  - id: feat-workspace-loader
-    name: "工作区加载器 + 真实文件树"
-    completed_at: "2026-04-01T11:10:00Z"
-    tag: feat-workspace-loader-20260401
-    size: M
-
-  - id: feat-native-terminal
-    name: "xterm.js 真实终端"
-    completed_at: "2026-04-01T11:10:00Z"
-    tag: feat-native-terminal-20260401
-    size: L
-
-  - id: feat-editor-monaco
-    name: "Monaco Editor 代码编辑器"
-    completed_at: "2026-04-01T11:30:00Z"
-    tag: feat-editor-monaco-20260401
-    size: M
-
-  - id: feat-fs-database-engine
-    name: "FS-as-Database 数据引擎 + 看板活数据"
-    completed_at: "2026-04-01T11:30:00Z"
-    tag: feat-fs-database-engine-20260401
-    size: L
-
-  - id: feat-hardware-monitor
-    name: "硬件监控探针 + 仪表盘"
-    completed_at: "2026-04-01T12:00:00Z"
-    tag: feat-hardware-monitor-20260401
-    size: M
-
-  - id: feat-ai-agent-service
-    name: "AI Agent 服务化接口"
-    completed_at: "2026-04-01T12:00:00Z"
-    tag: feat-ai-agent-service-20260401
-    size: L
-
-  - id: feat-native-titlebar
-    name: "恢复系统默认窗口标题栏"
-    completed_at: "2026-04-02T19:30:00Z"
-    tag: feat-native-titlebar-20260402
-    merge_commit: HEAD
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/native-titlebar
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-native-titlebar
-    conflicts:
-      had_conflict: false
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-02T19:00:00Z"
-      duration: "~30m"
-      commits: 3
-      files_changed: 5
-
-  - id: feat-ui-cleanup
-    name: "UI 清理与布局优化"
-    completed_at: "2026-04-02T04:10:00Z"
-    tag: feat-ui-cleanup-20260402
-    merge_commit: 391fb8c
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/ui-cleanup
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-ui-cleanup
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-02T03:58:48Z"
-      duration: "~12m"
-      commits: 1
-      files_changed: 4
-
-  - id: feat-fix-read-file
-    name: "修复编辑器 read_file / write_file Command 缺失"
-    completed_at: "2026-04-02T19:45:00Z"
-    tag: feat-fix-read-file-20260402
-    merge_commit: 0eab03f
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-fix-read-file
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-fix-read-file
-    conflicts:
-      had_conflict: false
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-04-02T19:00:00Z"
-      duration: "~45m"
-      commits: 1
-      files_changed: 1
-
-  - id: feat-md-render-task-detail
-    name: "Task 详情弹窗 Markdown 富渲染"
-    completed_at: "2026-04-02T20:30:00Z"
-    tag: feat-md-render-task-detail-20260402
-    merge_commit: 46a536f
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-md-render-task-detail
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-md-render-task-detail
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-04-02T20:00:00Z"
-      duration: "~30m"
-      commits: 1
-      files_changed: 2
-
-  - id: feat-console-collapse-strip
-    name: "Console 折叠条优化"
-    completed_at: "2026-04-02T23:30:00Z"
-    tag: feat-console-collapse-strip-20260402
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/console-collapse-strip
-    conflicts:
-      had_conflict: false
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      duration: "~4m"
-      commits: 1
-      files_changed: 2
-
-  - id: feat-detail-modal-interaction
-    name: "Task 详情弹窗交互增强（拖拽 + resize + MD 修复）"
-    completed_at: "2026-04-02T23:30:00Z"
-    tag: feat-detail-modal-interaction-20260402
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/detail-modal-interaction
-    conflicts:
-      had_conflict: false
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      duration: "~5m"
-      commits: 1
-      files_changed: 2
-
-  - id: feat-editor-theme-perf
-    name: "编辑器渲染优化与深色风格适配"
-    completed_at: "2026-04-02T24:30:00Z"
-    tag: feat-editor-theme-perf-20260402
-    merged_to: main
-    verification:
-      status: passed
-    stats:
-      duration: "~8m"
-      commits: 1
-      files_changed: 2
-
-  - id: feat-task-modal-improve
-    name: "Task 详情弹窗改进（尺寸 + 描述渲染）"
-    completed_at: "2026-04-02T24:30:00Z"
-    tag: feat-task-modal-improve-20260402
-    merged_to: main
-    verification:
-      status: passed
-    stats:
-      duration: "~5m"
-      commits: 1
-      files_changed: 1
-
-  - id: feat-app-theme-system
-    name: "全局明暗主题系统"
-    completed_at: "2026-04-03T01:00:00Z"
-    tag: feat-app-theme-system-20260402
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/app-theme-system
-    verification:
-      status: passed
-    stats:
-      duration: "~27m"
-      commits: 1
-      files_changed: 10
-
-  - id: feat-console-icon-toggle
-    name: "Console 折叠态改为右侧小图标"
-    completed_at: "2026-04-03T01:00:00Z"
-    tag: feat-console-icon-toggle-20260402
-    merged_to: main
-    verification:
-      status: passed
-    stats:
-      duration: "~3m"
-      commits: 1
-      files_changed: 1
-
-  - id: feat-view-state-persistence
-    name: "View 状态持久化（Tab 切换保持状态）"
-    completed_at: "2026-04-02T28:00:00Z"
-    tag: feat-view-state-persistence-20260402
-    merged_to: main
-    verification:
-      status: passed
-    stats:
-      duration: "~7m"
-      commits: 1
-      files_changed: 1
-
-  - id: feat-dashboard-polish
-    name: "主控看板改名 & CPU 折线图修复"
-    completed_at: "2026-04-02T28:00:00Z"
-    tag: feat-dashboard-polish-20260402
-    merged_to: main
-    verification:
-      status: passed
-    stats:
-      duration: "~6m"
-      commits: 1
-      files_changed: 3
-
-  - id: feat-logo-update
-    name: "全局 Logo 更新 — 替换所有旧图标为新 Logo"
-    completed_at: "2026-04-02T32:00:00Z"
-    tag: feat-logo-update-20260402
-    merge_commit: 04293b2c7b35ba11aca8fe73b7b7415268360f48
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-logo-update
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-logo-update
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 2
-      scenarios_passed: 2
-    stats:
-      started: "2026-04-02T31:00:00Z"
-      duration: "~60m"
-      commits: 2
-      files_changed: 13
-
-  - id: feat-terminal-theme-fix
-    name: "编辑器终端主题一致性修复 & 显隐按钮位置优化"
-    completed_at: "2026-04-02T36:00:00Z"
-    tag: feat-terminal-theme-fix-20260402
-    merge_commit: 4a386f7
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-terminal-theme-fix
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-terminal-theme-fix
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-02T35:00:00Z"
-      duration: "~30m"
-      commits: 1
-      files_changed: 2
-
-  - id: feat-dark-theme-polish
-    name: "深色主题边框配色优化 & Monaco 编辑器主题跟随"
-    completed_at: "2026-04-02T37:00:00Z"
-    tag: feat-dark-theme-polish-20260402
-    merge_commit: 9088029
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-dark-theme-polish
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-dark-theme-polish
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-02T35:00:00Z"
-      duration: "~20m"
-      commits: 1
-      files_changed: 4
-
-  - id: feat-req-agent-bridge
-    name: "Claude Code CLI 桥接服务"
-    completed_at: "2026-04-03T19:00:00Z"
-    tag: feat-req-agent-bridge-20260403
-    merge_commit: e7a40e2
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-req-agent-bridge
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-req-agent-bridge
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 5
-      scenarios_passed: 5
-    stats:
-      started: "2026-04-03T18:00:00Z"
-      duration: "~60m"
-      commits: 1
-      files_changed: 1
-
-  - id: feat-git-status-read
-    name: "Git 状态真实展示"
-    completed_at: "2026-04-03T19:30:00Z"
-    tag: feat-git-status-read-20260403
-    merge_commit: aa74395
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-git-status-read
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-git-status-read
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-04-03T18:01:00Z"
-      duration: "~1.5h"
-      commits: 1
-      files_changed: 4
-
-  - id: feat-dock-icon
-    name: "App Dock 图标替换为 Logo"
-    completed_at: "2026-04-03T20:15:00Z"
-    tag: feat-dock-icon-20260403
-    merge_commit: c6d9b2107701082341762fdf0d272c759abdcf10
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-dock-icon
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-dock-icon
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 2
-      scenarios_passed: 2
-    stats:
-      started: "2026-04-03T20:00:00Z"
-      duration: "~15m"
-      commits: 1
-      files_changed: 5
-
-  - id: feat-req-agent-chat
-    name: "需求分析 Agent 聊天 UI"
-    completed_at: "2026-04-03T20:30:00Z"
-    tag: feat-req-agent-chat-20260403
-    merge_commit: 8b1199e
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-req-agent-chat
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-req-agent-chat
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-03T20:10:00Z"
-      duration: "~20m"
-      commits: 1
-      files_changed: 3
-
-  - id: feat-git-stage-commit
-    name: "Git 暂存与提交"
-    completed_at: "2026-04-03T20:50:00Z"
-    tag: feat-git-stage-commit-20260403
-    merge_commit: bbd1d98
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-git-stage-commit
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-git-stage-commit
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-04-03T20:30:00Z"
-      duration: "~20m"
-      commits: 1
-      files_changed: 3
-
-  - id: feat-req-agent-workflow
-    name: "需求分析输出工作流"
-    completed_at: "2026-04-03T22:00:00Z"
-    tag: feat-req-agent-workflow-20260403
-    merge_commit: fddb225
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-req-agent-workflow
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-req-agent-workflow
-    conflicts:
-      had_conflict: true
-      conflict_files:
-        - neuro-syntax-ide/src/components/views/ProjectView.tsx
-      resolved_at: "2026-04-03T22:00:00Z"
-      re_verified: true
-    verification:
-      status: passed
-      scenarios_total: 3
-      scenarios_passed: 3
-    stats:
-      started: "2026-04-03T21:00:00Z"
-      duration: "~60m"
-      commits: 1
-      files_changed: 4
-
-  - id: feat-git-push-pull
-    name: "Git 远程同步（Push & Pull）"
-    completed_at: "2026-04-03T22:30:00Z"
-    tag: feat-git-push-pull-20260403
-    merge_commit: e67734aba496d062f5471d3a90d2091ba43f40ca
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-git-push-pull
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-git-push-pull
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-    verification:
-      status: passed
-      scenarios_total: 4
-      scenarios_passed: 4
-    stats:
-      started: "2026-04-03T21:30:00Z"
-      duration: "~60m"
-      commits: 1
-      files_changed: 2
-
-  - id: feat-settings-llm-config
-    name: "Settings 页面 & LLM Provider 配置（UI + 持久化 + 自动刷新）"
-    completed_at: "2026-04-03T23:30:00Z"
-    tag: feat-settings-llm-config-20260403
-    merge_commit: 46c9514
-    merged_to: main
-    branch_deleted: true
-    branch_name: feature/feat-settings-llm-config
-    worktree_deleted: true
-    worktree_path: ../NeuroSyntaxIDE-feat-settings-llm-config
-    conflicts:
-      had_conflict: false
-      conflict_files: []
-      resolved_at: null
-      re_verified: false
-    verification:
-      status: passed
-      scenarios_total: 6
-      scenarios_passed: 6
-    stats:
-      started: "2026-04-03T14:00:00Z"
-      duration: "~9.5h"
-      commits: 2
-      files_changed: 7
+- id: feat-task-board-updated-time
+  name: Task Board Updated 时间显示优化
+  completed_at: '2026-04-04T19:36:00Z'
+  tag: feat-task-board-updated-time-20260404
+  merge_commit: ffa43e4
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-task-board-updated-time
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-task-board-updated-time
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 6
+    scenarios_passed: 6
+  stats:
+    started: '2026-04-04T19:30:00Z'
+    duration: 6min
+    commits: 1
+    files_changed: 1
+- id: feat-pipeline-dual-mode
+  name: Pipeline 双模式切换与实时同步
+  completed_at: '2026-04-04T17:30:00Z'
+  tag: feat-pipeline-dual-mode-20260404
+  merge_commit: 46de373b891c0077f5f6050a7916bbfcc8fe3b61
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-pipeline-dual-mode
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-pipeline-dual-mode
+  parent: feat-pipeline-editor
+  depends_on:
+  - feat-pipeline-visual-editor
+  - feat-pipeline-yaml-editor
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-04-04T17:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 4
+    insertions: 805
+    deletions: 41
+- id: feat-agent-gemini-bridge
+  name: GeminiHttpRuntime 实现 + PM Agent 迁移
+  completed_at: '2026-04-05T17:00:00Z'
+  tag: feat-agent-gemini-bridge-20260405
+  merge_commit: d6d9148
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-agent-gemini-bridge
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-agent-gemini-bridge
+  parent: feat-agent-unified-exec
+  depends_on:
+  - feat-agent-runtime-execute
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-04-05T16:30:00Z'
+    duration: 30min
+    commits: 1
+    files_changed: 2
+- id: feat-pipeline-yaml-editor
+  name: Pipeline YAML/JSON 直接编辑模式
+  completed_at: '2026-04-05T16:00:00Z'
+  tag: feat-pipeline-yaml-editor-20260405
+  merge_commit: c6d95c2
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-pipeline-yaml-editor
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-pipeline-yaml-editor
+  parent: feat-pipeline-editor
+  depends_on:
+  - feat-pipeline-visual-editor
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-05T15:30:00Z'
+    duration: 30min
+    commits: 1
+    files_changed: 2
+    insertions: 863
+    deletions: 13
+- id: feat-new-task-agent-dispatch
+  name: New Task 弹窗 Agent 分发（选择 Agent + 调用 /new-feature skill）
+  completed_at: '2026-04-05T15:45:00Z'
+  tag: feat-new-task-agent-dispatch-20260405
+  merge_commit: 263f852
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-new-task-agent-dispatch
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-new-task-agent-dispatch
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-05T15:35:00Z'
+    duration: 10min
+    commits: 1
+    files_changed: 2
+- id: feat-pipeline-visual-editor
+  name: Pipeline 可视化拖拽编辑器
+  completed_at: '2026-04-05T15:00:00Z'
+  tag: feat-pipeline-visual-editor-20260405
+  merge_commit: ceb0a95
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-pipeline-visual-editor
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-pipeline-visual-editor
+  parent: feat-pipeline-editor
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-05T14:05:00Z'
+    duration: 55min
+    commits: 1
+    files_changed: 3
+- id: feat-agent-runtime-execute
+  name: AgentRuntime execute() + ClaudeCodeRuntime 实现
+  completed_at: '2026-04-05T14:15:00Z'
+  tag: feat-agent-runtime-execute-20260405
+  merge_commit: 04cac5a
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-agent-runtime-execute
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-agent-runtime-execute
+  parent: feat-agent-unified-exec
+  conflicts:
+    had_conflict: true
+    conflict_files:
+    - features/active-feat-agent-runtime-execute/task.md
+    - features/active-feat-agent-runtime-execute/checklist.md
+    resolved_at: '2026-04-05T14:15:00Z'
+    resolution: Took feature branch versions (completed checkmarks)
+    re_verified: false
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-05T14:00:00Z'
+    duration: ~15m
+    commits: 1
+    files_changed: 2
+    insertions: 360
+    deletions: 17
+- id: feat-git-modal-enhance
+  name: Git 弹窗内容增强（全貌展示 + 可拖拽调整）
+  completed_at: '2026-04-05T13:00:00Z'
+  tag: feat-git-modal-enhance-20260404
+  merge_commit: HEAD
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-git-modal-enhance
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-git-modal-enhance
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-05T12:00:00Z'
+    duration: ~60m
+    commits: 1
+    files_changed: 4
+    insertions: 847
+    deletions: 286
+- id: feat-agent-runtime-system
+  name: Agent Runtime 系统（多 Agent 编排引擎）
+  completed_at: '2026-04-05T13:00:00Z'
+  split: true
+  children:
+  - feat-agent-runtime-core
+  - feat-agent-runtime-pipeline
+  - feat-agent-runtime-router
+  - feat-agent-runtime-ui
+  archive_path: features/archive/done-feat-agent-runtime-system-20260405
+- id: feat-agent-runtime-ui
+  name: Agent 控制面板 UI
+  completed_at: '2026-04-05T12:30:00Z'
+  tag: feat-agent-runtime-ui-20260405
+  merge_commit: 86a3ae5
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-agent-runtime-ui
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-agent-runtime-ui
+  parent: feat-agent-runtime-system
+  depends_on:
+  - feat-agent-runtime-core
+  - feat-agent-runtime-pipeline
+  - feat-agent-runtime-router
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-05T12:00:00Z'
+    duration: 30min
+    commits: 1
+    files_changed: 7
+- id: feat-agent-runtime-router
+  name: 智能路由分发引擎
+  completed_at: '2026-04-03T16:30:00Z'
+  tag: feat-agent-runtime-router-20260403
+  merge_commit: 6a422ae
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-agent-runtime-router
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-agent-runtime-router
+  parent: feat-agent-runtime-system
+  depends_on: feat-agent-runtime-core
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-03T16:00:00Z'
+    duration: 30min
+    commits: 1
+    files_changed: 3
+- id: feat-agent-runtime-pipeline
+  name: Pipeline 管道编排引擎
+  completed_at: '2026-04-05T11:00:00Z'
+  tag: feat-agent-runtime-pipeline-20260405
+  merge_commit: 23e375a
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-agent-runtime-pipeline
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-agent-runtime-pipeline
+  parent: feat-agent-runtime-system
+  conflicts:
+    had_conflict: true
+    conflict_files:
+    - neuro-syntax-ide/src/types.ts
+    resolved_at: '2026-04-05T11:00:00Z'
+    resolution: Combined both Router types (feat-agent-runtime-router) and Pipeline
+      types (feat-agent-runtime-pipeline) in types.ts
+    re_verified: true
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-05T10:00:00Z'
+    duration: ~60m
+    commits: 1
+    files_changed: 4
+    insertions: 1183
+    deletions: 0
+- id: feat-agent-runtime-core
+  name: Agent 发现与 Runtime 抽象层
+  completed_at: '2026-04-04T23:30:00Z'
+  tag: feat-agent-runtime-core-20260404
+  merge_commit: 8c6c5c5
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-agent-runtime-core
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-agent-runtime-core
+  parent: feat-agent-runtime-system
+  conflicts:
+    had_conflict: true
+    conflict_files:
+    - neuro-syntax-ide/src/types.ts
+    resolved_at: '2026-04-04T23:30:00Z'
+    resolution: Combined both feature type sections (settings-llm-config + agent-runtime-core)
+    re_verified: true
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-04T14:00:00Z'
+    duration: 9h 30m
+    commits: 1
+    files_changed: 8
+    insertions: 963
+    deletions: 2
+- id: fix-terminal-writer-tabs
+  name: 终端 Writer 不可重复获取 & 新增终端失效修复
+  completed_at: '2026-04-03T19:00:00Z'
+  tag: fix-terminal-writer-tabs-20260403
+  merge_commit: 5458f46
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/fix-terminal-writer-tabs
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-fix-terminal-writer-tabs
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+    resolved_at: null
+    re_verified: false
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-03T18:00:00Z'
+    duration: ~60m
+    commits: 1
+    files_changed: 2
+- id: fix-reqagent-connection
+  name: ReqAgent Claude Code 连接修复（首次无响应 + 重连自动断开）
+  completed_at: '2026-04-03T23:00:00Z'
+  tag: fix-reqagent-connection-20260403
+  merge_commit: ec3266c
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/fix-reqagent-connection
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-fix-reqagent-connection
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+    resolved_at: null
+    re_verified: false
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-03T18:00:00Z'
+    duration: ~5h
+    commits: 1
+    files_changed: 3
+- id: feat-git-modal-compact
+  name: Git 弹窗布局优化（高度限制 + 内容分组折叠）
+  completed_at: '2026-04-04T11:00:00Z'
+  tag: feat-git-modal-compact-20260404
+  merge_commit: f0a4c931b3340b3c2a9eb7cc543c331d227c945f
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-git-modal-compact
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-git-modal-compact
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+    resolved_at: null
+    re_verified: false
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-04-04T10:00:00Z'
+    duration: ~60m
+    commits: 1
+    files_changed: 1
+- id: feat-git-integration
+  name: Git 集成功能（状态展示 + Stage/Commit + Push/Pull）
+  completed_at: '2026-04-04T02:30:00Z'
+  split: true
+  children:
+  - feat-git-status-read
+  - feat-git-stage-commit
+  - feat-git-push-pull
+  archive_path: features/archive/done-feat-git-integration-20260404
+- id: feat-file-type-display
+  name: 文件类型差异化展示系统
+  completed_at: '2026-04-04T02:30:00Z'
+  split: true
+  children:
+  - feat-file-type-router
+  - feat-markdown-split-preview
+  - feat-image-config-preview
+  - feat-syntax-highlight-lang
+  archive_path: features/archive/done-feat-file-type-display-20260404
+- id: feat-image-config-preview
+  name: 图片可视化预览 + 配置文件结构化视图
+  completed_at: '2026-04-04T02:00:00Z'
+  tag: feat-image-config-preview-20260404
+  merge_commit: 5d53dd7
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-image-config-preview
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-image-config-preview
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+    resolved_at: null
+    re_verified: false
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-04T01:30:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 5
+- id: feat-syntax-highlight-lang
+  name: 多语言语法配色渲染增强
+  completed_at: '2026-04-04T01:00:00Z'
+  tag: feat-syntax-highlight-lang-20260404
+  merge_commit: fb1e990
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-syntax-highlight-lang
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-syntax-highlight-lang
+  conflicts:
+    had_conflict: true
+    conflict_files:
+    - neuro-syntax-ide/src/components/views/EditorView.tsx
+    resolved_at: '2026-04-04T01:00:00Z'
+    re_verified: true
+  verification:
+    status: passed
+    scenarios_total: 6
+    scenarios_passed: 6
+  stats:
+    started: '2026-04-04T00:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 4
+- id: feat-markdown-split-preview
+  name: Markdown 分栏预览（左代码右渲染）
+  completed_at: '2026-04-04T00:30:00Z'
+  tag: feat-markdown-split-preview-20260404
+  merge_commit: a7ec88a
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-markdown-split-preview
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-markdown-split-preview
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+    resolved_at: null
+    re_verified: false
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-04T00:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 5
+- id: feat-file-type-router
+  name: 文件类型路由 + 代码语言风格差异化
+  completed_at: '2026-04-03T23:30:00Z'
+  tag: feat-file-type-router-20260403
+  merge_commit: f556a96
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-file-type-router
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-file-type-router
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+    resolved_at: null
+    re_verified: false
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-03T23:00:00Z'
+    duration: ~30min
+    commits: 1
+    files_changed: 4
+- id: feat-terminal-enhance
+  name: 编辑器终端能力增强（可用性 + hover 样式 + 新建终端）
+  completed_at: '2026-04-03T22:30:00Z'
+  tag: feat-terminal-enhance-20260403
+  merge_commit: bc092e0
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-terminal-enhance
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-terminal-enhance
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-03T22:10:00Z'
+    duration: 20m
+    commits: 1
+    files_changed: 5
+- id: feat-tauri-v2-init
+  name: Tauri V2 工程初始化
+  completed_at: '2026-04-01T10:00:00Z'
+  tag: feat-tauri-v2-init-20260401
+  size: M
+- id: feat-workspace-loader
+  name: 工作区加载器 + 真实文件树
+  completed_at: '2026-04-01T11:10:00Z'
+  tag: feat-workspace-loader-20260401
+  size: M
+- id: feat-native-terminal
+  name: xterm.js 真实终端
+  completed_at: '2026-04-01T11:10:00Z'
+  tag: feat-native-terminal-20260401
+  size: L
+- id: feat-editor-monaco
+  name: Monaco Editor 代码编辑器
+  completed_at: '2026-04-01T11:30:00Z'
+  tag: feat-editor-monaco-20260401
+  size: M
+- id: feat-fs-database-engine
+  name: FS-as-Database 数据引擎 + 看板活数据
+  completed_at: '2026-04-01T11:30:00Z'
+  tag: feat-fs-database-engine-20260401
+  size: L
+- id: feat-hardware-monitor
+  name: 硬件监控探针 + 仪表盘
+  completed_at: '2026-04-01T12:00:00Z'
+  tag: feat-hardware-monitor-20260401
+  size: M
+- id: feat-ai-agent-service
+  name: AI Agent 服务化接口
+  completed_at: '2026-04-01T12:00:00Z'
+  tag: feat-ai-agent-service-20260401
+  size: L
+- id: feat-native-titlebar
+  name: 恢复系统默认窗口标题栏
+  completed_at: '2026-04-02T19:30:00Z'
+  tag: feat-native-titlebar-20260402
+  merge_commit: HEAD
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/native-titlebar
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-native-titlebar
+  conflicts:
+    had_conflict: false
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-02T19:00:00Z'
+    duration: ~30m
+    commits: 3
+    files_changed: 5
+- id: feat-ui-cleanup
+  name: UI 清理与布局优化
+  completed_at: '2026-04-02T04:10:00Z'
+  tag: feat-ui-cleanup-20260402
+  merge_commit: 391fb8c
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/ui-cleanup
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-ui-cleanup
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-02T03:58:48Z'
+    duration: ~12m
+    commits: 1
+    files_changed: 4
+- id: feat-fix-read-file
+  name: 修复编辑器 read_file / write_file Command 缺失
+  completed_at: '2026-04-02T19:45:00Z'
+  tag: feat-fix-read-file-20260402
+  merge_commit: 0eab03f
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-fix-read-file
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-fix-read-file
+  conflicts:
+    had_conflict: false
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-04-02T19:00:00Z'
+    duration: ~45m
+    commits: 1
+    files_changed: 1
+- id: feat-md-render-task-detail
+  name: Task 详情弹窗 Markdown 富渲染
+  completed_at: '2026-04-02T20:30:00Z'
+  tag: feat-md-render-task-detail-20260402
+  merge_commit: 46a536f
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-md-render-task-detail
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-md-render-task-detail
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-04-02T20:00:00Z'
+    duration: ~30m
+    commits: 1
+    files_changed: 2
+- id: feat-console-collapse-strip
+  name: Console 折叠条优化
+  completed_at: '2026-04-02T23:30:00Z'
+  tag: feat-console-collapse-strip-20260402
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/console-collapse-strip
+  conflicts:
+    had_conflict: false
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    duration: ~4m
+    commits: 1
+    files_changed: 2
+- id: feat-detail-modal-interaction
+  name: Task 详情弹窗交互增强（拖拽 + resize + MD 修复）
+  completed_at: '2026-04-02T23:30:00Z'
+  tag: feat-detail-modal-interaction-20260402
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/detail-modal-interaction
+  conflicts:
+    had_conflict: false
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    duration: ~5m
+    commits: 1
+    files_changed: 2
+- id: feat-editor-theme-perf
+  name: 编辑器渲染优化与深色风格适配
+  completed_at: '2026-04-02T24:30:00Z'
+  tag: feat-editor-theme-perf-20260402
+  merged_to: main
+  verification:
+    status: passed
+  stats:
+    duration: ~8m
+    commits: 1
+    files_changed: 2
+- id: feat-task-modal-improve
+  name: Task 详情弹窗改进（尺寸 + 描述渲染）
+  completed_at: '2026-04-02T24:30:00Z'
+  tag: feat-task-modal-improve-20260402
+  merged_to: main
+  verification:
+    status: passed
+  stats:
+    duration: ~5m
+    commits: 1
+    files_changed: 1
+- id: feat-app-theme-system
+  name: 全局明暗主题系统
+  completed_at: '2026-04-03T01:00:00Z'
+  tag: feat-app-theme-system-20260402
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/app-theme-system
+  verification:
+    status: passed
+  stats:
+    duration: ~27m
+    commits: 1
+    files_changed: 10
+- id: feat-console-icon-toggle
+  name: Console 折叠态改为右侧小图标
+  completed_at: '2026-04-03T01:00:00Z'
+  tag: feat-console-icon-toggle-20260402
+  merged_to: main
+  verification:
+    status: passed
+  stats:
+    duration: ~3m
+    commits: 1
+    files_changed: 1
+- id: feat-view-state-persistence
+  name: View 状态持久化（Tab 切换保持状态）
+  completed_at: '2026-04-02T28:00:00Z'
+  tag: feat-view-state-persistence-20260402
+  merged_to: main
+  verification:
+    status: passed
+  stats:
+    duration: ~7m
+    commits: 1
+    files_changed: 1
+- id: feat-dashboard-polish
+  name: 主控看板改名 & CPU 折线图修复
+  completed_at: '2026-04-02T28:00:00Z'
+  tag: feat-dashboard-polish-20260402
+  merged_to: main
+  verification:
+    status: passed
+  stats:
+    duration: ~6m
+    commits: 1
+    files_changed: 3
+- id: feat-logo-update
+  name: 全局 Logo 更新 — 替换所有旧图标为新 Logo
+  completed_at: '2026-04-02T32:00:00Z'
+  tag: feat-logo-update-20260402
+  merge_commit: 04293b2c7b35ba11aca8fe73b7b7415268360f48
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-logo-update
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-logo-update
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 2
+    scenarios_passed: 2
+  stats:
+    started: '2026-04-02T31:00:00Z'
+    duration: ~60m
+    commits: 2
+    files_changed: 13
+- id: feat-terminal-theme-fix
+  name: 编辑器终端主题一致性修复 & 显隐按钮位置优化
+  completed_at: '2026-04-02T36:00:00Z'
+  tag: feat-terminal-theme-fix-20260402
+  merge_commit: 4a386f7
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-terminal-theme-fix
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-terminal-theme-fix
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-02T35:00:00Z'
+    duration: ~30m
+    commits: 1
+    files_changed: 2
+- id: feat-dark-theme-polish
+  name: 深色主题边框配色优化 & Monaco 编辑器主题跟随
+  completed_at: '2026-04-02T37:00:00Z'
+  tag: feat-dark-theme-polish-20260402
+  merge_commit: 9088029
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-dark-theme-polish
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-dark-theme-polish
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-02T35:00:00Z'
+    duration: ~20m
+    commits: 1
+    files_changed: 4
+- id: feat-req-agent-bridge
+  name: Claude Code CLI 桥接服务
+  completed_at: '2026-04-03T19:00:00Z'
+  tag: feat-req-agent-bridge-20260403
+  merge_commit: e7a40e2
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-req-agent-bridge
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-req-agent-bridge
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-04-03T18:00:00Z'
+    duration: ~60m
+    commits: 1
+    files_changed: 1
+- id: feat-git-status-read
+  name: Git 状态真实展示
+  completed_at: '2026-04-03T19:30:00Z'
+  tag: feat-git-status-read-20260403
+  merge_commit: aa74395
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-git-status-read
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-git-status-read
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-04-03T18:01:00Z'
+    duration: ~1.5h
+    commits: 1
+    files_changed: 4
+- id: feat-dock-icon
+  name: App Dock 图标替换为 Logo
+  completed_at: '2026-04-03T20:15:00Z'
+  tag: feat-dock-icon-20260403
+  merge_commit: c6d9b2107701082341762fdf0d272c759abdcf10
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-dock-icon
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-dock-icon
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 2
+    scenarios_passed: 2
+  stats:
+    started: '2026-04-03T20:00:00Z'
+    duration: ~15m
+    commits: 1
+    files_changed: 5
+- id: feat-req-agent-chat
+  name: 需求分析 Agent 聊天 UI
+  completed_at: '2026-04-03T20:30:00Z'
+  tag: feat-req-agent-chat-20260403
+  merge_commit: 8b1199e
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-req-agent-chat
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-req-agent-chat
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-03T20:10:00Z'
+    duration: ~20m
+    commits: 1
+    files_changed: 3
+- id: feat-git-stage-commit
+  name: Git 暂存与提交
+  completed_at: '2026-04-03T20:50:00Z'
+  tag: feat-git-stage-commit-20260403
+  merge_commit: bbd1d98
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-git-stage-commit
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-git-stage-commit
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-04-03T20:30:00Z'
+    duration: ~20m
+    commits: 1
+    files_changed: 3
+- id: feat-req-agent-workflow
+  name: 需求分析输出工作流
+  completed_at: '2026-04-03T22:00:00Z'
+  tag: feat-req-agent-workflow-20260403
+  merge_commit: fddb225
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-req-agent-workflow
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-req-agent-workflow
+  conflicts:
+    had_conflict: true
+    conflict_files:
+    - neuro-syntax-ide/src/components/views/ProjectView.tsx
+    resolved_at: '2026-04-03T22:00:00Z'
+    re_verified: true
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-04-03T21:00:00Z'
+    duration: ~60m
+    commits: 1
+    files_changed: 4
+- id: feat-git-push-pull
+  name: Git 远程同步（Push & Pull）
+  completed_at: '2026-04-03T22:30:00Z'
+  tag: feat-git-push-pull-20260403
+  merge_commit: e67734aba496d062f5471d3a90d2091ba43f40ca
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-git-push-pull
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-git-push-pull
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-04-03T21:30:00Z'
+    duration: ~60m
+    commits: 1
+    files_changed: 2
+- id: feat-settings-llm-config
+  name: Settings 页面 & LLM Provider 配置（UI + 持久化 + 自动刷新）
+  completed_at: '2026-04-03T23:30:00Z'
+  tag: feat-settings-llm-config-20260403
+  merge_commit: 46c9514
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/feat-settings-llm-config
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-settings-llm-config
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+    resolved_at: null
+    re_verified: false
+  verification:
+    status: passed
+    scenarios_total: 6
+    scenarios_passed: 6
+  stats:
+    started: '2026-04-03T14:00:00Z'
+    duration: ~9.5h
+    commits: 2
+    files_changed: 7
+archived:
+- id: fix-workshop-session-state
+  name: PM Workshop 会话状态修复 — Tab 保持 + 清除对话 + 工具调用渲染
+  completed: '2026-05-29T22:45:00Z'
+  tag: fix-workshop-session-state-20260529
+  merged_to: main
+  branch_deleted: true
+  branch_name: feature/fix-workshop-session-state
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-fix-workshop-session-state
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 4
+    scenarios_passed: 4
+  stats:
+    started: '2026-05-29T22:35:00Z'
+    duration: ~10min
+    commits: 1
+    files_changed: 5
