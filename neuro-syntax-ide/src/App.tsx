@@ -12,6 +12,7 @@ import { SettingsView } from './components/views/SettingsView';
 import { AgentControlPanel } from './components/views/AgentControlPanel';
 import { PixelAgentView } from './components/views/PixelAgentView';
 import { GitView } from './components/views/GitView';
+import { PMWorkshopView } from './components/views/PMWorkshopView';
 import { ViewType, LogEntry } from './types';
 import { cn } from './lib/utils';
 import { useWorkspace } from './lib/useWorkspace';
@@ -58,6 +59,9 @@ const App: React.FC = () => {
             {/* All views always mounted — CSS controls visibility to preserve state */}
             <div className={cn("absolute inset-0 overflow-hidden", activeView === 'project' ? 'flex' : 'hidden')}>
               <ProjectView workspace={workspace} onNavigateToGit={() => setActiveView('git')} onNavigateToSettings={() => setActiveView('settings')} />
+            </div>
+            <div className={cn("absolute inset-0 overflow-hidden", activeView === 'pm-workshop' ? 'flex' : 'hidden')}>
+              <PMWorkshopView workspacePath={workspace.workspacePath} />
             </div>
             <div className={cn("absolute inset-0 overflow-hidden", activeView === 'editor' ? 'flex' : 'hidden')}>
               <EditorView workspace={workspace} />
