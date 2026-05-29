@@ -1,10 +1,33 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-05-29T19:00:00Z"
+  last_updated: "2026-05-29T20:30:00Z"
   version: 1
-  total_completed: 130
+  total_completed: 131
 
 records:
+  - id: feat-bmad-prd
+    name: "PRD 创建 Skill（BMAD Create PRD）"
+    completed_at: "2026-05-29T20:30:00Z"
+    tag: feat-bmad-prd-20260529
+    merged_to: main
+    merge_commit: 8f62b54
+    branch_deleted: true
+    branch_name: feature/feat-bmad-prd
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-bmad-prd
+    parent: feat-bmad-workshop
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 8
+      scenarios_passed: 8
+    stats:
+      started: "2026-05-29T20:00:00Z"
+      duration: "30m"
+      commits: 2
+      files_changed: 9
   - id: feat-bmad-party-mode
     name: "Party Mode Skill（BMAD 多角色圆桌）"
     completed_at: "2026-05-29T19:00:00Z"
