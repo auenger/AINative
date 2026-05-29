@@ -76,8 +76,9 @@ export const WorkshopMessageRenderer: React.FC<WorkshopMessageRendererProps> = (
   agentStatus,
   renderWorkshopMessage,
 }) => {
-  // When agent is in "thinking" state (INIT noise), show Thinking indicator instead of content
-  if (isLast && isStreaming && agentStatus === 'thinking') {
+  // When agent is in "thinking" state (INIT noise), show Thinking indicator
+  // Only for assistant messages — never hide user messages
+  if (isLast && isStreaming && agentStatus === 'thinking' && msg.role === 'assistant') {
     return <ThinkingIndicator />;
   }
 

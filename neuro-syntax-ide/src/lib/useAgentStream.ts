@@ -154,6 +154,9 @@ export function useAgentStream(options: UseAgentStreamOptions) {
   // INIT pattern detector — matches [SYSTEM]INIT, INIT —, and similar system noise
   const INIT_PATTERN = /^\s*(\[SYSTEM\]\s*)?(INIT\s*—|INIT\s+\d+\s+TOOLS)/i;
 
+  // Ref to track whether we've already swallowed an INIT message this request
+  const initHandledRef = useRef(false);
+
   // Ref to track current runtimeId in sendMessage closures
   const optionsRef = useRef(options);
   optionsRef.current = options;
@@ -283,24 +286,20 @@ export function useAgentStream(options: UseAgentStreamOptions) {
 
       // Stream text from assistant/system/raw messages
       if (chunk.text && (chunk.type === 'assistant' || chunk.type === 'system' || chunk.type === 'raw' || !chunk.type)) {
-        // Detect INIT system noise — route to agentStatus instead of messages
-        if (INIT_PATTERN.test(chunk.text) || INIT_PATTERN.test(streamingTextRef.current + chunk.text)) {
+        // Detect INIT system noise in the CURRENT CHUNK only
+        // Do NOT check accumulated text — that would swallow all subsequent content
+        if (!initHandledRef.current && INIT_PATTERN.test(chunk.text.trim())) {
           setAgentStatus('thinking');
-          streamingTextRef.current += chunk.text;
-          // Don't create/update a message — just accumulate silently
+          initHandledRef.current = true;
+          // Skip this chunk entirely — don't accumulate INIT text
           return;
         }
 
-        // Real content clears the thinking status
-        if (agentStatus === 'thinking' && streamingTextRef.current) {
-          // Check if accumulated text is just INIT noise
-          if (INIT_PATTERN.test(streamingTextRef.current)) {
-            // Clear the accumulated INIT text and start fresh with real content
-            streamingTextRef.current = '';
-            setAgentStatus(null);
-          }
+        // Real content clears thinking status
+        if (initHandledRef.current) {
+          initHandledRef.current = false;
+          setAgentStatus(null);
         }
-        setAgentStatus(null);
 
         streamingTextRef.current += chunk.text;
         setMessages((prev) => {
@@ -526,6 +525,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
 
       setIsStreaming(true);
       streamingTextRef.current = '';
+      initHandledRef.current = false;
       // Increment request ID to distinguish this request from stale process_exit events
       currentRequestIdRef.current += 1;
       const thisRequestId = currentRequestIdRef.current;
