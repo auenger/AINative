@@ -1,5 +1,5 @@
   meta:
-    last_updated: '2026-05-29T17:30:00Z'
+    last_updated: '2026-05-29T18:00:00Z'
     version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -62,13 +62,15 @@ parents:
     - feat-bmad-brainstorm
     - feat-bmad-party-mode
     - feat-bmad-prd
-active: []
-pending:
+active:
 - id: feat-bmad-party-mode
   name: Party Mode Skill（BMAD 多角色圆桌）
   priority: 55
-  depends_on:
-  - feat-bmad-workspace
+  branch: feature/feat-bmad-party-mode
+  worktree: ../NeuroSyntaxIDE-feat-bmad-party-mode
+  started_at: '2026-05-29T18:00:00Z'
+  parent: feat-bmad-workshop
+pending:
 - id: feat-bmad-prd
   name: PRD 创建 Skill（BMAD Create PRD）
   priority: 55
