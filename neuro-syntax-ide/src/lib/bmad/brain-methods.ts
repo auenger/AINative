@@ -113,6 +113,7 @@ export const BRAIN_METHODS: BrainMethodData[] = [
   { id: 'time-travel', name: 'Time Travel Technique', category: 'futuring', categoryLabel: 'Futuring & Speculative', duration: '10-15 min', energyLevel: 'medium', description: 'Visit the problem from 10 years past and 10 years future. How does time-shifted perspective change solutions?' },
   { id: 'magic-wand', name: 'Magic Wand', category: 'futuring', categoryLabel: 'Futuring & Speculative', duration: '5-10 min', energyLevel: 'low', description: 'If you had unlimited power, what would you create? Remove all constraints to find your ideal vision.' },
   { id: 'pre-mortem', name: 'Pre-Mortem', category: 'futuring', categoryLabel: 'Futuring & Speculative', duration: '10-15 min', energyLevel: 'medium', description: 'Imagine the project failed spectacularly. What went wrong? Use failure insights to strengthen your ideas.' },
+  { id: 'day-in-life', name: 'Day in the Life', category: 'futuring', categoryLabel: 'Futuring & Speculative', duration: '10-15 min', energyLevel: 'medium', description: 'Imagine a future user\'s typical day using your product. Walk through every touchpoint and interaction to discover unmet needs.' },
 ];
 
 /** Get methods by category */

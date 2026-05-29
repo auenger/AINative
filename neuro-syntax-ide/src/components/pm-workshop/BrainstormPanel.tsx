@@ -166,9 +166,9 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
   // ─── Track extracted ideas from messages ───
   React.useEffect(() => {
     const extractedIdeas: BrainstormIdea[] = [];
-    for (const msg of agent.messages) {
+    for (const msg of parsedMessages) {
       if (msg.role === 'assistant') {
-        const { payload } = parseWorkshopMarkers(msg.content);
+        const payload = (msg as any).workshopPayload as ParsedWorkshopPayload | null | undefined;
         if (payload?.type === 'idea-card') {
           const d = payload.data;
           extractedIdeas.push({
@@ -185,7 +185,7 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
     if (extractedIdeas.length > 0) {
       setIdeas(extractedIdeas);
     }
-  }, [agent.messages]);
+  }, [parsedMessages]);
 
   // ─── Update output when ideas change ───
   React.useEffect(() => {
@@ -211,21 +211,23 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
 
   // Detect step transitions from message content
   React.useEffect(() => {
-    const lastMsg = agent.messages[agent.messages.length - 1];
+    const lastMsg = parsedMessages[parsedMessages.length - 1];
     if (lastMsg?.role !== 'assistant') return;
 
+    const payload = (lastMsg as any).workshopPayload as ParsedWorkshopPayload | null | undefined;
     const content = lastMsg.content.toLowerCase();
-    if (currentStep === 'setup' && (content.includes('technique selection') || content.includes('workshop:option-card'))) {
+
+    if (currentStep === 'setup' && (content.includes('technique selection') || payload?.type === 'option-card')) {
       advanceStep('technique');
     } else if (currentStep === 'technique' && (content.includes('execute') || content.includes("let's dive") || content.includes('execution phase'))) {
       advanceStep('execute');
-    } else if (currentStep === 'execute' && (content.includes('organize') || content.includes('clustering') || content.includes('energy-checkpoint'))) {
-      // Don't auto-advance to organize on energy checkpoint, only on explicit organize
-      if (content.includes('organize phase') || content.includes('start organizing') || content.includes('action-menu')) {
+    } else if (currentStep === 'execute') {
+      // Only advance to organize on explicit organize trigger, not on energy-checkpoint
+      if (content.includes('organize phase') || content.includes('start organizing') || payload?.type === 'action-menu') {
         advanceStep('organize');
       }
     }
-  }, [agent.messages, currentStep, advanceStep]);
+  }, [parsedMessages, currentStep, advanceStep]);
 
   // ─── Send message handler ───
   const handleSendMessage = useCallback((text: string) => {
@@ -274,8 +276,8 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
     (msg: ChatMessage, _idx: number): React.ReactNode | null => {
       if (msg.role !== 'assistant') return null;
 
-      // Check for parsed workshop payload
-      const { payload } = parseWorkshopMarkers(msg.content);
+      // Use pre-parsed workshop payload from parsedMessages
+      const payload = msg.workshopPayload as ParsedWorkshopPayload | null | undefined;
       if (!payload) return null;
 
       switch (payload.type) {
