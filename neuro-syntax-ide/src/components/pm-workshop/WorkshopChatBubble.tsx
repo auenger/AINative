@@ -17,16 +17,18 @@ function filterToolCallText(content: string): string {
     .replace(/<tool_name>[\s\S]*?<\/tool_name>/g, '')
     .replace(/^\s*tool_name:\s*\S+.*$/gm, '')
     .replace(/^\s*tool_result:\s*\S+.*$/gm, '')
-    // [tool: Agent] {json} pattern
+    // [tool: Agent] {json} pattern — single line and multiline
     .replace(/\[tool:\s*\w+\]\s*\{[^}]*\}/g, '')
-    // task lifecycle markers
-    .replace(/^task_started$/gm, '')
-    .replace(/^task_progress$/gm, '')
-    .replace(/^task_notification$/gm, '')
     .replace(/^\[tool:.*?\]\s*\{[\s\S]*?\}/gm, '')
+    // task lifecycle markers — aggressive: handles task_progress"}, task_started" etc.
+    .replace(/task_(?:started|progress|notification)["'}\s]*\}?/gi, '')
+    // INIT system noise lines
+    .replace(/^\s*(\[SYSTEM\]\s*)?(INIT\s*[—\-].*)$/gim, '')
     // [SYSTEM] OPTIONS JSON blocks (rendered as OptionCardMessage instead)
     .replace(/\[SYSTEM\]\s*"OPTIONS"\s*:\s*\[[\s\S]*?\]\s*$/gm, '')
-    .replace(/"OPTIONS"\s*:\s*\[[\s\S]*?\{[\s\S]*?"DESCRIPTION"[\s\S]*?\}\s*\]/gm, '');
+    .replace(/"OPTIONS"\s*:\s*\[[\s\S]*?\{[\s\S]*?"DESCRIPTION"[\s\S]*?\}\s*\]/gm, '')
+    // Stray JSON fragments and braces from tool output
+    .replace(/\{"(?:description|prompt|tool_name)"[^}]*\}/g, '');
   filtered = filtered.replace(/\n{3,}/g, '\n\n').trim();
   return filtered;
 }

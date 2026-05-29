@@ -522,13 +522,43 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
         if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
           try {
             const { invoke } = await import('@tauri-apps/api/core');
+
+            // Capture mode: route streaming output to persona's card, not orchestrator chat
+            let capturedText = '';
+            orchestrator.setCapture((text: string) => {
+              capturedText += text;
+              // Update the persona card in real-time
+              setCurrentRound((prev) => {
+                if (!prev || prev.id !== roundId) return prev;
+                return {
+                  ...prev,
+                  responses: { ...prev.responses, [personaId]: capturedText },
+                  loading: { ...prev.loading, [personaId]: false },
+                };
+              });
+            });
+
             await invoke('runtime_execute', {
               runtimeId: config.workshopRuntimeId,
               message: topic,
               sessionId: null,
               systemPrompt: prompt,
             });
+
+            // Stop capturing — route back to orchestrator chat
+            orchestrator.setCapture(null);
+
+            if (capturedText.trim()) {
+              responses.push({ personaId, personaName: persona.name, content: capturedText.trim() });
+
+              setCallPool((prev) => ({
+                ...prev,
+                running: Math.max(0, prev.running - 1),
+                completed: prev.completed + 1,
+              }));
+            }
           } catch (e) {
+            orchestrator.setCapture(null);
             console.error(`[PartyMode] Error executing persona ${personaId}:`, e);
           }
         } else {
@@ -599,7 +629,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
         }
       }
     },
-    [conversationSummary, allInsights, onInsightsChange, rounds.length, config],
+    [conversationSummary, allInsights, onInsightsChange, rounds.length, config, orchestrator],
   );
 
   // ─── Trigger convergence ───

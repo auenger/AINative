@@ -151,11 +151,16 @@ export function useAgentStream(options: UseAgentStreamOptions) {
   // Agent status for UI: 'thinking' when INIT/system noise is detected, null for normal
   const [agentStatus, setAgentStatus] = useState<'thinking' | null>(null);
 
-  // INIT pattern detector — matches [SYSTEM]INIT, INIT —, and similar system noise
-  const INIT_PATTERN = /^\s*(\[SYSTEM\]\s*)?(INIT\s*—|INIT\s+\d+\s+TOOLS)/i;
+  // INIT/noise pattern — matches common system noise prefixes
+  const NOISE_PATTERN = /^\s*(\[SYSTEM\]\s*)?(INIT\s*[—\-]|INIT\s+\d+\s+TOOL)/i;
+  const TASK_NOISE_PATTERN = /task_(?:started|progress|notification)["'}\s]*\}?/gi;
 
-  // Ref to track whether we've already swallowed an INIT message this request
+  // Ref to track whether we've already swallowed a noise message this request
   const initHandledRef = useRef(false);
+
+  // Capture mode: when set, streaming text is routed to this callback instead of messages.
+  // Used by Party Mode to route persona output to individual cards.
+  const captureRef = useRef<((text: string) => void) | null>(null);
 
   // Ref to track current runtimeId in sendMessage closures
   const optionsRef = useRef(options);
@@ -286,14 +291,18 @@ export function useAgentStream(options: UseAgentStreamOptions) {
 
       // Stream text from assistant/system/raw messages
       if (chunk.text && (chunk.type === 'assistant' || chunk.type === 'system' || chunk.type === 'raw' || !chunk.type)) {
-        // Detect INIT system noise in the CURRENT CHUNK only
-        // Do NOT check accumulated text — that would swallow all subsequent content
-        if (!initHandledRef.current && INIT_PATTERN.test(chunk.text.trim())) {
+        const trimmed = chunk.text.trim();
+
+        // Detect noise (INIT, system info) — skip the chunk entirely
+        if (!initHandledRef.current && NOISE_PATTERN.test(trimmed)) {
           setAgentStatus('thinking');
           initHandledRef.current = true;
-          // Skip this chunk entirely — don't accumulate INIT text
           return;
         }
+
+        // Filter out task lifecycle noise embedded in content
+        const cleanText = trimmed.replace(TASK_NOISE_PATTERN, '').trim();
+        if (!cleanText) return;
 
         // Real content clears thinking status
         if (initHandledRef.current) {
@@ -301,7 +310,13 @@ export function useAgentStream(options: UseAgentStreamOptions) {
           setAgentStatus(null);
         }
 
-        streamingTextRef.current += chunk.text;
+        // Capture mode: route text to callback instead of messages
+        if (captureRef.current) {
+          captureRef.current(cleanText);
+          return;
+        }
+
+        streamingTextRef.current += cleanText;
         setMessages((prev) => {
           const last = prev[prev.length - 1];
           if (last && last.role === 'assistant') {
@@ -754,6 +769,11 @@ export function useAgentStream(options: UseAgentStreamOptions) {
 
     // Agent status ('thinking' when INIT noise detected, null otherwise)
     agentStatus,
+
+    // Capture mode: route streaming text to callback instead of messages
+    setCapture: useCallback((cb: ((text: string) => void) | null) => {
+      captureRef.current = cb;
+    }, []),
 
     // Identity
     runtimeId,
