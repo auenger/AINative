@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-05-13T15:00:00Z'
+  last_updated: '2026-05-29T16:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -54,8 +54,40 @@ parents:
   - feat-agent-provider-core
   - feat-agent-runtime-skills
   - feat-agent-runtime-workflow
-active: []
-pending: []
+  - id: feat-bmad-workshop
+    name: BMAD AI Product Workshop — 头脑风暴 + Party Mode + PRD 创建
+    split: true
+    features:
+    - feat-bmad-workspace
+    - feat-bmad-brainstorm
+    - feat-bmad-party-mode
+    - feat-bmad-prd
+active:
+- id: feat-bmad-workspace
+  name: PM Workshop Tab 基础设施
+  priority: 60
+  depends_on: []
+  branch: feature/feat-bmad-workspace
+  worktree: ../NeuroSyntaxIDE-feat-bmad-workspace
+  started_at: '2026-05-29T16:00:00Z'
+pending:
+- id: feat-bmad-brainstorm
+  name: 头脑风暴 Skill（BMAD Brainstorming）
+  priority: 55
+  depends_on:
+  - feat-bmad-workspace
+- id: feat-bmad-party-mode
+  name: Party Mode Skill（BMAD 多角色圆桌）
+  priority: 55
+  depends_on:
+  - feat-bmad-workspace
+- id: feat-bmad-prd
+  name: PRD 创建 Skill（BMAD Create PRD）
+  priority: 55
+  depends_on:
+  - feat-bmad-workspace
+  - feat-bmad-brainstorm
+  - feat-bmad-party-mode
 blocked:
 - id: feat-agent-provider-core
   name: Agent Provider 核心抽象层 — OpenClaw WebSocket 接入 + Hermes 增强
