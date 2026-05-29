@@ -146,7 +146,7 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
 
   // ─── Agent Stream ───
   const agent = useAgentStream({
-    runtimeId: 'agent-sdk',
+    runtimeId: 'claude-code',
     systemPrompt: BRAINSTORM_SYSTEM_PROMPT,
     greetingMessage: BRAINSTORM_GREETING,
     useSessions: true,

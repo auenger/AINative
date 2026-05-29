@@ -379,7 +379,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
 }) => {
   // ─── Config ───
   const config: PartyModeConfig = sessionState.partyModeConfig ?? {
-    workshopRuntimeId: 'agent-sdk',
+    workshopRuntimeId: 'claude-code',
     maxConcurrent: 3,
     timeoutSeconds: 120,
     maxRounds: 3,
