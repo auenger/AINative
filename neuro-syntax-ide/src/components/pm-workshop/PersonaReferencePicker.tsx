@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { cn } from '../../lib/utils';
-import { ALL_PERSONAS } from '../../lib/bmad/persona-definitions';
+import { ALL_PERSONAS, type PersonaDefinition } from '../../lib/bmad/persona-definitions';
 import type { PartyPersona } from '../../types';
 
 // ─── Types ───
@@ -9,7 +9,7 @@ export interface PersonaReferencePickerProps {
   /** Current filter text (the part after @) */
   filter: string;
   /** Callback when a persona is selected */
-  onSelect: (persona: PartyPersona & { accentColor: string }) => void;
+  onSelect: (persona: PersonaDefinition) => void;
   /** Callback to close the picker */
   onClose: () => void;
 }
