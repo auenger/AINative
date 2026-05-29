@@ -140,6 +140,11 @@ export function useAgentStream(options: UseAgentStreamOptions) {
   // Track the current streaming request ID to detect stale is_done events from process_exit
   const currentRequestIdRef = useRef<number>(0);
 
+  // Track whether this hook instance is expecting a response (for session filtering).
+  // Multiple useAgentStream instances listen to the same agent://chunk broadcast.
+  // Without filtering, all instances process each other's responses.
+  const awaitingResponseRef = useRef(false);
+
   // Session-related state (only used when useSessions is true)
   const [connectionState, setConnectionState] = useState<Connection_State>(useSessions ? 'disconnected' : 'connected');
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -249,10 +254,27 @@ export function useAgentStream(options: UseAgentStreamOptions) {
     const unlisten = await listen<AgentStreamEvent>('agent://chunk', (event) => {
       const chunk = event.payload;
 
+      // ── Session filtering ──
+      // Multiple useAgentStream instances all listen to agent://chunk (global broadcast).
+      // We must only process chunks belonging to OUR session.
+      if (useSessions) {
+        const ourSession = sessionIdRef.current;
+        if (ourSession) {
+          // We have a known session — only process matching chunks
+          if (chunk.session_id && chunk.session_id !== ourSession) {
+            return; // Belongs to a different hook's session
+          }
+        } else if (!awaitingResponseRef.current) {
+          // No known session AND we didn't just send a request — ignore
+          return;
+        }
+      }
+
       // Capture real session_id from CLI response (first message establishes the session)
       if (chunk.session_id) {
         setSessionId(chunk.session_id);
         sessionIdRef.current = chunk.session_id; // Immediate sync for ref
+        awaitingResponseRef.current = false; // Session claimed, stop accepting
         try { localStorage.setItem(`${optionsRef.current.storageKey ?? `agent-stream-${optionsRef.current.runtimeId}`}-session`, chunk.session_id); } catch { /* ignore */ }
       }
 
@@ -409,6 +431,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
         }
 
         setIsStreaming(false);
+        awaitingResponseRef.current = false;
         if (!streamingTextRef.current) {
           setMessages((prev) => [
             ...prev,
@@ -541,6 +564,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       setIsStreaming(true);
       streamingTextRef.current = '';
       initHandledRef.current = false;
+      awaitingResponseRef.current = true; // Mark as expecting response for session filtering
       // Increment request ID to distinguish this request from stale process_exit events
       currentRequestIdRef.current += 1;
       const thisRequestId = currentRequestIdRef.current;
