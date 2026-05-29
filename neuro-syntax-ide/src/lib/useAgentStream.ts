@@ -257,7 +257,9 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       // ── Session filtering ──
       // Multiple useAgentStream instances all listen to agent://chunk (global broadcast).
       // We must only process chunks belonging to OUR session.
-      if (useSessions) {
+      // EXCEPTION: capture mode bypasses filtering — the consumer explicitly wants these chunks
+      // (used by Party Mode to route persona output to cards).
+      if (!captureRef.current && useSessions) {
         const ourSession = sessionIdRef.current;
         if (ourSession) {
           // We have a known session — only process matching chunks
