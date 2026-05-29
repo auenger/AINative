@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-05-29T16:00:00Z'
+  last_updated: '2026-05-29T16:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -62,14 +62,7 @@ parents:
     - feat-bmad-brainstorm
     - feat-bmad-party-mode
     - feat-bmad-prd
-active:
-- id: feat-bmad-workspace
-  name: PM Workshop Tab 基础设施
-  priority: 60
-  depends_on: []
-  branch: feature/feat-bmad-workspace
-  worktree: ../NeuroSyntaxIDE-feat-bmad-workspace
-  started_at: '2026-05-29T16:00:00Z'
+active: []
 pending:
 - id: feat-bmad-brainstorm
   name: 头脑风暴 Skill（BMAD Brainstorming）
@@ -102,6 +95,11 @@ blocked:
   priority: 40
   reason: '依赖 feat-agent-provider-core'
 completed:
+- id: feat-bmad-workspace
+  name: PM Workshop Tab 基础设施
+  completed_at: '2026-05-29T16:30:00Z'
+  tag: feat-bmad-workspace-20260529
+  parent: feat-bmad-workshop
 - id: feat-chat-panel-md-resize
   name: Agent 对话窗口 Markdown 渲染优化与面板横向拖拽调整
   completed_at: '2026-05-13T15:00:00Z'

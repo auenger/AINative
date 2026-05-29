@@ -1,10 +1,35 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-05-13T15:00:00Z"
+  last_updated: "2026-05-29T16:30:00Z"
   version: 1
-  total_completed: 127
+  total_completed: 128
 
 records:
+  - id: feat-bmad-workspace
+    name: "PM Workshop Tab 基础设施"
+    completed_at: "2026-05-29T16:30:00Z"
+    tag: feat-bmad-workspace-20260529
+    merge_commit: "b6474e3"
+    merged_to: main
+    branch_deleted: true
+    branch_name: feature/feat-bmad-workspace
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-bmad-workspace
+    parent: feat-bmad-workshop
+    conflicts:
+      had_conflict: false
+      conflict_files: []
+    verification:
+      status: passed
+      scenarios_total: 3
+      scenarios_passed: 3
+    stats:
+      started: "2026-05-29T16:00:00Z"
+      duration: ~30m
+      commits: 1
+      files_changed: 12
+      insertions: 565
+
   - id: feat-chat-panel-md-resize
     name: "Agent 对话窗口 Markdown 渲染优化与面板横向拖拽调整"
     completed_at: "2026-05-13T15:00:00Z"

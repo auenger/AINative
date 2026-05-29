@@ -219,3 +219,14 @@ Scenario: 产出物流转
 - [ ] 三个子面板 placeholder 组件
 - [ ] BMADSessionState 状态管理
 - [ ] i18n 字符串（nav.pmWorkshop 等）
+
+## Merge Record
+
+- **Completed:** 2026-05-29T16:30:00Z
+- **Merged Branch:** feature/feat-bmad-workspace
+- **Merge Commit:** b6474e3
+- **Archive Tag:** feat-bmad-workspace-20260529
+- **Conflicts:** none
+- **Verification:** PASS (3/3 Gherkin scenarios, 20/20 tasks, TypeScript clean)
+- **Stats:** 12 files changed, 565 insertions, 1 deletion
+- **Duration:** ~30 minutes
