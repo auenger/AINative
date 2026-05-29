@@ -78,6 +78,11 @@ blocked:
   priority: 40
   reason: '依赖 feat-agent-provider-core'
 completed:
+- id: feat-party-mode-optim
+  name: "Party Mode 引擎优化（动态角色 + 受控进程 + 流水线 + 收敛）"
+  completed_at: '2026-05-29T21:30:00Z'
+  tag: feat-party-mode-optim-20260529
+  parent: feat-bmad-workshop
 - id: feat-bmad-prd
   name: PRD 创建 Skill（BMAD Create PRD）
   completed_at: '2026-05-29T20:30:00Z'

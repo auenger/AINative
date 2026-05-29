@@ -1,10 +1,32 @@
 # features/archive/archive-log.yaml
 meta:
-  last_updated: "2026-05-29T20:30:00Z"
+  last_updated: "2026-05-29T21:30:00Z"
   version: 1
-  total_completed: 131
+  total_completed: 132
 
 records:
+  - id: feat-party-mode-optim
+    name: "Party Mode 引擎优化（动态角色 + 受控进程 + 流水线 + 收敛）"
+    completed_at: "2026-05-29T21:30:00Z"
+    tag: feat-party-mode-optim-20260529
+    merged_to: main
+    merge_commit: adca241
+    branch_deleted: true
+    branch_name: feature/feat-party-mode-optim
+    worktree_deleted: true
+    worktree_path: ../NeuroSyntaxIDE-feat-party-mode-optim
+    parent: feat-bmad-workshop
+    conflicts:
+      had_conflict: false
+    verification:
+      status: warning
+      scenarios_total: 8
+      scenarios_passed: 6
+    stats:
+      started: "2026-05-29T21:15:00Z"
+      duration: "15min"
+      commits: 1
+      files_changed: 8
   - id: feat-bmad-prd
     name: "PRD 创建 Skill（BMAD Create PRD）"
     completed_at: "2026-05-29T20:30:00Z"
