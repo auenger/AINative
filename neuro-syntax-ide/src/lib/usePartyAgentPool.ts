@@ -368,7 +368,7 @@ function simulatePersonaResponse(personaId: string, _topic: string): string {
   const responses: Record<string, string> = {
     winston: "From a product strategy perspective, I think the key question is whether this delivers real user value. We need to validate the core assumption before investing heavily in implementation. Let's think about what metrics would tell us if this is working.",
     alex: "Architecturally speaking, this approach has merit but we need to consider the scalability implications. The current design would work for the initial use case, but I'd recommend building in abstraction layers early to avoid technical debt later.",
-    sally: "From a UX standpoint, I'm concerned about the cognitive load this adds. Users should be able to accomplish their goal within 2-3 interactions. Can we simplify the flow while keeping the core functionality?',
+    sally: "From a UX standpoint, I'm concerned about the cognitive load this adds. Users should be able to accomplish their goal within 2-3 interactions. Can we simplify the flow while keeping the core functionality?",
     marcus: "I see several risk areas here. What happens when the network is unstable? How do we handle concurrent access? We should define our failure modes and build graceful degradation into the design from the start.",
     jordan: "Looking at this from an implementation perspective, I estimate this would take about 2-3 sprints if we scope it well. I'd suggest breaking it into phases: core functionality first, then polish and edge cases. This way we can get feedback early.",
   };

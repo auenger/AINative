@@ -407,6 +407,9 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
   // Convergence state
   const [isConverging, setIsConverging] = useState(false);
 
+  // Tab for right panel persona cards: null = "All", string = personaId
+  const [activePersonaTab, setActivePersonaTab] = useState<string | null>(null);
+
   const currentExecuteRef = useRef<number>(0);
 
   // ─── Orchestrator Agent ───
@@ -831,6 +834,35 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
     return cards;
   }, [rounds, currentRound, activePersonaId, partyReport, onCreatePRD]);
 
+  // ─── Build list of unique persona IDs with responses (for tabs) ───
+  const personaTabIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const round of rounds) {
+      for (const pid of round.selectedPersonas) {
+        if (round.responses[pid]) ids.add(pid);
+      }
+    }
+    if (currentRound) {
+      for (const pid of currentRound.selectedPersonas) {
+        if (currentRound.responses[pid] || currentRound.loading[pid]) ids.add(pid);
+      }
+    }
+    return Array.from(ids);
+  }, [rounds, currentRound]);
+
+  // ─── Filtered cards for active tab ───
+  const filteredPersonaCards = useMemo(() => {
+    if (!activePersonaTab) return personaCardsSection;
+    // Filter to show only cards matching the active persona tab
+    return personaCardsSection.filter((card) => {
+      if (!React.isValidElement(card)) return true;
+      const props = card.props as Record<string, any>;
+      // Keep round labels and report cards
+      if (!props.personaId) return true;
+      return props.personaId === activePersonaTab;
+    });
+  }, [activePersonaTab, personaCardsSection]);
+
   // ─── Input addons with PersonaReferencePicker ───
   const inputAddons = useMemo(
     () => (
@@ -1017,14 +1049,50 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
           }
           renderWorkshopMessage={renderWorkshopMessage}
           inputAddons={inputAddons}
+          agentStatus={orchestrator.agentStatus}
           rightPanel={
             personaCardsSection.length > 0 ? (
-              <div className="p-4 space-y-3">
-                <div className="flex items-center gap-2 mb-3">
-                  <Users size={12} className="text-tertiary" />
-                  <span className="text-[10px] font-bold text-on-surface-variant">Persona Responses</span>
+              <div className="flex flex-col h-full">
+                {/* Tab Bar */}
+                <div className="flex items-center gap-0.5 px-3 py-2 border-b border-outline-variant/10 shrink-0 overflow-x-auto">
+                  <button
+                    onClick={() => setActivePersonaTab(null)}
+                    className={cn(
+                      'flex items-center gap-1 px-2 py-1 text-[9px] font-bold rounded-md transition-colors shrink-0',
+                      activePersonaTab === null
+                        ? 'bg-tertiary/15 text-tertiary'
+                        : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
+                    )}
+                  >
+                    <Users size={9} />
+                    All
+                  </button>
+                  {personaTabIds.map((pid) => {
+                    const persona = getPersonaById(pid);
+                    if (!persona) return null;
+                    const isActive = activePersonaId === pid;
+                    return (
+                      <button
+                        key={pid}
+                        onClick={() => setActivePersonaTab(pid)}
+                        className={cn(
+                          'flex items-center gap-1 px-2 py-1 text-[9px] font-bold rounded-md transition-colors shrink-0',
+                          activePersonaTab === pid
+                            ? 'bg-tertiary/15 text-tertiary'
+                            : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
+                        )}
+                      >
+                        <span className="text-[10px]">{persona.icon}</span>
+                        {persona.name}
+                        {isActive && <Loader2 size={7} className="animate-spin text-amber-400 ml-0.5" />}
+                      </button>
+                    );
+                  })}
                 </div>
-                {personaCardsSection}
+                {/* Card Content */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {filteredPersonaCards}
+                </div>
               </div>
             ) : undefined
           }
