@@ -15,6 +15,8 @@ interface WorkshopChatPanelProps {
   inputAddons?: React.ReactNode;
   /** Optional right panel rendered alongside the chat */
   rightPanel?: React.ReactNode;
+  /** Agent status for UI (e.g. 'thinking' when INIT noise detected) */
+  agentStatus?: 'thinking' | null;
 }
 
 export const WorkshopChatPanel: React.FC<WorkshopChatPanelProps> = ({
@@ -25,6 +27,7 @@ export const WorkshopChatPanel: React.FC<WorkshopChatPanelProps> = ({
   renderWorkshopMessage,
   inputAddons,
   rightPanel,
+  agentStatus,
 }) => {
   const [input, setInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -60,6 +63,7 @@ export const WorkshopChatPanel: React.FC<WorkshopChatPanelProps> = ({
               idx={idx}
               isStreaming={isStreaming}
               isLast={idx === messages.length - 1}
+              agentStatus={agentStatus}
               renderWorkshopMessage={renderWorkshopMessage}
             />
           ))}

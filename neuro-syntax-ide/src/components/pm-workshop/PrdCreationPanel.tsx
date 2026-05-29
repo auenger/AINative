@@ -611,6 +611,7 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
                     : 'Finalize your PRD...'
             }
             renderWorkshopMessage={renderWorkshopMessage}
+            agentStatus={agent.agentStatus}
           />
         </div>
 

@@ -33,7 +33,7 @@ interface ParsedWorkshopPayload {
  * is the extracted structured data (or null if no markers found).
  */
 function parseWorkshopMarkers(content: string): { text: string; payload: ParsedWorkshopPayload | null } {
-  // Option card
+  // Option card (HTML-comment format)
   const optionMatch = content.match(
     /<!-- workshop:option-card -->\s*Options:\s*([\s\S]*?)<!-- \/workshop:option-card -->/
   );
@@ -47,7 +47,6 @@ function parseWorkshopMarkers(content: string): { text: string; payload: ParsedW
       })
       .filter(Boolean) as OptionItem[];
 
-    // Default emojis for known option IDs
     const emojiMap: Record<string, string> = {
       browse: '🔍', recommend: '🤖', random: '🎲', progressive: '📈',
     };
@@ -63,6 +62,43 @@ function parseWorkshopMarkers(content: string): { text: string; payload: ParsedW
       text: cleanText,
       payload: { type: 'option-card', data: { options } },
     };
+  }
+
+  // Option card ([SYSTEM] OPTIONS JSON format)
+  const systemOptionMatch = content.match(
+    /\[SYSTEM\]\s*"OPTIONS"\s*:\s*(\[[\s\S]*?\])/
+  ) || content.match(
+    /"OPTIONS"\s*:\s*(\[\s*\{[\s\S]*?"DESCRIPTION"[\s\S]*?\}\s*\])/
+  );
+  if (systemOptionMatch) {
+    try {
+      const rawOptions = JSON.parse(systemOptionMatch[1]);
+      if (Array.isArray(rawOptions) && rawOptions.length > 0) {
+        const options: OptionItem[] = rawOptions.map((opt: any) => ({
+          id: opt.ID || opt.id || opt.LABEL || '',
+          emoji: '',
+          title: opt.DESCRIPTION || opt.LABEL || opt.TITLE || opt.id || '',
+          description: opt.DESCRIPTION || opt.LABEL || '',
+        }));
+        const emojiMap: Record<string, string> = {
+          hobby: '🎯', internal: '🔧', startup: '🚀', enterprise: '🏢',
+          browse: '🔍', recommend: '🤖', random: '🎲', progressive: '📈',
+        };
+        options.forEach((opt) => {
+          if (!opt.emoji) opt.emoji = emojiMap[opt.id.toLowerCase()] || '💡';
+        });
+
+        const cleanText = content
+          .replace(systemOptionMatch[0], '')
+          .replace(/\[SYSTEM\]\s*/g, '')
+          .trim();
+
+        return {
+          text: cleanText,
+          payload: { type: 'option-card', data: { options } },
+        };
+      }
+    } catch { /* ignore parse errors */ }
   }
 
   // Idea card
@@ -401,6 +437,7 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
                     : 'Review and organize your ideas...'
             }
             renderWorkshopMessage={renderWorkshopMessage}
+            agentStatus={agent.agentStatus}
           />
         )}
       </div>

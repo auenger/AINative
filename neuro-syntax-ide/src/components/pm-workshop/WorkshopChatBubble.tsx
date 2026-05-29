@@ -11,11 +11,22 @@ interface WorkshopChatBubbleProps {
 
 function filterToolCallText(content: string): string {
   let filtered = content
+    // XML-style tool tags
     .replace(/<tool_use>[\s\S]*?<\/tool_use>/g, '')
     .replace(/<tool_result>[\s\S]*?<\/tool_result>/g, '')
     .replace(/<tool_name>[\s\S]*?<\/tool_name>/g, '')
     .replace(/^\s*tool_name:\s*\S+.*$/gm, '')
-    .replace(/^\s*tool_result:\s*\S+.*$/gm, '');
+    .replace(/^\s*tool_result:\s*\S+.*$/gm, '')
+    // [tool: Agent] {json} pattern
+    .replace(/\[tool:\s*\w+\]\s*\{[^}]*\}/g, '')
+    // task lifecycle markers
+    .replace(/^task_started$/gm, '')
+    .replace(/^task_progress$/gm, '')
+    .replace(/^task_notification$/gm, '')
+    .replace(/^\[tool:.*?\]\s*\{[\s\S]*?\}/gm, '')
+    // [SYSTEM] OPTIONS JSON blocks (rendered as OptionCardMessage instead)
+    .replace(/\[SYSTEM\]\s*"OPTIONS"\s*:\s*\[[\s\S]*?\]\s*$/gm, '')
+    .replace(/"OPTIONS"\s*:\s*\[[\s\S]*?\{[\s\S]*?"DESCRIPTION"[\s\S]*?\}\s*\]/gm, '');
   filtered = filtered.replace(/\n{3,}/g, '\n\n').trim();
   return filtered;
 }

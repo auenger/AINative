@@ -148,6 +148,12 @@ export function useAgentStream(options: UseAgentStreamOptions) {
   // Idle warning state — set when idle_warning events are received, cleared on new output
   const [idleWarningSeconds, setIdleWarningSeconds] = useState<number | null>(null);
 
+  // Agent status for UI: 'thinking' when INIT/system noise is detected, null for normal
+  const [agentStatus, setAgentStatus] = useState<'thinking' | null>(null);
+
+  // INIT pattern detector — matches [SYSTEM]INIT, INIT —, and similar system noise
+  const INIT_PATTERN = /^\s*(\[SYSTEM\]\s*)?(INIT\s*—|INIT\s+\d+\s+TOOLS)/i;
+
   // Ref to track current runtimeId in sendMessage closures
   const optionsRef = useRef(options);
   optionsRef.current = options;
@@ -277,6 +283,25 @@ export function useAgentStream(options: UseAgentStreamOptions) {
 
       // Stream text from assistant/system/raw messages
       if (chunk.text && (chunk.type === 'assistant' || chunk.type === 'system' || chunk.type === 'raw' || !chunk.type)) {
+        // Detect INIT system noise — route to agentStatus instead of messages
+        if (INIT_PATTERN.test(chunk.text) || INIT_PATTERN.test(streamingTextRef.current + chunk.text)) {
+          setAgentStatus('thinking');
+          streamingTextRef.current += chunk.text;
+          // Don't create/update a message — just accumulate silently
+          return;
+        }
+
+        // Real content clears the thinking status
+        if (agentStatus === 'thinking' && streamingTextRef.current) {
+          // Check if accumulated text is just INIT noise
+          if (INIT_PATTERN.test(streamingTextRef.current)) {
+            // Clear the accumulated INIT text and start fresh with real content
+            streamingTextRef.current = '';
+            setAgentStatus(null);
+          }
+        }
+        setAgentStatus(null);
+
         streamingTextRef.current += chunk.text;
         setMessages((prev) => {
           const last = prev[prev.length - 1];
@@ -691,6 +716,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
     );
     streamingTextRef.current = '';
     setError(null);
+    setAgentStatus(null);
   }, [greetingMessage]);
 
   // ---------------------------------------------------------------------------
@@ -725,6 +751,9 @@ export function useAgentStream(options: UseAgentStreamOptions) {
     // Idle warning state (feat-runtime-timeout-reminder)
     idleWarningSeconds,
     setIdleWarningSeconds,
+
+    // Agent status ('thinking' when INIT noise detected, null otherwise)
+    agentStatus,
 
     // Identity
     runtimeId,
