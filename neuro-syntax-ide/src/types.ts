@@ -1,5 +1,5 @@
 // ⚠️ Workflow view type reserved for future design & capability enhancement
-export type ViewType = 'project' | 'editor' | 'tasks' | 'workflow' | 'mission-control' | 'settings' | 'person' | 'agents' | 'agent-pixel' | 'git';
+export type ViewType = 'project' | 'editor' | 'tasks' | 'workflow' | 'mission-control' | 'settings' | 'person' | 'agents' | 'agent-pixel' | 'git' | 'pm-workshop';
 
 export interface FileNode {
   name: string;
@@ -976,4 +976,110 @@ export interface InstallResult {
   skipped: number;
   updated: number;
   errors: string[];
+}
+
+// ─── PM Workshop / BMAD Types ───
+
+/** Sub-tab identifiers within PM Workshop */
+export type PMWorkshopTab = 'brainstorm' | 'party-mode' | 'prd';
+
+/** Brainstorm session step */
+export type BrainstormStep = 'setup' | 'technique' | 'execute' | 'organize';
+
+/** A brainstorming method/technique */
+export interface BrainMethod {
+  id: string;
+  name: string;
+  category: string;
+  duration: string;
+  energyLevel: 'low' | 'medium' | 'high';
+  description: string;
+}
+
+/** A single brainstorm idea */
+export interface BrainstormIdea {
+  id: string;
+  category: string;
+  number: number;
+  title: string;
+  concept: string;
+  novelty: string;
+}
+
+/** Output from a brainstorm session */
+export interface BrainstormOutput {
+  ideas: BrainstormIdea[];
+  summary: string;
+  method?: string;
+  timestamp: number;
+}
+
+/** A party-mode persona */
+export interface PartyPersona {
+  id: string;
+  name: string;
+  title: string;
+  icon: string;
+  accentColor: string;
+  description: string;
+  expertise: string[];
+}
+
+/** An insight from party-mode discussion */
+export interface PartyInsight {
+  personaId: string;
+  personaName: string;
+  content: string;
+  timestamp: number;
+}
+
+/** PRD creation intent */
+export type PRDIntent = 'create' | 'update' | 'verify';
+
+/** PRD stake level */
+export type PRDStakeLevel = 'hobby' | 'internal' | 'startup';
+
+/** PRD coaching mode */
+export type PRDMode = 'fast-path' | 'coaching-path';
+
+/** A section of a PRD document */
+export interface PRDSection {
+  id: string;
+  title: string;
+  status: 'complete' | 'in-progress' | 'empty';
+  content: string;
+}
+
+/** An assumption tracked during PRD creation */
+export interface Assumption {
+  id: string;
+  text: string;
+  confirmed: boolean;
+}
+
+/** A PRD document */
+export interface PRDDocument {
+  title: string;
+  sections: PRDSection[];
+  assumptions: Assumption[];
+  stakeLevel: PRDStakeLevel;
+  mode: PRDMode;
+  timestamp: number;
+}
+
+/** Workshop message payload types for structured rendering */
+export type WorkshopMessageType =
+  | 'option-card'
+  | 'idea-card'
+  | 'persona-card'
+  | 'action-menu'
+  | 'energy-checkpoint'
+  | 'orchestrator-note'
+  | 'validation-report';
+
+/** Shared session state flowing across Workshop sub-skills */
+export interface BMADSessionState {
+  brainstormOutput?: BrainstormOutput;
+  partyInsights?: PartyInsight[];
+  prdDocument?: PRDDocument;
 }

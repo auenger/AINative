@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   ClipboardList,
+  FlaskConical,
   GitBranch,
   Rocket,
   Settings,
@@ -24,6 +25,7 @@ export const SideNav: React.FC<SideNavProps> = ({ activeView, onViewChange }) =>
 
   const navItems: { id: ViewType; icon: any; label: string }[] = [
     { id: 'project', icon: Layout, label: t('nav.project') },
+    { id: 'pm-workshop', icon: FlaskConical, label: t('nav.pmWorkshop') },
     { id: 'tasks', icon: ClipboardList, label: t('nav.tasks') },
     { id: 'editor', icon: FileCode, label: t('nav.editor') },
     { id: 'git', icon: Github, label: t('nav.git', 'Git') },

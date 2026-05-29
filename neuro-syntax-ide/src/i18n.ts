@@ -7,6 +7,7 @@ const resources = {
     translation: {
       nav: {
         project: 'Project',
+        pmWorkshop: 'Workshop',
         editor: 'Editor',
         explorer: 'Explorer',
         search: 'Search',
@@ -274,6 +275,7 @@ const resources = {
     translation: {
       nav: {
         project: '项目',
+        pmWorkshop: '产品工坊',
         editor: '编辑器',
         explorer: '资源管理器',
         search: '搜索',

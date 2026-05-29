@@ -59,6 +59,10 @@ export interface ChatMessage {
   toolStatus?: 'running' | 'success' | 'error';
   /** Tool result summary (feat-agent-tool-ui) */
   toolResult?: string;
+  /** Workshop-specific structured message type (feat-bmad-workspace) */
+  workshopType?: import('../types').WorkshopMessageType;
+  /** Workshop-specific structured payload (feat-bmad-workspace) */
+  workshopPayload?: any;
 }
 
 export type Connection_State = 'disconnected' | 'connecting' | 'connected' | 'error';
