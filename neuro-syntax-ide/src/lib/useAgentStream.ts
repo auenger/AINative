@@ -166,6 +166,8 @@ export function useAgentStream(options: UseAgentStreamOptions) {
   // Capture mode: when set, streaming text is routed to this callback instead of messages.
   // Used by Party Mode to route persona output to individual cards.
   const captureRef = useRef<((text: string) => void) | null>(null);
+  // Resolve function for the capture done promise — called when is_done arrives during capture
+  const captureDoneResolveRef = useRef<(() => void) | null>(null);
 
   // Ref to track current runtimeId in sendMessage closures
   const optionsRef = useRef(options);
@@ -416,6 +418,12 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       }
 
       if (chunk.is_done) {
+        // Signal capture mode completion — resolves the waitForCaptureDone promise
+        if (captureRef.current && captureDoneResolveRef.current) {
+          captureDoneResolveRef.current();
+          captureDoneResolveRef.current = null;
+        }
+
         // For process_exit events in session mode: only process if currently streaming.
         // This prevents stale process_exit from a previous CLI invocation from
         // interfering with a new request (e.g. adding "(No response received)").
@@ -799,6 +807,16 @@ export function useAgentStream(options: UseAgentStreamOptions) {
     // Capture mode: route streaming text to callback instead of messages
     setCapture: useCallback((cb: ((text: string) => void) | null) => {
       captureRef.current = cb;
+      if (!cb) captureDoneResolveRef.current = null;
+    }, []),
+
+    // Set capture and return a promise that resolves when is_done arrives.
+    // Use this when you need to wait for the full streaming response before proceeding.
+    captureUntilDone: useCallback((cb: (text: string) => void): Promise<void> => {
+      captureRef.current = cb;
+      return new Promise<void>((resolve) => {
+        captureDoneResolveRef.current = resolve;
+      });
     }, []),
 
     // Identity

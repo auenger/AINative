@@ -531,9 +531,10 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
           try {
             const { invoke } = await import('@tauri-apps/api/core');
 
-            // Capture mode: route streaming output to persona's card, not orchestrator chat
+            // Capture mode: route streaming output to persona's card, not orchestrator chat.
+            // captureUntilDone returns a Promise that resolves when is_done arrives.
             let capturedText = '';
-            orchestrator.setCapture((text: string) => {
+            const donePromise = orchestrator.captureUntilDone((text: string) => {
               capturedText += text;
               // Update the persona card in real-time
               setCurrentRound((prev) => {
@@ -552,6 +553,9 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
               sessionId: null,
               systemPrompt: prompt,
             });
+
+            // Wait for streaming to complete (is_done signal) before moving to next persona
+            await donePromise;
 
             // Stop capturing — route back to orchestrator chat
             orchestrator.setCapture(null);
