@@ -1075,11 +1075,41 @@ export type WorkshopMessageType =
   | 'action-menu'
   | 'energy-checkpoint'
   | 'orchestrator-note'
-  | 'validation-report';
+  | 'validation-report'
+  | 'party-report';
+
+/** Convergence report from Party Mode multi-round discussion */
+export interface PartyReport {
+  consensus: string[];
+  disagreements: string[];
+  recommendedActions: string[];
+  risks: string[];
+  summary: string;
+  generatedAt: number;
+  topic: string;
+  rounds: number;
+}
+
+/** Party Mode configuration (defaults + user overrides) */
+export interface PartyModeConfig {
+  workshopRuntimeId: string;
+  maxConcurrent: number;
+  timeoutSeconds: number;
+  maxRounds: number;
+}
+
+export const DEFAULT_PARTY_MODE_CONFIG: PartyModeConfig = {
+  workshopRuntimeId: 'agent-sdk',
+  maxConcurrent: 3,
+  timeoutSeconds: 120,
+  maxRounds: 3,
+};
 
 /** Shared session state flowing across Workshop sub-skills */
 export interface BMADSessionState {
   brainstormOutput?: BrainstormOutput;
   partyInsights?: PartyInsight[];
+  partyReport?: PartyReport;
+  partyModeConfig?: PartyModeConfig;
   prdDocument?: PRDDocument;
 }

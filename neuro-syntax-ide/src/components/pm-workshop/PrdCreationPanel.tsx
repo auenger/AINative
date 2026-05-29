@@ -174,7 +174,7 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
 
   // ─── Agent Stream ───
   const agent = useAgentStream({
-    runtimeId: 'claude-code',
+    runtimeId: 'agent-sdk',
     systemPrompt: PRD_SYSTEM_PROMPT,
     greetingMessage: PRD_GREETING,
     useSessions: true,

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { cn } from '../lib/utils';
-import type { PMWorkshopTab, BMADSessionState, BrainstormOutput, PartyInsight, PRDDocument } from '../types';
+import type { PMWorkshopTab, BMADSessionState, BrainstormOutput, PartyInsight, PartyReport, PRDDocument } from '../types';
 import { BrainstormPanel } from '../components/pm-workshop/BrainstormPanel';
 import { PartyModePanel } from '../components/pm-workshop/PartyModePanel';
 import { PrdCreationPanel } from '../components/pm-workshop/PrdCreationPanel';
@@ -33,6 +33,11 @@ export const PMWorkshopView: React.FC<PMWorkshopViewProps> = ({ workspacePath })
           {sessionState.partyInsights && sessionState.partyInsights.length > 0 && (
             <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-tertiary/20 text-tertiary">
               Party Mode
+            </span>
+          )}
+          {sessionState.partyReport && (
+            <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-400/20 text-emerald-400">
+              Report
             </span>
           )}
           {sessionState.prdDocument && (
@@ -79,6 +84,10 @@ export const PMWorkshopView: React.FC<PMWorkshopViewProps> = ({ workspacePath })
             onInsightsChange={(insights: PartyInsight[]) =>
               setSessionState((prev) => ({ ...prev, partyInsights: insights }))
             }
+            onReportGenerated={(report: PartyReport) =>
+              setSessionState((prev) => ({ ...prev, partyReport: report }))
+            }
+            onCreatePRD={() => setActiveTab('prd')}
           />
         )}
         {activeTab === 'prd' && (

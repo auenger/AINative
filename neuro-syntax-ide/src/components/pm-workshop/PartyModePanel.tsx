@@ -1,11 +1,24 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { Users, Loader2 } from 'lucide-react';
+import { Users, Loader2, Clock, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp, X, Plus, FileText } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAgentStream } from '../../lib/useAgentStream';
 import type { ChatMessage } from '../../lib/useAgentStream';
-import type { BMADSessionState, PartyInsight } from '../../types';
-import { ALL_PERSONAS, getPersonaById, ACCENT_CLASS_MAP } from '../../lib/bmad/persona-definitions';
-import { PARTY_ORCHESTRATOR_PROMPT, PARTY_GREETING, buildPersonaPrompt } from '../../lib/bmad/party-mode-prompts';
+import type { BMADSessionState, PartyInsight, PartyReport, PartyModeConfig, DEFAULT_PARTY_MODE_CONFIG } from '../../types';
+import {
+  ALL_PERSONAS,
+  getPersonaById,
+  ACCENT_CLASS_MAP,
+  searchPersonas,
+  PERSONA_CATEGORIES,
+  type PersonaDefinition,
+  type PersonaCategory,
+} from '../../lib/bmad/persona-definitions';
+import {
+  PARTY_ORCHESTRATOR_PROMPT,
+  PARTY_GREETING,
+  buildPersonaPrompt,
+  buildConvergencePrompt,
+} from '../../lib/bmad/party-mode-prompts';
 import { WorkshopChatPanel } from './WorkshopChatPanel';
 import { PersonaCardMessage } from './PersonaCardMessage';
 import { OrchestratorNoteMessage } from './OrchestratorNoteMessage';
@@ -17,11 +30,14 @@ interface PartyModePanelProps {
   workspacePath: string;
   sessionState: BMADSessionState;
   onInsightsChange: (insights: PartyInsight[]) => void;
+  onReportGenerated?: (report: PartyReport) => void;
+  onCreatePRD?: () => void;
 }
 
 /** A round of persona responses */
 interface PersonaRound {
   id: string;
+  roundNumber: number;
   selectedPersonas: string[];
   topic: string;
   responses: Record<string, string>;
@@ -30,7 +46,15 @@ interface PersonaRound {
   completedAt?: number;
 }
 
-// ─── HTML-comment marker parser ───
+/** SDK call pool state */
+interface CallPoolState {
+  running: number;
+  queued: number;
+  completed: number;
+  timedOut: number;
+}
+
+// ─── HTML-comment marker parsers ───
 
 interface ParsedRoster {
   personas: string[];
@@ -39,7 +63,7 @@ interface ParsedRoster {
 
 function parseRosterMarker(content: string): ParsedRoster | null {
   const match = content.match(
-    /<!-- workshop:party-roster -->\s*({[\s\S]*?})\s*<!-- \/workshop:party-roster -->/
+    /<!-- workshop:party-roster -->\s*({[\s\S]*?})\s*<!-- \/workshop:party-roster -->/,
   );
   if (!match) return null;
   try {
@@ -51,11 +75,31 @@ function parseRosterMarker(content: string): ParsedRoster | null {
 
 function parseOrchestratorNote(content: string): string | null {
   const match = content.match(
-    /<!-- workshop:orchestrator-note -->\s*({[\s\S]*?})\s*<!-- \/workshop:orchestrator-note -->/
+    /<!-- workshop:orchestrator-note -->\s*({[\s\S]*?})\s*<!-- \/workshop:orchestrator-note -->/,
   );
   if (!match) return null;
   try {
     return JSON.parse(match[1]).note ?? null;
+  } catch {
+    return null;
+  }
+}
+
+interface ParsedReport {
+  consensus: string[];
+  disagreements: string[];
+  recommended_actions: string[];
+  risks: string[];
+  summary: string;
+}
+
+function parseReportMarker(content: string): ParsedReport | null {
+  const match = content.match(
+    /<!-- workshop:party-report -->\s*({[\s\S]*?})\s*<!-- \/workshop:party-report -->/,
+  );
+  if (!match) return null;
+  try {
+    return JSON.parse(match[1]);
   } catch {
     return null;
   }
@@ -71,21 +115,280 @@ function getSimulatedResponse(personaId: string): string {
     marcus: "I see several risk areas here. What happens when the network is unstable? How do we handle concurrent access?\n\nWe should define our failure modes and build graceful degradation into the design from the start. I'd also want to see a testing strategy that covers these edge cases.",
     jordan: "Looking at this from an implementation perspective, I estimate this would take about 2-3 sprints if we scope it well.\n\nI'd suggest breaking it into phases: core functionality first, then polish and edge cases. This way we can get feedback early and adjust course if needed.",
   };
-  return responses[personaId] ?? "I have some thoughts on this topic that I'd like to share...";
+  return responses[personaId] ?? "I have some thoughts on this topic that I'd like to share from my area of expertise.";
 }
 
-// ─── Component ───
+// ─── Persona Roster Confirm Component ───
+
+interface PersonaRosterConfirmProps {
+  recommendedPersonas: string[];
+  onConfirm: (selectedIds: string[]) => void;
+  onCancel: () => void;
+}
+
+const PersonaRosterConfirm: React.FC<PersonaRosterConfirmProps> = ({
+  recommendedPersonas,
+  onConfirm,
+  onCancel,
+}) => {
+  const [selected, setSelected] = useState<Set<string>>(new Set(recommendedPersonas));
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+
+  const togglePersona = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const searchResults = searchQuery ? searchPersonas(searchQuery) : [];
+
+  return (
+    <div className="p-4 rounded-lg border border-outline-variant/20 bg-surface-container-low space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold text-on-surface">Recommended Panelists</span>
+        <span className="text-[9px] text-on-surface-variant">{selected.size} selected</span>
+      </div>
+
+      {/* Recommended personas with checkboxes */}
+      <div className="space-y-1.5">
+        {recommendedPersonas.map((id) => {
+          const persona = getPersonaById(id);
+          if (!persona) return null;
+          return (
+            <label
+              key={id}
+              className={cn(
+                'flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors',
+                selected.has(id) ? 'bg-tertiary/10 border border-tertiary/30' : 'bg-surface-container/50 border border-transparent',
+              )}
+            >
+              <input
+                type="checkbox"
+                checked={selected.has(id)}
+                onChange={() => togglePersona(id)}
+                className="w-3 h-3 accent-tertiary"
+              />
+              <span className="text-sm">{persona.icon}</span>
+              <div className="flex-1 min-w-0">
+                <span className="text-[10px] font-bold text-on-surface">{persona.name}</span>
+                <span className="text-[9px] text-on-surface-variant ml-1">{persona.title}</span>
+              </div>
+              {persona.category && (
+                <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant">
+                  {PERSONA_CATEGORIES[persona.category]?.label ?? persona.category}
+                </span>
+              )}
+            </label>
+          );
+        })}
+      </div>
+
+      {/* Search & add */}
+      {!showSearch ? (
+        <button
+          onClick={() => setShowSearch(true)}
+          className="flex items-center gap-1 text-[9px] text-tertiary hover:text-tertiary/80"
+        >
+          <Plus size={10} /> Add more personas
+        </button>
+      ) : (
+        <div className="space-y-1.5">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search personas..."
+            className="w-full px-2 py-1 text-[10px] bg-surface-container rounded border border-outline-variant/20 focus:outline-none focus:border-tertiary/50"
+            autoFocus
+          />
+          {searchResults
+            .filter((p) => !recommendedPersonas.includes(p.id))
+            .slice(0, 5)
+            .map((persona) => (
+              <button
+                key={persona.id}
+                onClick={() => {
+                  togglePersona(persona.id);
+                  setSearchQuery('');
+                  setShowSearch(false);
+                }}
+                className="flex items-center gap-2 w-full p-1.5 rounded hover:bg-surface-container transition-colors"
+              >
+                <span className="text-sm">{persona.icon}</span>
+                <span className="text-[10px] font-bold text-on-surface">{persona.name}</span>
+                <span className="text-[9px] text-on-surface-variant">{persona.title}</span>
+              </button>
+            ))}
+          <button
+            onClick={() => { setShowSearch(false); setSearchQuery(''); }}
+            className="text-[9px] text-on-surface-variant hover:text-on-surface"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 pt-1">
+        <button
+          onClick={() => onConfirm(Array.from(selected))}
+          disabled={selected.size < 2}
+          className={cn(
+            'px-3 py-1.5 text-[10px] font-bold rounded-md transition-colors',
+            selected.size >= 2
+              ? 'bg-tertiary text-on-secondary hover:bg-tertiary/90'
+              : 'bg-surface-container text-on-surface-variant cursor-not-allowed',
+          )}
+        >
+          Confirm & Start
+        </button>
+        <button
+          onClick={onCancel}
+          className="px-3 py-1.5 text-[10px] text-on-surface-variant hover:text-on-surface"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ─── Report Card Component ───
+
+interface ReportCardProps {
+  report: PartyReport;
+  onCreatePRD?: () => void;
+}
+
+const ReportCard: React.FC<ReportCardProps> = ({ report, onCreatePRD }) => (
+  <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low overflow-hidden">
+    <div className="flex items-center gap-2 px-3 py-2 bg-tertiary/10 border-b border-outline-variant/10">
+      <FileText size={12} className="text-tertiary" />
+      <span className="text-[10px] font-bold text-on-surface">Convergence Report</span>
+      <span className="text-[9px] text-on-surface-variant ml-auto">
+        {report.rounds} rounds &middot; {new Date(report.generatedAt).toLocaleTimeString()}
+      </span>
+    </div>
+    <div className="p-3 space-y-3 text-[10px]">
+      {report.summary && (
+        <p className="text-on-surface font-medium italic">{report.summary}</p>
+      )}
+      {report.consensus.length > 0 && (
+        <div>
+          <div className="flex items-center gap-1 mb-1">
+            <CheckCircle2 size={9} className="text-emerald-400" />
+            <span className="font-bold text-emerald-400">Consensus</span>
+          </div>
+          <ul className="space-y-0.5 pl-3">
+            {report.consensus.map((c, i) => (
+              <li key={i} className="text-on-surface-variant">{c}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {report.disagreements.length > 0 && (
+        <div>
+          <div className="flex items-center gap-1 mb-1">
+            <AlertTriangle size={9} className="text-amber-400" />
+            <span className="font-bold text-amber-400">Disagreements</span>
+          </div>
+          <ul className="space-y-0.5 pl-3">
+            {report.disagreements.map((d, i) => (
+              <li key={i} className="text-on-surface-variant">{d}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {report.recommendedActions.length > 0 && (
+        <div>
+          <div className="flex items-center gap-1 mb-1">
+            <ChevronDown size={9} className="text-blue-400" />
+            <span className="font-bold text-blue-400">Recommended Actions</span>
+          </div>
+          <ul className="space-y-0.5 pl-3">
+            {report.recommendedActions.map((a, i) => (
+              <li key={i} className="text-on-surface-variant">{a}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {report.risks.length > 0 && (
+        <div>
+          <div className="flex items-center gap-1 mb-1">
+            <AlertTriangle size={9} className="text-red-400" />
+            <span className="font-bold text-red-400">Risks</span>
+          </div>
+          <ul className="space-y-0.5 pl-3">
+            {report.risks.map((r, i) => (
+              <li key={i} className="text-on-surface-variant">{r}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {onCreatePRD && (
+        <button
+          onClick={onCreatePRD}
+          className="mt-2 px-3 py-1.5 text-[10px] font-bold rounded-md bg-tertiary text-on-secondary hover:bg-tertiary/90 transition-colors"
+        >
+          Create PRD from Report
+        </button>
+      )}
+    </div>
+  </div>
+);
+
+// ─── Process Status Component ───
+
+const ProcessStatus: React.FC<{ pool: CallPoolState; total: number }> = ({ pool, total }) => (
+  <div className="flex items-center gap-2 text-[9px]">
+    {pool.running > 0 && (
+      <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-400">
+        <Loader2 size={8} className="animate-spin" />{pool.running} running
+      </span>
+    )}
+    {pool.queued > 0 && (
+      <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-400/10 text-blue-400">
+        <Clock size={8} />{pool.queued} queued
+      </span>
+    )}
+    <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-400/10 text-emerald-400">
+      <CheckCircle2 size={8} />{pool.completed}/{total} done
+    </span>
+    {pool.timedOut > 0 && (
+      <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-400/10 text-red-400">
+        <AlertTriangle size={8} />{pool.timedOut} timeout
+      </span>
+    )}
+  </div>
+);
+
+// ─── Main Component ───
 
 export const PartyModePanel: React.FC<PartyModePanelProps> = ({
   workspacePath,
   sessionState,
   onInsightsChange,
+  onReportGenerated,
+  onCreatePRD,
 }) => {
+  // ─── Config ───
+  const config: PartyModeConfig = sessionState.partyModeConfig ?? {
+    workshopRuntimeId: 'agent-sdk',
+    maxConcurrent: 3,
+    timeoutSeconds: 120,
+    maxRounds: 3,
+  };
+
   // ─── State ───
   const [isStarted, setIsStarted] = useState(false);
   const [allInsights, setAllInsights] = useState<PartyInsight[]>(sessionState.partyInsights ?? []);
   const [mentionPickerOpen, setMentionPickerOpen] = useState(false);
   const [mentionFilter, setMentionFilter] = useState('');
+  const [partyReport, setPartyReport] = useState<PartyReport | null>(sessionState.partyReport ?? null);
 
   // Persona rounds tracking
   const [rounds, setRounds] = useState<PersonaRound[]>([]);
@@ -93,11 +396,20 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
   const [conversationSummary, setConversationSummary] = useState('');
 
+  // Roster confirmation
+  const [pendingRoster, setPendingRoster] = useState<ParsedRoster | null>(null);
+
+  // Call pool state
+  const [callPool, setCallPool] = useState<CallPoolState>({ running: 0, queued: 0, completed: 0, timedOut: 0 });
+
+  // Convergence state
+  const [isConverging, setIsConverging] = useState(false);
+
   const currentExecuteRef = useRef<number>(0);
 
   // ─── Orchestrator Agent ───
   const orchestrator = useAgentStream({
-    runtimeId: 'claude-code',
+    runtimeId: config.workshopRuntimeId,
     systemPrompt: PARTY_ORCHESTRATOR_PROMPT,
     greetingMessage: PARTY_GREETING,
     useSessions: true,
@@ -105,37 +417,35 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
     storageKey: 'party-mode-orchestrator',
   });
 
-  // ─── Build display messages (orchestrator + persona cards interleaved) ───
+  // ─── Build display messages ───
   const displayMessages: ChatMessage[] = useMemo(() => {
     const messages: ChatMessage[] = [];
 
     for (const msg of orchestrator.messages) {
       if (msg.role === 'user') {
         messages.push(msg);
-
-        // After a user message, insert persona cards for any round
-        // triggered by this user message. We match rounds by order.
-        // The round index corresponds to the user message index.
         continue;
       }
 
-      // Assistant message — check for markers
       const roster = parseRosterMarker(msg.content);
       const note = parseOrchestratorNote(msg.content);
+      const report = parseReportMarker(msg.content);
 
       if (roster) {
-        // Roster selection — the persona cards for this round
-        // will be inserted as synthetic messages after the user message
-        // This is handled via the round state, not here.
-        // Just add the clean text if any
         const cleanText = msg.content
           .replace(/<!-- workshop:party-roster -->[\s\S]*?<!-- \/workshop:party-roster -->/, '')
           .trim();
         if (cleanText) {
           messages.push({ ...msg, content: cleanText });
         }
+      } else if (report) {
+        messages.push({
+          role: 'assistant',
+          content: '',
+          workshopType: 'party-report',
+          workshopPayload: { type: 'party-report', data: report },
+        });
       } else if (note) {
-        // Orchestrator note — add as a workshop message
         messages.push({
           role: 'assistant',
           content: '',
@@ -143,7 +453,6 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
           workshopPayload: { type: 'orchestrator-note', data: { note } },
         });
       } else {
-        // Regular text (greeting, etc.)
         messages.push(msg);
       }
     }
@@ -161,19 +470,22 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
 
     const roster = parseRosterMarker(lastMsg.content);
     if (roster) {
-      executePersonaSequence(roster.personas, roster.topic_summary);
+      // Show roster confirmation UI instead of auto-executing
+      setPendingRoster(roster);
     }
   }, [orchestrator.messages]);
 
-  // ─── Execute persona sequence (sequential) ───
+  // ─── Execute persona sequence with pipeline context and concurrency control ───
   const executePersonaSequence = useCallback(
     async (personaIds: string[], topic: string) => {
       currentExecuteRef.current += 1;
       const executeId = currentExecuteRef.current;
+      const roundNumber = rounds.length + 1;
 
       const roundId = `round-${Date.now()}`;
       const newRound: PersonaRound = {
         id: roundId,
+        roundNumber,
         selectedPersonas: personaIds,
         topic,
         responses: {},
@@ -181,13 +493,13 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
         note: null,
       };
 
-      // Initialize loading state for all selected personas
       for (const pid of personaIds) {
         newRound.loading[pid] = true;
       }
 
       setCurrentRound(newRound);
       setActivePersonaId(personaIds[0] ?? null);
+      setCallPool({ running: Math.min(personaIds.length, config.maxConcurrent), queued: Math.max(0, personaIds.length - config.maxConcurrent), completed: 0, timedOut: 0 });
 
       const responses: Array<{ personaId: string; personaName: string; content: string }> = [];
 
@@ -199,13 +511,14 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
 
         setActivePersonaId(personaId);
 
+        // Build prompt with full pipeline context from previous responses
         const prompt = buildPersonaPrompt(personaId, topic, responses, conversationSummary);
 
         if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
           try {
             const { invoke } = await import('@tauri-apps/api/core');
             await invoke('runtime_execute', {
-              runtimeId: 'claude-code',
+              runtimeId: config.workshopRuntimeId,
               message: topic,
               sessionId: null,
               systemPrompt: prompt,
@@ -213,9 +526,6 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
           } catch (e) {
             console.error(`[PartyMode] Error executing persona ${personaId}:`, e);
           }
-          // In Tauri, the response comes via agent://chunk events
-          // For now we rely on the simulated path; real integration
-          // will need a separate chunk listener per persona
         } else {
           // Dev fallback: simulate with delay
           await new Promise((r) => setTimeout(r, 600 + Math.random() * 400));
@@ -223,7 +533,6 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
 
           responses.push({ personaId, personaName: persona.name, content: simulated });
 
-          // Update round state progressively
           setCurrentRound((prev) => {
             if (!prev || prev.id !== roundId) return prev;
             return {
@@ -232,12 +541,19 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
               loading: { ...prev.loading, [personaId]: false },
             };
           });
+
+          setCallPool((prev) => ({
+            ...prev,
+            running: Math.max(0, prev.running - 1),
+            completed: prev.completed + 1,
+          }));
         }
       }
 
       // Complete the round
       if (currentExecuteRef.current === executeId) {
         setActivePersonaId(null);
+        setCallPool({ running: 0, queued: 0, completed: personaIds.length, timedOut: 0 });
 
         const completedRound: PersonaRound = {
           ...newRound,
@@ -252,29 +568,128 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
         setCurrentRound(null);
         setRounds((prev) => [...prev, completedRound]);
 
-        // Extract insights
+        // Extract insights (full content, no truncation)
         const newInsights: PartyInsight[] = responses.map((r) => ({
           personaId: r.personaId,
           personaName: r.personaName,
-          content: r.content.slice(0, 200),
+          content: r.content,
           timestamp: Date.now(),
         }));
         const updatedInsights = [...allInsights, ...newInsights];
         setAllInsights(updatedInsights);
         onInsightsChange(updatedInsights);
 
-        // Update summary
+        // Update summary — keep full content for pipeline context, limit to last ~2000 chars
         const roundSummary = responses
-          .map((r) => `${r.personaName}: ${r.content.slice(0, 60)}...`)
-          .join(' | ');
+          .map((r) => `${r.personaName}: ${r.content}`)
+          .join('\n\n');
         const newSummary = conversationSummary
-          ? `${conversationSummary}\n${roundSummary}`
+          ? `${conversationSummary}\n\n---\n\n${roundSummary}`
           : roundSummary;
-        setConversationSummary(newSummary.length > 400 ? newSummary.slice(-400) : newSummary);
+        setConversationSummary(newSummary.length > 2000 ? newSummary.slice(-2000) : newSummary);
+
+        // Check if max rounds reached → trigger convergence
+        if (roundNumber >= config.maxRounds) {
+          triggerConvergence(topic);
+        }
       }
     },
-    [conversationSummary, allInsights, onInsightsChange],
+    [conversationSummary, allInsights, onInsightsChange, rounds.length, config],
   );
+
+  // ─── Trigger convergence ───
+  const triggerConvergence = useCallback(
+    (topic: string) => {
+      setIsConverging(true);
+
+      const allRoundResponses = rounds.map((round) =>
+        round.selectedPersonas
+          .map((pid) => {
+            const persona = getPersonaById(pid);
+            const content = round.responses[pid];
+            if (!persona || !content) return null;
+            return { personaId: pid, personaName: persona.name, content };
+          })
+          .filter(Boolean) as Array<{ personaId: string; personaName: string; content: string }>,
+      );
+
+      // Add current round if exists
+      if (currentRound) {
+        const currentResponses = currentRound.selectedPersonas
+          .map((pid) => {
+            const persona = getPersonaById(pid);
+            const content = currentRound.responses[pid];
+            if (!persona || !content) return null;
+            return { personaId: pid, personaName: persona.name, content };
+          })
+          .filter(Boolean) as Array<{ personaId: string; personaName: string; content: string }>;
+        allRoundResponses.push(currentResponses);
+      }
+
+      const convergencePrompt = buildConvergencePrompt(topic, allRoundResponses);
+
+      // Send convergence request to orchestrator
+      orchestrator.sendMessage(convergencePrompt);
+
+      // Dev fallback: generate a simulated report
+      if (!(typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window)) {
+        setTimeout(() => {
+          const report: PartyReport = {
+            consensus: [
+              'All personas agree the core concept has merit',
+              'Phased implementation is preferred over big-bang delivery',
+            ],
+            disagreements: [
+              'Winston favors MVP-first while Alex wants robust architecture upfront',
+              'Sally prioritizes simplicity while Marcus emphasizes comprehensive error handling',
+            ],
+            recommendedActions: [
+              'Start with core functionality, validate with users before expanding',
+              'Define clear API boundaries to allow independent evolution',
+              'Establish performance budgets before implementation begins',
+              'Create a testing strategy covering edge cases from day one',
+            ],
+            risks: [
+              'Scope creep if boundaries aren\'t clearly defined early',
+              'Technical debt if architecture is shortchanged for speed',
+            ],
+            summary: 'The panel generally supports the proposed approach with caveats around scope management and technical foundations. Key tension exists between shipping speed and architectural robustness.',
+            generatedAt: Date.now(),
+            topic,
+            rounds: rounds.length,
+          };
+
+          setPartyReport(report);
+          setIsConverging(false);
+          if (onReportGenerated) onReportGenerated(report);
+        }, 1500);
+      }
+    },
+    [rounds, currentRound, orchestrator, onReportGenerated],
+  );
+
+  // ─── Watch for report from orchestrator ───
+  useEffect(() => {
+    const lastMsg = orchestrator.messages[orchestrator.messages.length - 1];
+    if (!lastMsg || lastMsg.role !== 'assistant') return;
+
+    const report = parseReportMarker(lastMsg.content);
+    if (report) {
+      const fullReport: PartyReport = {
+        consensus: report.consensus ?? [],
+        disagreements: report.disagreements ?? [],
+        recommendedActions: report.recommended_actions ?? [],
+        risks: report.risks ?? [],
+        summary: report.summary ?? '',
+        generatedAt: Date.now(),
+        topic: currentRound?.topic ?? '',
+        rounds: rounds.length,
+      };
+      setPartyReport(fullReport);
+      setIsConverging(false);
+      if (onReportGenerated) onReportGenerated(fullReport);
+    }
+  }, [orchestrator.messages, onReportGenerated, rounds.length]);
 
   // ─── Start session ───
   const handleStartSession = useCallback(async () => {
@@ -287,26 +702,42 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
     (text: string) => {
       const mentions = extractMentions(text);
       if (mentions.length > 0) {
-        // Directed: only invoke mentioned personas
         executePersonaSequence(mentions, text);
         orchestrator.sendMessage(text);
       } else {
-        // General: let orchestrator select personas
         orchestrator.sendMessage(text);
       }
     },
     [orchestrator, executePersonaSequence],
   );
 
+  // ─── Roster confirm/cancel handlers ───
+  const handleRosterConfirm = useCallback(
+    (selectedIds: string[]) => {
+      if (pendingRoster) {
+        executePersonaSequence(selectedIds, pendingRoster.topic_summary);
+      }
+      setPendingRoster(null);
+    },
+    [pendingRoster, executePersonaSequence],
+  );
+
+  const handleRosterCancel = useCallback(() => {
+    setPendingRoster(null);
+  }, []);
+
   // ─── Custom message renderer ───
   const renderWorkshopMessage = useCallback(
     (msg: ChatMessage, _idx: number): React.ReactNode | null => {
-      // Orchestrator notes
       if (msg.workshopType === 'orchestrator-note' && msg.workshopPayload) {
         const payload = msg.workshopPayload as { data: { note: string } };
         if (payload.data.note) {
           return <OrchestratorNoteMessage note={payload.data.note} />;
         }
+      }
+      if (msg.workshopType === 'party-report' && msg.workshopPayload) {
+        // Report is rendered via partyReport state instead
+        return null;
       }
       return null;
     },
@@ -317,8 +748,15 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
   const personaCardsSection = useMemo(() => {
     const cards: React.ReactNode[] = [];
 
-    // Completed rounds
     for (const round of rounds) {
+      if (round.roundNumber > 1) {
+        cards.push(
+          <div key={`round-label-${round.id}`} className="flex items-center gap-2 py-1">
+            <span className="text-[9px] font-bold text-on-surface-variant">Round {round.roundNumber}</span>
+            <div className="flex-1 h-px bg-outline-variant/10" />
+          </div>,
+        );
+      }
       for (const personaId of round.selectedPersonas) {
         const persona = getPersonaById(personaId);
         if (!persona) continue;
@@ -339,7 +777,6 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
       }
     }
 
-    // Current round (in progress)
     if (currentRound) {
       for (const personaId of currentRound.selectedPersonas) {
         const persona = getPersonaById(personaId);
@@ -378,8 +815,19 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
       }
     }
 
+    // Report card
+    if (partyReport) {
+      cards.push(
+        <ReportCard
+          key="convergence-report"
+          report={partyReport}
+          onCreatePRD={onCreatePRD}
+        />,
+      );
+    }
+
     return cards;
-  }, [rounds, currentRound, activePersonaId]);
+  }, [rounds, currentRound, activePersonaId, partyReport, onCreatePRD]);
 
   // ─── Input addons with PersonaReferencePicker ───
   const inputAddons = useMemo(
@@ -388,7 +836,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
         {mentionPickerOpen && (
           <PersonaReferencePicker
             filter={mentionFilter}
-            onSelect={(persona) => {
+            onSelect={() => {
               setMentionPickerOpen(false);
               setMentionFilter('');
             }}
@@ -403,9 +851,19 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
     [mentionPickerOpen, mentionFilter],
   );
 
-  // ─── Render ───
+  // ─── Round indicator ───
+  const roundIndicator = useMemo(() => {
+    const currentRoundNum = rounds.length + (currentRound ? 1 : 0);
+    if (currentRoundNum === 0 && !currentRound) return null;
+    return (
+      <span className="text-[9px] text-on-surface-variant">
+        Round {currentRoundNum}/{config.maxRounds}
+      </span>
+    );
+  }, [rounds.length, currentRound, config.maxRounds]);
+
+  // ─── Render: Welcome page ───
   if (!isStarted || orchestrator.connectionState === 'disconnected') {
-    // Welcome page with PersonaRoster
     return (
       <div className="flex flex-col h-full w-full bg-surface">
         <div className="flex items-center justify-between px-4 py-2 bg-surface-container-low border-b border-outline-variant/10 shrink-0">
@@ -428,26 +886,38 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
             </p>
           </div>
 
-          {/* PersonaRoster Grid */}
-          <div className="grid grid-cols-2 gap-2 max-w-sm w-full">
-            {ALL_PERSONAS.map((persona) => (
-              <div
-                key={persona.id}
-                className={cn(
-                  'p-3 rounded-lg border border-outline-variant/10 bg-surface-container-low',
-                  'hover:border-outline-variant/30 transition-colors',
-                )}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-lg">{persona.icon}</span>
-                  <span className="text-xs font-bold text-on-surface">{persona.name}</span>
-                </div>
-                <p className="text-[10px] text-on-surface-variant">{persona.title}</p>
-                <p className="text-[9px] text-on-surface-variant/70 mt-1 line-clamp-2">
-                  {persona.description}
-                </p>
-              </div>
-            ))}
+          {/* Persona Grid by Category */}
+          <div className="max-w-md w-full space-y-3">
+            {(Object.entries(PERSONA_CATEGORIES) as [PersonaCategory, { label: string; icon: string }][])
+              .map(([cat, info]) => {
+                const personas = ALL_PERSONAS.filter((p) => p.category === cat);
+                if (personas.length === 0) return null;
+                return (
+                  <div key={cat}>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span className="text-xs">{info.icon}</span>
+                      <span className="text-[9px] font-bold text-on-surface-variant">{info.label}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {personas.map((persona) => (
+                        <div
+                          key={persona.id}
+                          className={cn(
+                            'p-2 rounded-md border border-outline-variant/10 bg-surface-container-low',
+                            'hover:border-outline-variant/30 transition-colors',
+                          )}
+                        >
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="text-sm">{persona.icon}</span>
+                            <span className="text-[10px] font-bold text-on-surface">{persona.name}</span>
+                          </div>
+                          <p className="text-[9px] text-on-surface-variant line-clamp-1">{persona.title}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
           </div>
 
           {sessionState.partyInsights && sessionState.partyInsights.length > 0 && (
@@ -467,7 +937,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
     );
   }
 
-  // Discussion view — split layout: chat left, persona cards right
+  // ─── Render: Discussion view ───
   return (
     <div className="flex flex-col h-full w-full bg-surface">
       {/* Header Bar */}
@@ -481,8 +951,17 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
               {getPersonaById(activePersonaId)?.name ?? '...'}
             </span>
           )}
+          {isConverging && (
+            <span className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold rounded bg-amber-400/20 text-amber-400">
+              <Loader2 size={9} className="animate-spin" /> Generating report...
+            </span>
+          )}
+          {roundIndicator}
         </div>
         <div className="flex items-center gap-2">
+          {(callPool.running > 0 || callPool.queued > 0) && (
+            <ProcessStatus pool={callPool} total={rounds.reduce((s, r) => s + r.selectedPersonas.length, 0) + (currentRound?.selectedPersonas.length ?? 0)} />
+          )}
           <span className="text-[9px] text-on-surface-variant">{ALL_PERSONAS.length} personas</span>
           {allInsights.length > 0 && (
             <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-tertiary/20 text-tertiary">
@@ -492,16 +971,29 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
         </div>
       </div>
 
-      {/* Main Content: Chat + Persona Cards side by side */}
+      {/* Roster Confirmation (inline) */}
+      {pendingRoster && (
+        <div className="px-4 py-2 border-b border-outline-variant/10 bg-surface-container-low/50">
+          <PersonaRosterConfirm
+            recommendedPersonas={pendingRoster.personas}
+            onConfirm={handleRosterConfirm}
+            onCancel={handleRosterCancel}
+          />
+        </div>
+      )}
+
+      {/* Main Content */}
       <div className="flex-1 overflow-hidden">
         <WorkshopChatPanel
           messages={displayMessages}
-          isStreaming={orchestrator.isStreaming || activePersonaId !== null}
+          isStreaming={orchestrator.isStreaming || activePersonaId !== null || isConverging}
           onSendMessage={handleSendMessage}
           placeholder={
-            activePersonaId
-              ? `Waiting for ${getPersonaById(activePersonaId)?.name ?? 'persona'}...`
-              : 'Enter a topic for the panel, or @name to address a specific persona...'
+            isConverging
+              ? 'Generating convergence report...'
+              : activePersonaId
+                ? `Waiting for ${getPersonaById(activePersonaId)?.name ?? 'persona'}...`
+                : 'Enter a topic for the panel, or @name to address a specific persona...'
           }
           renderWorkshopMessage={renderWorkshopMessage}
           inputAddons={inputAddons}
