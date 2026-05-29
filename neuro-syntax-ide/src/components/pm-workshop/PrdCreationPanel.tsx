@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import { FileText, Loader2 } from 'lucide-react';
+import { FileText, Loader2, RotateCcw } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAgentStream } from '../../lib/useAgentStream';
 import type { ChatMessage } from '../../lib/useAgentStream';
@@ -27,6 +27,7 @@ interface PrdCreationPanelProps {
   workspacePath: string;
   sessionState: BMADSessionState;
   onDocumentChange: (doc: PRDDocument) => void;
+  className?: string;
 }
 
 // ─── HTML-comment marker parsers ───
@@ -145,6 +146,7 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
   workspacePath,
   sessionState,
   onDocumentChange,
+  className,
 }) => {
   // ─── State ───
   const [isStarted, setIsStarted] = useState(false);
@@ -461,7 +463,7 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
   // ─── Welcome screen ───
   if (!isStarted || agent.connectionState === 'disconnected') {
     return (
-      <div className="flex flex-col h-full w-full bg-surface">
+      <div className={cn("flex flex-col h-full w-full bg-surface", className)}>
         <div className="flex items-center justify-between px-4 py-2 bg-surface-container-low border-b border-outline-variant/10 shrink-0">
           <div className="flex items-center gap-2">
             <FileText size={16} className="text-primary" />
@@ -529,7 +531,7 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
 
   // ─── Main split layout: Chat left, PRD Preview right ───
   return (
-    <div className="flex flex-col h-full w-full bg-surface">
+    <div className={cn("flex flex-col h-full w-full bg-surface", className)}>
       {/* Header Bar */}
       <div className="flex items-center justify-between px-4 py-2 bg-surface-container-low border-b border-outline-variant/10 shrink-0">
         <div className="flex items-center gap-2">
@@ -567,6 +569,24 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
               {prdSections.filter((s) => s.status === 'complete').length}/{prdSections.length}
             </span>
           )}
+          <button
+            onClick={() => {
+              agent.newSession();
+              setIsStarted(false);
+              setPrdPhase('discovery');
+              setIntent(null);
+              setStakeLevel(null);
+              setMode(null);
+              setPrdTitle('');
+              setPrdSections([]);
+              setAssumptions([]);
+              setValidationReport(null);
+            }}
+            className="p-1.5 rounded-md hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-on-surface"
+            title="New Session"
+          >
+            <RotateCcw size={14} />
+          </button>
         </div>
       </div>
 

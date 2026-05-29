@@ -68,37 +68,34 @@ export const PMWorkshopView: React.FC<PMWorkshopViewProps> = ({ workspacePath })
 
       {/* Panel Container */}
       <div className="flex-1 overflow-hidden relative">
-        {activeTab === 'brainstorm' && (
-          <BrainstormPanel
-            workspacePath={workspacePath}
-            sessionState={sessionState}
-            onOutputChange={(output: BrainstormOutput) =>
-              setSessionState((prev) => ({ ...prev, brainstormOutput: output }))
-            }
-          />
-        )}
-        {activeTab === 'party-mode' && (
-          <PartyModePanel
-            workspacePath={workspacePath}
-            sessionState={sessionState}
-            onInsightsChange={(insights: PartyInsight[]) =>
-              setSessionState((prev) => ({ ...prev, partyInsights: insights }))
-            }
-            onReportGenerated={(report: PartyReport) =>
-              setSessionState((prev) => ({ ...prev, partyReport: report }))
-            }
-            onCreatePRD={() => setActiveTab('prd')}
-          />
-        )}
-        {activeTab === 'prd' && (
-          <PrdCreationPanel
-            workspacePath={workspacePath}
-            sessionState={sessionState}
-            onDocumentChange={(doc: PRDDocument) =>
-              setSessionState((prev) => ({ ...prev, prdDocument: doc }))
-            }
-          />
-        )}
+        <BrainstormPanel
+          workspacePath={workspacePath}
+          sessionState={sessionState}
+          onOutputChange={(output: BrainstormOutput) =>
+            setSessionState((prev) => ({ ...prev, brainstormOutput: output }))
+          }
+          className={activeTab !== 'brainstorm' ? 'hidden' : ''}
+        />
+        <PartyModePanel
+          workspacePath={workspacePath}
+          sessionState={sessionState}
+          onInsightsChange={(insights: PartyInsight[]) =>
+            setSessionState((prev) => ({ ...prev, partyInsights: insights }))
+          }
+          onReportGenerated={(report: PartyReport) =>
+            setSessionState((prev) => ({ ...prev, partyReport: report }))
+          }
+          onCreatePRD={() => setActiveTab('prd')}
+          className={activeTab !== 'party-mode' ? 'hidden' : ''}
+        />
+        <PrdCreationPanel
+          workspacePath={workspacePath}
+          sessionState={sessionState}
+          onDocumentChange={(doc: PRDDocument) =>
+            setSessionState((prev) => ({ ...prev, prdDocument: doc }))
+          }
+          className={activeTab !== 'prd' ? 'hidden' : ''}
+        />
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { Users, Loader2, Clock, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp, X, Plus, FileText } from 'lucide-react';
+import { Users, Loader2, Clock, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp, X, Plus, FileText, RotateCcw } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAgentStream } from '../../lib/useAgentStream';
 import type { ChatMessage } from '../../lib/useAgentStream';
@@ -32,6 +32,7 @@ interface PartyModePanelProps {
   onInsightsChange: (insights: PartyInsight[]) => void;
   onReportGenerated?: (report: PartyReport) => void;
   onCreatePRD?: () => void;
+  className?: string;
 }
 
 /** A round of persona responses */
@@ -374,6 +375,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
   onInsightsChange,
   onReportGenerated,
   onCreatePRD,
+  className,
 }) => {
   // ─── Config ───
   const config: PartyModeConfig = sessionState.partyModeConfig ?? {
@@ -865,7 +867,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
   // ─── Render: Welcome page ───
   if (!isStarted || orchestrator.connectionState === 'disconnected') {
     return (
-      <div className="flex flex-col h-full w-full bg-surface">
+      <div className={cn("flex flex-col h-full w-full bg-surface", className)}>
         <div className="flex items-center justify-between px-4 py-2 bg-surface-container-low border-b border-outline-variant/10 shrink-0">
           <div className="flex items-center gap-2">
             <Users size={16} className="text-tertiary" />
@@ -939,7 +941,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
 
   // ─── Render: Discussion view ───
   return (
-    <div className="flex flex-col h-full w-full bg-surface">
+    <div className={cn("flex flex-col h-full w-full bg-surface", className)}>
       {/* Header Bar */}
       <div className="flex items-center justify-between px-4 py-2 bg-surface-container-low border-b border-outline-variant/10 shrink-0">
         <div className="flex items-center gap-2">
@@ -968,6 +970,24 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
               {allInsights.length} insights
             </span>
           )}
+          <button
+            onClick={() => {
+              orchestrator.newSession();
+              setIsStarted(false);
+              setRounds([]);
+              setCurrentRound(null);
+              setActivePersonaId(null);
+              setAllInsights([]);
+              setPartyReport(null);
+              setConversationSummary('');
+              setPendingRoster(null);
+              setCallPool({ running: 0, queued: 0, completed: 0, timedOut: 0 });
+            }}
+            className="p-1.5 rounded-md hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-on-surface"
+            title="New Session"
+          >
+            <RotateCcw size={14} />
+          </button>
         </div>
       </div>
 

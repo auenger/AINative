@@ -9,6 +9,17 @@ interface WorkshopChatBubbleProps {
   isLast?: boolean;
 }
 
+function filterToolCallText(content: string): string {
+  let filtered = content
+    .replace(/<tool_use>[\s\S]*?<\/tool_use>/g, '')
+    .replace(/<tool_result>[\s\S]*?<\/tool_result>/g, '')
+    .replace(/<tool_name>[\s\S]*?<\/tool_name>/g, '')
+    .replace(/^\s*tool_name:\s*\S+.*$/gm, '')
+    .replace(/^\s*tool_result:\s*\S+.*$/gm, '');
+  filtered = filtered.replace(/\n{3,}/g, '\n\n').trim();
+  return filtered;
+}
+
 export const WorkshopChatBubble: React.FC<WorkshopChatBubbleProps> = ({
   msg,
   isStreaming = false,
@@ -31,7 +42,7 @@ export const WorkshopChatBubble: React.FC<WorkshopChatBubbleProps> = ({
       >
         {msg.role === 'assistant' ? (
           <div className="[&_p]:text-[10px] [&_pre]:text-[10px] [&_code]:text-[10px]">
-            <MarkdownRenderer content={msg.content} />
+            <MarkdownRenderer content={filterToolCallText(msg.content)} />
             {isLast && isStreaming && (
               <span className="inline-block w-1.5 h-3 bg-primary/70 animate-pulse ml-0.5 align-middle" />
             )}
