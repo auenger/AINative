@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
-import { Lightbulb } from 'lucide-react';
+import { Lightbulb, RotateCcw } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAgentStream } from '../../lib/useAgentStream';
 import type { ChatMessage } from '../../lib/useAgentStream';
@@ -17,6 +17,7 @@ interface BrainstormPanelProps {
   workspacePath: string;
   sessionState: BMADSessionState;
   onOutputChange: (output: BrainstormOutput) => void;
+  className?: string;
 }
 
 // ─── HTML-comment marker parser ───
@@ -133,6 +134,7 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
   workspacePath,
   sessionState,
   onOutputChange,
+  className,
 }) => {
   // ─── State ───
   const [currentStep, setCurrentStep] = useState<BrainstormStep>('setup');
@@ -327,7 +329,7 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
 
   // ─── Render ───
   return (
-    <div className="flex flex-col h-full w-full bg-surface">
+    <div className={cn("flex flex-col h-full w-full bg-surface", className)}>
       {/* Progress Stepper */}
       <ProgressStepper currentStep={currentStep} completedSteps={completedSteps} />
 
@@ -344,6 +346,22 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
         </div>
         <div className="flex items-center gap-2">
           {ideas.length > 0 && <IdeaCounterBadge count={ideas.length} />}
+          {agent.connectionState !== 'disconnected' && (
+            <button
+              onClick={() => {
+                agent.newSession();
+                setCurrentStep('setup');
+                setCompletedSteps([]);
+                setIdeas([]);
+                setSelectedTechnique(undefined);
+                setTopic('');
+              }}
+              className="p-1.5 rounded-md hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-on-surface"
+              title="New Session"
+            >
+              <RotateCcw size={14} />
+            </button>
+          )}
         </div>
       </div>
 
