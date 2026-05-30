@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { Send, Loader2 } from 'lucide-react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { Send, Loader2, GripVertical } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { ChatMessage } from '../../lib/useAgentStream';
 import { WorkshopMessageRenderer } from './WorkshopMessageRenderer';
@@ -32,10 +32,47 @@ export const WorkshopChatPanel: React.FC<WorkshopChatPanelProps> = ({
   const [input, setInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // Resizable split state
+  const [splitRatio, setSplitRatio] = useState(0.5);
+  const isDraggingRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Drag handlers for resizable split
+  const handleDividerDown = useCallback(() => {
+    isDraggingRef.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
+  useEffect(() => {
+    if (!rightPanel) return;
+
+    const handleMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const ratio = (e.clientX - rect.left) / rect.width;
+      setSplitRatio(Math.max(0.2, Math.min(0.8, ratio)));
+    };
+
+    const handleUp = () => {
+      if (!isDraggingRef.current) return;
+      isDraggingRef.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleUp);
+    };
+  }, [rightPanel]);
 
   const handleSend = () => {
     if (!input.trim() || isStreaming) return;
@@ -51,9 +88,12 @@ export const WorkshopChatPanel: React.FC<WorkshopChatPanelProps> = ({
   };
 
   return (
-    <div className={cn("flex h-full", rightPanel ? "divide-x divide-outline-variant/10" : "")}>
+    <div ref={containerRef} className="flex h-full">
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div
+        className="flex flex-col min-w-0"
+        style={rightPanel ? { width: `${splitRatio * 100}%` } : undefined}
+      >
         {/* Message List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 scroll-hide">
           {messages.map((msg, idx) => (
@@ -107,9 +147,23 @@ export const WorkshopChatPanel: React.FC<WorkshopChatPanelProps> = ({
         </div>
       </div>
 
+      {/* Drag Handle */}
+      {rightPanel && (
+        <div
+          onMouseDown={handleDividerDown}
+          className="w-2 shrink-0 cursor-col-resize group relative flex items-center justify-center hover:bg-primary/5 active:bg-primary/10 transition-colors"
+        >
+          <div className="absolute inset-y-0 -left-1.5 -right-1.5" />
+          <div className="w-0.5 h-10 rounded-full bg-outline-variant/20 group-hover:bg-primary/40 group-active:bg-primary/60 transition-colors" />
+        </div>
+      )}
+
       {/* Right Panel */}
       {rightPanel && (
-        <div className="w-80 shrink-0 overflow-y-auto">
+        <div
+          style={{ width: `${(1 - splitRatio) * 100}%` }}
+          className="min-w-0 overflow-hidden"
+        >
           {rightPanel}
         </div>
       )}

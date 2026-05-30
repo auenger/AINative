@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import { FileText, Loader2, RotateCcw } from 'lucide-react';
+import { FileText, Loader2, RotateCcw, FolderOpen } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAgentStream } from '../../lib/useAgentStream';
-import type { ChatMessage } from '../../lib/useAgentStream';
+import type { ChatMessage, FsChangeEvent } from '../../lib/useAgentStream';
 import type {
   BMADSessionState,
   PRDDocument,
@@ -140,6 +140,44 @@ function extractAssumptions(sections: PRDSection[]): Assumption[] {
 
 type PrdPhase = 'discovery' | 'writing' | 'validation' | 'finalization';
 
+// ─── Markdown → PRDSection parser ───
+
+const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+function parseMarkdownToPrdSections(content: string): { title: string; sections: PRDSection[] } {
+  const titleMatch = content.match(/^#\s+(.+)$/m);
+  const title = titleMatch ? titleMatch[1].trim() : 'Untitled';
+
+  const headingRegex = /^##\s+(.+)$/gm;
+  const headings: { title: string; index: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = headingRegex.exec(content)) !== null) {
+    headings.push({ title: m[1].trim(), index: m.index });
+  }
+
+  if (headings.length === 0) {
+    const body = content.replace(/^#\s+.*$/m, '').trim();
+    return {
+      title,
+      sections: body ? [{ id: 'full', title, status: 'complete' as const, content: body }] : [],
+    };
+  }
+
+  const sections: PRDSection[] = headings.map((h, i) => {
+    const start = content.indexOf('\n', h.index) + 1;
+    const end = i + 1 < headings.length ? headings[i + 1].index : content.length;
+    const body = content.slice(start, end).trim();
+    return {
+      id: h.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      title: h.title,
+      status: (body ? 'complete' : 'empty') as 'complete' | 'empty',
+      content: body,
+    };
+  });
+
+  return { title, sections };
+}
+
 // ─── Component ───
 
 export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
@@ -154,6 +192,12 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
   const [intent, setIntent] = useState<PRDIntent | null>(null);
   const [stakeLevel, setStakeLevel] = useState<PRDStakeLevel | null>(null);
   const [mode, setMode] = useState<PRDMode | null>(null);
+
+  // File-based PRD rendering: detect, read, and watch PRD markdown files
+  const [prdFilePath, setPrdFilePath] = useState<string | null>(null);
+  const [prdFileContent, setPrdFileContent] = useState('');
+
+  // Agent marker-based sections (from <!-- workshop:prd-section --> markers)
   const [prdTitle, setPrdTitle] = useState('');
   const [prdSections, setPrdSections] = useState<PRDSection[]>([]);
   const [assumptions, setAssumptions] = useState<Assumption[]>([]);
@@ -183,6 +227,157 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
     persistMessages: true,
     storageKey: 'prd-creation-workshop',
   });
+
+  // ─── File-based PRD: parse markdown content into sections ───
+  const fileParsed = useMemo(() => {
+    if (!prdFileContent) return { title: '', sections: [] as PRDSection[] };
+    return parseMarkdownToPrdSections(prdFileContent);
+  }, [prdFileContent]);
+
+  // ─── File-based PRD: scan for PRD markdown files on mount ───
+  const prdFilePathRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!workspacePath || !isTauri) return;
+
+    (async () => {
+      const { invoke } = await import('@tauri-apps/api/core');
+
+      // Priority 1: PRODUCT.md at workspace root
+      const candidates = [
+        `${workspacePath}/PRODUCT.md`,
+      ];
+
+      for (const path of candidates) {
+        try {
+          const content = await invoke<string>('read_file', { path });
+          if (content && content.trim().length > 0) {
+            setPrdFilePath(path);
+            prdFilePathRef.current = path;
+            setPrdFileContent(content);
+            return;
+          }
+        } catch { /* not found */ }
+      }
+
+      // Priority 2: scan docs/ for *-prd.md files
+      try {
+        interface FileNode {
+          name: string;
+          path: string;
+          is_dir: boolean;
+          children?: FileNode[];
+        }
+        const tree = await invoke<FileNode[]>('read_file_tree', { path: `${workspacePath}/docs` });
+        const prdFiles = (tree || [])
+          .filter((n) => !n.is_dir && n.name.endsWith('.md'))
+          .sort((a, b) => a.name.localeCompare(b.name));
+
+        if (prdFiles.length > 0) {
+          const latest = prdFiles[prdFiles.length - 1];
+          try {
+            const content = await invoke<string>('read_file', { path: latest.path });
+            setPrdFilePath(latest.path);
+            prdFilePathRef.current = latest.path;
+            setPrdFileContent(content);
+          } catch { /* ignore */ }
+        }
+      } catch { /* no docs directory */ }
+    })();
+  }, [workspacePath]);
+
+  // ─── File-based PRD: watch for file changes → auto-refresh ───
+  useEffect(() => {
+    if (!prdFilePath || !isTauri) return;
+
+    let unlisten: (() => void) | null = null;
+    (async () => {
+      const { listen } = await import('@tauri-apps/api/event');
+      const { invoke } = await import('@tauri-apps/api/core');
+
+      unlisten = await listen<FsChangeEvent>('fs://workspace-changed', async (event) => {
+        const watchedPath = prdFilePathRef.current;
+        if (!watchedPath) return;
+
+        const changed = event.payload.paths.some((p) => {
+          if (p === watchedPath) return true;
+          // Handle relative/absolute path mismatches
+          return p.endsWith('/' + watchedPath.split('/').pop()!);
+        });
+
+        if (changed) {
+          try {
+            const content = await invoke<string>('read_file', { path: watchedPath });
+            setPrdFileContent(content);
+          } catch { /* ignore read errors */ }
+        }
+      });
+    })();
+
+    return () => { unlisten?.(); };
+  }, [prdFilePath]);
+
+  // ─── File-based PRD: available .md files for dropdown ───
+  const [mdFiles, setMdFiles] = useState<{ name: string; path: string; isPrd: boolean }[]>([]);
+  const [fileDropdownOpen, setFileDropdownOpen] = useState(false);
+
+  // Scan workspace for .md files on mount
+  useEffect(() => {
+    if (!workspacePath || !isTauri) return;
+
+    (async () => {
+      const { invoke } = await import('@tauri-apps/api/core');
+      interface FileNode { name: string; path: string; is_dir: boolean; children?: FileNode[] }
+
+      const prdNamePattern = /^(product|prd)/i;
+      const allFiles: { name: string; path: string; isPrd: boolean }[] = [];
+
+      // Scan root .md files
+      try {
+        const rootTree = await invoke<FileNode[]>('read_file_tree', { path: workspacePath });
+        for (const n of (rootTree || [])) {
+          if (!n.is_dir && n.name.endsWith('.md')) {
+            allFiles.push({ name: n.name, path: n.path, isPrd: prdNamePattern.test(n.name) });
+          }
+        }
+      } catch { /* ignore */ }
+
+      // Scan docs/ .md files
+      try {
+        const docsTree = await invoke<FileNode[]>('read_file_tree', { path: `${workspacePath}/docs` });
+        for (const n of (docsTree || [])) {
+          if (!n.is_dir && n.name.endsWith('.md')) {
+            allFiles.push({ name: n.name, path: n.path, isPrd: prdNamePattern.test(n.name) || n.name.includes('-prd') });
+          }
+        }
+      } catch { /* no docs dir */ }
+
+      // Sort: PRD/Product files first, then alphabetically
+      allFiles.sort((a, b) => {
+        if (a.isPrd && !b.isPrd) return -1;
+        if (!a.isPrd && b.isPrd) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      setMdFiles(allFiles);
+    })();
+  }, [workspacePath]);
+
+  // Load a file by path
+  const loadPrdFile = useCallback(async (path: string) => {
+    if (!isTauri) return;
+    const { invoke } = await import('@tauri-apps/api/core');
+    try {
+      const content = await invoke<string>('read_file', { path });
+      setPrdFilePath(path);
+      prdFilePathRef.current = path;
+      setPrdFileContent(content);
+      setFileDropdownOpen(false);
+    } catch { /* ignore */ }
+  }, []);
+
+  // ─── Merged sections: file content > agent markers ───
+  const displayTitle = fileParsed.title || prdTitle;
+  const displaySections = fileParsed.sections.length > 0 ? fileParsed.sections : prdSections;
 
   // ─── Parse messages for PRD payloads ───
   const parsedMessages = useMemo(() => {
@@ -569,6 +764,51 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
               {prdSections.filter((s) => s.status === 'complete').length}/{prdSections.length}
             </span>
           )}
+          {prdFilePath && (
+            <span className="px-1.5 py-0.5 text-[9px] rounded bg-surface-container-high text-on-surface-variant truncate max-w-[180px]" title={prdFilePath}>
+              {prdFilePath.split('/').pop()}
+            </span>
+          )}
+          <div className="relative">
+            <button
+              onClick={() => setFileDropdownOpen((v) => !v)}
+              className={cn(
+                "flex items-center gap-1 px-1.5 py-1 rounded-md transition-colors text-[9px]",
+                fileDropdownOpen
+                  ? "bg-surface-container-high text-on-surface"
+                  : "hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface",
+              )}
+              title="Select PRD file"
+            >
+              <FolderOpen size={12} />
+              {mdFiles.length > 0 && <span className="max-w-[100px] truncate">{prdFilePath?.split('/').pop() || 'Select file'}</span>}
+            </button>
+            {fileDropdownOpen && mdFiles.length > 0 && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setFileDropdownOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 z-50 w-64 max-h-64 overflow-y-auto rounded-lg border border-outline-variant/20 bg-surface-container-low shadow-lg">
+                  {mdFiles.map((f) => (
+                    <button
+                      key={f.path}
+                      onClick={() => loadPrdFile(f.path)}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-3 py-1.5 text-[10px] text-left transition-colors",
+                        f.path === prdFilePath
+                          ? "bg-primary/10 text-primary font-bold"
+                          : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface",
+                      )}
+                    >
+                      <FileText size={10} className={cn("shrink-0", f.isPrd ? "text-primary" : "text-on-surface-variant/50")} />
+                      <span className="truncate flex-1">{f.name}</span>
+                      {f.isPrd && (
+                        <span className="text-[8px] px-1 rounded bg-primary/10 text-primary shrink-0">PRD</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
           <button
             onClick={() => {
               agent.newSession();
@@ -624,8 +864,8 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
         {/* Right: PRD Preview */}
         <div className="flex-1 overflow-hidden">
           <PRDDocumentPreview
-            title={prdTitle}
-            sections={prdSections}
+            title={displayTitle}
+            sections={displaySections}
             assumptions={assumptions}
             onConfirmAssumption={handleConfirmAssumption}
             onEditAssumption={handleEditAssumption}

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Users, Loader2, Clock, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp, X, Plus, FileText, RotateCcw } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn, filterToolCallText } from '../../lib/utils';
 import { useAgentStream } from '../../lib/useAgentStream';
 import type { ChatMessage } from '../../lib/useAgentStream';
 import type { BMADSessionState, PartyInsight, PartyReport, PartyModeConfig, DEFAULT_PARTY_MODE_CONFIG } from '../../types';
@@ -634,6 +634,18 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
           ? `${conversationSummary}\n\n---\n\n${roundSummary}`
           : roundSummary;
         setConversationSummary(newSummary.length > 2000 ? newSummary.slice(-2000) : newSummary);
+
+        // Auto-summary: send persona outputs to left chat for agent summary
+        // Filter out tool call noise — only send each persona's actual perspective content
+        // (skip at max rounds — convergence handles the final summary)
+        if (roundNumber < config.maxRounds && responses.length > 0) {
+          const personaOutputs = responses.map((r) =>
+            `### ${r.personaName}\n${filterToolCallText(r.content)}`
+          ).join('\n\n');
+          orchestrator.sendMessage(
+            `[Round ${roundNumber} — Discussion Results]\n\n${personaOutputs}\n\n---\n\n请基于以上所有角色的讨论结果，给出一份综合总结，包括：\n1. 各角色的核心观点\n2. 共识点\n3. 分歧点\n4. 建议的下一步`
+          );
+        }
 
         // Check if max rounds reached → trigger convergence
         if (roundNumber >= config.maxRounds) {

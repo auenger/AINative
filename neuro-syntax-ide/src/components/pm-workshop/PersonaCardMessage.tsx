@@ -1,27 +1,48 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { FileText, Pencil, Terminal, Search, Cpu, FolderSearch, Wrench } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { parseContentSegments, type ContentSegment, type ToolCallInfo } from '../../lib/utils';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { ACCENT_CLASS_MAP } from '../../lib/bmad/persona-definitions';
 
 // ─── Types ───
 
 export interface PersonaCardMessageProps {
-  /** Persona ID (for accent color lookup) */
   personaId: string;
-  /** Display name */
   personaName: string;
-  /** Role title */
   personaTitle: string;
-  /** Emoji icon */
   personaIcon: string;
-  /** Accent color key (blue/amber/emerald/red/purple) */
   accentColor: string;
-  /** Response content (markdown) */
   content: string;
-  /** Whether this card is currently streaming */
   isStreaming?: boolean;
-  /** Whether in loading/skeleton state */
   isLoading?: boolean;
+}
+
+// ─── Tool Call Chip ───
+
+const TOOL_ICONS: Record<string, React.ReactNode> = {
+  Read: <FileText size={10} className="shrink-0" />,
+  Write: <Pencil size={10} className="shrink-0" />,
+  Edit: <Pencil size={10} className="shrink-0" />,
+  Bash: <Terminal size={10} className="shrink-0" />,
+  Grep: <Search size={10} className="shrink-0" />,
+  Agent: <Cpu size={10} className="shrink-0" />,
+  Glob: <FolderSearch size={10} className="shrink-0" />,
+};
+
+function ToolCallChip({ toolName, param }: ToolCallInfo) {
+  const icon = TOOL_ICONS[toolName] || <Wrench size={10} className="shrink-0" />;
+  return (
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface-container/40 border border-outline-variant/10 my-0.5">
+      <span className="text-on-surface-variant">{icon}</span>
+      <span className="text-[9px] font-semibold text-on-surface">{toolName}</span>
+      {param && (
+        <span className="text-[9px] text-on-surface-variant truncate max-w-[300px]" title={param}>
+          {param}
+        </span>
+      )}
+    </div>
+  );
 }
 
 // ─── Component ───
@@ -38,6 +59,11 @@ export const PersonaCardMessage: React.FC<PersonaCardMessageProps> = ({
 }) => {
   const accent = ACCENT_CLASS_MAP[accentColor] ?? ACCENT_CLASS_MAP['blue'];
 
+  const segments: ContentSegment[] = useMemo(
+    () => (content ? parseContentSegments(content) : []),
+    [content],
+  );
+
   if (isLoading) {
     return (
       <div
@@ -47,7 +73,6 @@ export const PersonaCardMessage: React.FC<PersonaCardMessageProps> = ({
         )}
         data-persona={personaId}
       >
-        {/* Header */}
         <div className={cn('flex items-center gap-2 px-3 py-2', accent.bgLight)}>
           <div
             className={cn(
@@ -68,7 +93,6 @@ export const PersonaCardMessage: React.FC<PersonaCardMessageProps> = ({
             {personaTitle}
           </span>
         </div>
-        {/* Skeleton body */}
         <div className={cn('h-16 animate-pulse', accent.bgLight)} />
       </div>
     );
@@ -108,7 +132,19 @@ export const PersonaCardMessage: React.FC<PersonaCardMessageProps> = ({
       <div className="px-3 py-2">
         {content ? (
           <div className="relative">
-            <MarkdownRenderer content={content} />
+            {segments.length === 1 && segments[0].type === 'text' ? (
+              <MarkdownRenderer content={segments[0].content} />
+            ) : (
+              <div className="space-y-1">
+                {segments.map((seg, i) =>
+                  seg.type === 'tool-call' && seg.toolInfo ? (
+                    <ToolCallChip key={i} toolName={seg.toolInfo.toolName} param={seg.toolInfo.param} />
+                  ) : seg.content ? (
+                    <MarkdownRenderer key={i} content={seg.content} />
+                  ) : null,
+                )}
+              </div>
+            )}
             {isStreaming && (
               <span className="inline-block w-1.5 h-3 bg-primary/70 animate-pulse rounded-sm ml-0.5 align-text-bottom" />
             )}

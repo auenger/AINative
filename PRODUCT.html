@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neuro Syntax IDE — AI 原生工程开发平台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#06080c;
+  --surface:#0e1218;
+  --surface-2:#151b24;
+  --surface-3:#1a2230;
+  --line:rgba(255,255,255,.08);
+  --line-soft:rgba(255,255,255,.045);
+  --text:#e4e8ef;
+  --text-2:#8a92a6;
+  --text-3:#4e5672;
+  --accent:#5b8cff;
+  --accent-2:#7ba4ff;
+  --accent-deep:#3a6bef;
+  --accent-glow:rgba(91,140,255,.10);
+  --green:#4ade80;
+  --green-bg:rgba(74,222,128,.08);
+  --green-border:rgba(74,222,128,.2);
+  --orange:#fbbf24;
+  --orange-bg:rgba(251,191,36,.08);
+  --orange-border:rgba(251,191,36,.2);
+  --purple:#a78bfa;
+  --purple-bg:rgba(167,139,250,.08);
+  --purple-border:rgba(167,139,250,.2);
+  --pink:#f472b6;
+  --pink-bg:rgba(244,114,182,.08);
+  --font-display:'Bricolage Grotesque','Noto Sans SC',sans-serif;
+  --font-sans:'Noto Sans SC','Bricolage Grotesque',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+  --ease:cubic-bezier(.2,.7,.2,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);font-weight:400;-webkit-font-smoothing:antialiased;line-height:1.7;font-size:15px}
+
+/* ATMOSPHERE */
+.bg-grid,.bg-grain,.bg-glow,.bg-glow2{position:fixed;inset:0;pointer-events:none;z-index:0}
+.bg-grid{
+  background-image:linear-gradient(var(--line-soft) 1px,transparent 1px),linear-gradient(90deg,var(--line-soft) 1px,transparent 1px);
+  background-size:66px 66px;
+  -webkit-mask:radial-gradient(ellipse 100% 85% at 50% 42%,#000 25%,transparent 100%);
+  mask:radial-gradient(ellipse 100% 85% at 50% 42%,#000 25%,transparent 100%);
+}
+.bg-glow{background:radial-gradient(ellipse 45% 35% at 30% 15%,var(--accent-glow),transparent 70%)}
+.bg-glow2{background:radial-gradient(ellipse 35% 30% at 75% 80%,rgba(167,139,250,.06),transparent 70%)}
+.bg-grain{opacity:.025;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* TOPBAR */
+.topbar{position:fixed;top:0;left:0;right:0;z-index:60;display:flex;align-items:center;justify-content:space-between;padding:18px clamp(24px,4vw,52px);background:rgba(6,8,12,.88);backdrop-filter:blur(14px);border-bottom:1px solid var(--line-soft)}
+.brand{display:flex;align-items:center;gap:11px;color:var(--text-2);font-family:var(--font-mono);font-size:11px;letter-spacing:.14em}
+.mark{width:20px;height:20px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px}
+.mark i{background:var(--text-3);border-radius:2px}
+.mark i:nth-child(1){background:var(--accent)}
+.topbar-nav{display:flex;gap:20px}
+.topbar-nav a{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;color:var(--text-3);transition:color .25s var(--ease);text-decoration:none}
+.topbar-nav a:hover{color:var(--accent)}
+
+/* LAYOUT */
+.page{position:relative;z-index:1}
+
+/* HERO */
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:120px clamp(28px,6vw,90px) 80px}
+.hero .inner{width:100%;max-width:1100px;margin:0 auto}
+.kicker{font-family:var(--font-mono);font-size:12px;font-weight:500;letter-spacing:.2em;color:var(--accent);display:flex;align-items:center;gap:12px;margin-bottom:30px}
+.kicker::before{content:"";width:30px;height:1px;background:var(--accent)}
+.kicker em{color:var(--text-3);font-style:normal}
+.hero h1{font-family:var(--font-display);font-weight:800;font-size:clamp(2.6rem,6.5vw,5.5rem);line-height:1.02;letter-spacing:-.02em}
+.hero h1 .accent-text{color:var(--accent)}
+.hero h1 .ul{position:relative}
+.hero h1 .ul::after{content:"";position:absolute;left:0;bottom:.06em;width:100%;height:8px;background:var(--accent);opacity:.7}
+.hero .lead{font-size:clamp(1rem,1.35vw,1.18rem);line-height:1.8;color:var(--text-2);font-weight:300;max-width:700px;margin-top:34px}
+.hero .lead b{color:var(--text);font-weight:500}
+.hero-tags{display:flex;flex-wrap:wrap;gap:0;margin-top:42px;border-top:1px solid var(--line)}
+.hero-tags .ct{flex:1;min-width:140px;padding:18px 22px 18px 0;display:flex;align-items:baseline;gap:12px;border-right:1px solid var(--line-soft)}
+.hero-tags .ct:last-child{border-right:0}
+.hero-tags .ct b{font-family:var(--font-mono);color:var(--accent);font-size:13px;font-weight:600}
+.hero-tags .ct span{font-size:.94rem;color:var(--text-2)}
+
+/* SECTIONS */
+.section{padding:80px clamp(28px,6vw,90px);border-top:1px solid var(--line-soft)}
+.section .inner{width:100%;max-width:1100px;margin:0 auto}
+.section-kicker{font-family:var(--font-mono);font-size:12px;font-weight:500;letter-spacing:.2em;color:var(--accent);display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.section-kicker::before{content:"";width:30px;height:1px;background:var(--accent)}
+.section-kicker em{color:var(--text-3);font-style:normal}
+.section h2{font-family:var(--font-display);font-weight:700;font-size:clamp(1.8rem,3.5vw,2.8rem);line-height:1.12;letter-spacing:-.015em}
+.section h2 b{color:var(--accent);font-weight:700}
+
+.lead{font-size:clamp(1rem,1.3vw,1.12rem);line-height:1.7;color:var(--text-2);font-weight:300;max-width:700px;margin-top:16px}
+.lead b{color:var(--text);font-weight:500}
+
+/* CARDS */
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:36px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:28px 26px;position:relative;transition:border-color .3s var(--ease),transform .3s var(--ease)}
+.card::before{content:"";position:absolute;top:13px;right:13px;width:9px;height:9px;border-top:1px solid var(--text-3);border-right:1px solid var(--text-3)}
+.card:hover{border-color:rgba(91,140,255,.3);transform:translateY(-3px)}
+.card .tab{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;margin-bottom:14px;padding:3px 10px;border-radius:3px;display:inline-block}
+.card h3{font-family:var(--font-display);font-weight:700;font-size:1.08rem;line-height:1.25;margin-bottom:10px}
+.card p,.card li{font-size:.92rem;line-height:1.65;color:var(--text-2);font-weight:300}
+.card p b,.card li b{color:var(--text);font-weight:500}
+.card ul{padding-left:1.2rem;margin-top:6px}
+.card li{margin-bottom:3px}
+
+.tab-blue{background:rgba(91,140,255,.1);color:var(--accent)}
+.tab-green{background:var(--green-bg);color:var(--green)}
+.tab-orange{background:var(--orange-bg);color:var(--orange)}
+.tab-purple{background:var(--purple-bg);color:var(--purple)}
+.tab-pink{background:var(--pink-bg);color:var(--pink)}
+
+/* 2-COL CARDS */
+.cards2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:36px}
+
+/* CALLOUT */
+.callout{margin-top:30px;padding:18px 24px;background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:3px;font-size:.98rem;color:var(--text);font-weight:400;line-height:1.6}
+.callout span{color:var(--accent);font-weight:500}
+.callout code{font-family:var(--font-mono);background:rgba(91,140,255,.1);padding:2px 7px;border-radius:3px;font-size:.88em;color:var(--accent-2)}
+
+/* POINTS */
+.points{display:flex;flex-direction:column;gap:2px;margin-top:34px}
+.point{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:start;padding:18px 0;border-bottom:1px solid var(--line-soft)}
+.point:first-child{border-top:1px solid var(--line-soft)}
+.point .pn{font-family:var(--font-mono);font-size:12px;color:var(--accent);font-weight:600;padding-top:4px}
+.point .pt b{font-family:var(--font-display);font-weight:700;font-size:1.06rem;color:var(--text);display:block;margin-bottom:4px}
+.point .pt span{font-size:.94rem;color:var(--text-2);line-height:1.6;font-weight:300}
+
+/* PROBLEM LIST */
+.problems{display:flex;flex-direction:column;gap:12px;margin-top:34px}
+.problem{display:grid;grid-template-columns:36px 1fr;gap:18px;align-items:start;padding:20px;background:var(--surface);border:1px solid var(--line);border-radius:6px}
+.problem .icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;font-family:var(--font-mono)}
+.problem h4{font-family:var(--font-display);font-weight:700;font-size:1rem;margin-bottom:4px}
+.problem p{font-size:.92rem;color:var(--text-2);line-height:1.6;font-weight:300}
+.problem.red{border-color:rgba(248,113,113,.2)}.problem.red .icon{background:rgba(248,113,113,.1);color:#f87171}
+
+/* FLOW DIAGRAM */
+.flow{margin-top:30px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:28px;display:flex;align-items:center;flex-wrap:wrap;gap:10px;justify-content:center}
+.flow-node{padding:10px 18px;border-radius:4px;font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;font-weight:600;text-align:center;line-height:1.3}
+.flow-node.primary{background:var(--accent);color:var(--bg)}
+.flow-node.surface{background:var(--surface-2);color:var(--text);border:1px solid var(--line)}
+.flow-node.outline{background:transparent;border:1px solid var(--accent);color:var(--accent)}
+.flow-node.dim{background:var(--surface-2);color:var(--text-2);border:1px solid var(--line-soft)}
+.flow-node.green{background:var(--green);color:#052e16}
+.flow-arrow{color:var(--text-3);font-size:18px;font-weight:700}
+
+/* FDD MAPPING */
+.fdd-map{margin-top:30px;background:var(--surface);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.fdd-row{display:grid;grid-template-columns:44px 200px 30px 1fr;padding:16px 22px;border-bottom:1px solid var(--line-soft);align-items:center}
+.fdd-row:last-child{border-bottom:0}
+.fdd-num{font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--text-3)}
+.fdd-stage{font-family:var(--font-display);font-weight:600;font-size:.94rem}
+.fdd-arrow{color:var(--text-3);font-size:14px}
+.fdd-skill{font-family:var(--font-mono);font-size:12px;color:var(--accent);letter-spacing:.03em}
+
+/* METRICS */
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);margin-top:34px;border-radius:6px;overflow:hidden}
+.metric{padding:28px 22px;border-right:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft)}
+.metric:nth-child(3n){border-right:0}
+.metric .num{font-family:var(--font-display);font-weight:800;font-size:clamp(2rem,4vw,3rem);line-height:1;letter-spacing:-.02em;color:var(--accent)}
+.metric .num sup{font-size:.4em;vertical-align:super}
+.metric .ml{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;color:var(--text-2);margin-top:10px}
+
+/* ABILITIES */
+.abilities{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:30px;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.ab{display:grid;grid-template-columns:auto 1fr;gap:16px;padding:18px 20px;border-bottom:1px solid var(--line-soft)}
+.ab:nth-child(odd){border-right:1px solid var(--line-soft)}
+.ab:nth-last-child(-n+2){border-bottom:0}
+.ab .abn{font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--accent);padding-top:2px}
+.ab .abt b{font-family:var(--font-display);font-weight:700;font-size:1rem;display:block;margin-bottom:3px}
+.ab .abt span{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.03em;color:var(--text-2);line-height:1.5}
+
+/* SPEC TABLE */
+.spec{margin-top:24px;border-top:1px solid var(--line)}
+.srow{display:grid;grid-template-columns:120px 1fr;gap:24px;padding:14px 0;border-bottom:1px solid var(--line-soft);align-items:baseline}
+.srow dt{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;color:var(--accent)}
+.srow dd{font-size:.94rem;color:var(--text-2);line-height:1.6;font-weight:300}
+.srow dd b{color:var(--text);font-weight:500}
+
+/* INLINE CODE */
+code{font-family:var(--font-mono);background:rgba(91,140,255,.08);padding:2px 7px;border-radius:3px;font-size:.88em;color:var(--accent-2)}
+
+/* FOOTER */
+.footer{padding:48px clamp(28px,6vw,90px);border-top:1px solid var(--line);position:relative;z-index:1}
+.footer .inner{max-width:1100px;margin:0 auto;text-align:center}
+.footer p{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;color:var(--text-3)}
+.footer b{color:var(--accent-deep);font-weight:500}
+
+/* DIVIDER */
+.divider{width:60px;height:2px;margin:1.5rem 0;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:1px}
+
+/* REVEAL ANIMATION */
+[data-reveal]{opacity:0;transform:translateY(18px);transition:opacity .6s var(--ease),transform .6s var(--ease)}
+[data-reveal].revealed{opacity:1;transform:none}
+
+/* RESPONSIVE */
+@media(max-width:880px){
+  .cards{grid-template-columns:1fr}
+  .metrics{grid-template-columns:repeat(2,1fr)}
+  .metric:nth-child(3n){border-right:1px solid var(--line-soft)}
+  .metric:nth-child(2n){border-right:0}
+  .abilities{grid-template-columns:1fr}
+  .ab:nth-child(odd){border-right:0}
+  .cards2{grid-template-columns:1fr}
+  .topbar-nav{display:none}
+  .fdd-row{grid-template-columns:30px 1fr;gap:6px}
+  .fdd-arrow,.fdd-skill{grid-column:2}
+}
+@media(max-width:600px){
+  .hero h1{font-size:clamp(2rem,10vw,3.5rem)}
+  .section{padding:48px 20px}
+  .problems{gap:8px}
+}
+@media print{
+  .bg-grid,.bg-glow,.bg-glow2,.bg-grain,.topbar{display:none}
+  body{background:#fff;color:#111}
+  .section{page-break-inside:avoid;border-top-color:#ddd}
+}
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+<div class="bg-glow2"></div>
+<div class="bg-grain"></div>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="brand">
+    <span class="mark"><i></i><i></i><i></i><i></i></span>
+    NEURO SYNTAX IDE
+  </div>
+  <nav class="topbar-nav">
+    <a href="#problem">问题</a>
+    <a href="#runtime">Agent Runtime</a>
+    <a href="#fdd">FDD 工作流</a>
+    <a href="#ide">IDE</a>
+    <a href="#proof">实证</a>
+    <a href="#frameworks">框架</a>
+    <a href="#tech">技术</a>
+  </nav>
+</header>
+
+<div class="page">
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="inner">
+    <div class="kicker" data-reveal>AI-NATIVE ENGINEERING PLATFORM <em>&middot; 2026</em></div>
+    <h1 data-reveal>
+      统一接入<br/>
+      主流 <span class="accent-text">Coding Agent</span><br/>
+      <span class="ul">FDD 工作流</span>驱动
+    </h1>
+    <p class="lead" data-reveal>
+      把 Claude Code、Codex、OpenCode、Hermes 等主流 Coding Agent 统一集成为 Runtime Agent，通过 <b>Feature-Driven Development</b> 工作流自动编排需求分析、规格设计、代码实现、验证交付的全流程。<br/>
+      不需要懂终端，不需要 vibe coding，打开 IDE 就是工程级开发流程。
+    </p>
+    <div class="hero-tags" data-reveal>
+      <div class="ct"><b>4 协议</b><span>Agent 通信</span></div>
+      <div class="ct"><b>FDD</b><span>工作流引擎</span></div>
+      <div class="ct"><b>127</b><span>特性已交付</span></div>
+      <div class="ct"><b>90+</b><span>IPC Commands</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEM -->
+<section class="section" id="problem">
+  <div class="inner">
+    <div class="section-kicker" data-reveal>// 解决什么问题</div>
+    <h2 data-reveal>今天的 AI 编程，<b>差在哪里</b></h2>
+    <p class="lead" data-reveal>Claude Code 能写代码，Codex 能建项目，OpenCode 能改 bug。但现实是——</p>
+
+    <div class="problems" data-reveal>
+      <div class="problem red">
+        <div class="icon">!</div>
+        <div><h4>普通人用不了</h4><p>得装终端、配环境、记命令行参数。非技术人员根本无从下手。</p></div>
+      </div>
+      <div class="problem red">
+        <div class="icon">!</div>
+        <div><h4>Vibe Coding 不可控</h4><p>跟 AI 聊天写代码，没有规格、没有验证、没有归档，全凭感觉。</p></div>
+      </div>
+      <div class="problem red">
+        <div class="icon">!</div>
+        <div><h4>Agent 各自为战</h4><p>Claude Code 用 CLI，Codex 用 API，协议不同，无法统一管理。</p></div>
+      </div>
+      <div class="problem red">
+        <div class="icon">!</div>
+        <div><h4>没有工程流程</h4><p>缺依赖管理、缺上下文传播、缺版本追溯，交付质量靠运气。</p></div>
+      </div>
+    </div>
+
+    <div class="callout" data-reveal>
+      Neuro Syntax IDE 把这些问题一次性解决：<span>Agent 统一接入</span>，<span>工作流内嵌 IDE</span>，<span>FDD 方法论驱动整个开发过程</span>。
+    </div>
+  </div>
+</section>
+
+<!-- AGENT RUNTIME -->
+<section class="section" id="runtime">
+  <div class="inner">
+    <div class="section-kicker" data-reveal>// 核心能力 01 <em>&middot; AGENT RUNTIME</em></div>
+    <h2 data-reveal>主流 Coding Agent，<b>统一接入</b></h2>
+    <p class="lead" data-reveal>一套 <code>AgentRuntime</code> trait 接口，四种通信协议并行运行。Settings 一键切换 Agent 后端，前端代码无需改动。</p>
+
+    <div class="cards" data-reveal>
+      <div class="card">
+        <div class="tab tab-blue">CLI PIPE</div>
+        <h3>NDJSON 子进程</h3>
+        <p><b>Claude Code</b> — <code>claude -p --output-format stream-json</code> 直接子进程调用</p>
+      </div>
+      <div class="card">
+        <div class="tab tab-purple">SDK SIDECAR</div>
+        <h3>Node.js 桥接</h3>
+        <p><b>Claude Agent SDK</b> — 通过 <code>agent-sdk-bridge.mjs</code> Sidecar，绕过 CLI 限流</p>
+      </div>
+      <div class="card">
+        <div class="tab tab-green">PIPE</div>
+        <h3>Stdio 管道</h3>
+        <p><b>Claude Code / Cursor / OpenCode</b> — NDJSON 管道协议统一接入</p>
+      </div>
+    </div>
+
+    <div class="cards" data-reveal style="grid-template-columns:repeat(2,1fr);margin-top:16px">
+      <div class="card">
+        <div class="tab tab-orange">ACP</div>
+        <h3>JSON-RPC 2.0 双向 RPC</h3>
+        <p><b>Codex / Hermes / Kiro / Kimi / Pi</b> — ACP 协议双向通信，支持请求、通知和服务端发起的审批</p>
+      </div>
+      <div class="card">
+        <div class="tab tab-pink">ARCHITECTURE</div>
+        <h3>统一架构</h3>
+        <p><b>AgentRuntime trait</b> + RuntimeRegistry + RuntimeDetector + RoutingEngine — 供应商无关的 Agent 编排层</p>
+      </div>
+    </div>
+
+    <div class="callout" data-reveal>
+      开发不绑定任何单一 Agent 供应商 — 今天用 Claude Code，明天切 Codex，后天上 Hermes，<span>一行前端代码不用改</span>。
+    </div>
+  </div>
+</section>
+
+<!-- FDD WORKFLOW -->
+<section class="section" id="fdd">
+  <div class="inner">
+    <div class="section-kicker" data-reveal>// 核心能力 02 <em>&middot; FEATURE WORKFLOW</em></div>
+    <h2 data-reveal>FDD 驱动的 <b>工程级 harness</b></h2>
+    <p class="lead" data-reveal>内嵌的工作流引擎以 <b>Feature-Driven Development</b> 为设计思想，把"跟 AI 聊天写代码"变成"按工程流程交付特性"。</p>
+
+    <div class="fdd-map" data-reveal>
+      <div class="fdd-row">
+        <div class="fdd-num">01</div>
+        <div class="fdd-stage">Build Overall Model</div>
+        <div class="fdd-arrow">&rarr;</div>
+        <div class="fdd-skill">/init-project + project-context.md</div>
+      </div>
+      <div class="fdd-row">
+        <div class="fdd-num">02</div>
+        <div class="fdd-stage">Build Features List</div>
+        <div class="fdd-arrow">&rarr;</div>
+        <div class="fdd-skill">/new-feature + /split-feature</div>
+      </div>
+      <div class="fdd-row">
+        <div class="fdd-num">03</div>
+        <div class="fdd-stage">Plan by Feature</div>
+        <div class="fdd-arrow">&rarr;</div>
+        <div class="fdd-skill">queue.yaml 依赖排序 + 优先级</div>
+      </div>
+      <div class="fdd-row">
+        <div class="fdd-num">04</div>
+        <div class="fdd-stage">Design by Feature</div>
+        <div class="fdd-arrow">&rarr;</div>
+        <div class="fdd-skill">spec.md 技术方案 + task.md 任务拆解</div>
+      </div>
+      <div class="fdd-row">
+        <div class="fdd-num">05</div>
+        <div class="fdd-stage">Build by Feature</div>
+        <div class="fdd-arrow">&rarr;</div>
+        <div class="fdd-skill">/implement-feature + /verify-feature</div>
+      </div>
+    </div>
+
+    <div class="cards" data-reveal style="margin-top:28px">
+      <div class="card">
+        <div class="tab tab-blue">SPEC</div>
+        <h3>完整规格文档</h3>
+        <p>每个特性有 <b>spec.md</b> — 需求描述、技术方案、验收标准、Gherkin 场景</p>
+      </div>
+      <div class="card">
+        <div class="tab tab-green">TASK</div>
+        <h3>原子任务拆解</h3>
+        <p>每个特性有 <b>task.md</b> — 拆成 2-5 分钟可执行的原子任务</p>
+      </div>
+      <div class="card">
+        <div class="tab tab-orange">CHECK</div>
+        <h3>验收检查</h3>
+        <p>每个特性有 <b>checklist.md</b> — Gherkin 场景验证，通过才算交付</p>
+      </div>
+    </div>
+
+    <div class="cards2" data-reveal style="margin-top:16px">
+      <div class="card">
+        <div class="tab tab-purple">DAG</div>
+        <h3>依赖关系显式建模</h3>
+        <p><b>queue.yaml</b> 构建 DAG — 前置特性先完成，上下文自动传播到后续特性。不是随便写代码，是按依赖关系有序交付。</p>
+      </div>
+      <div class="card">
+        <div class="tab tab-pink">ISOLATION</div>
+        <h3>Git Worktree 物理隔离</h3>
+        <p>每个特性独立 <b>git worktree</b> + 独立文件系统，互不干扰。完成的特性归档到 archive，下次开发可回溯参考。</p>
+      </div>
+    </div>
+
+    <div class="callout" data-reveal>
+      <span>垂直切片，不是水平分层</span> — 传统开发按技术层分工（前端组、后端组、DBA 组），FDD 按业务特性垂直切。AI Agent 天然适合这种方式 — 一个 Agent 同时覆盖所有技术层，不存在技术筒仓问题。
+    </div>
+  </div>
+</section>
+
+<!-- IDE -->
+<section class="section" id="ide">
+  <div class="inner">
+    <div class="section-kicker" data-reveal>// 核心能力 03 <em>&middot; IDE SHELL</em></div>
+    <h2 data-reveal>工作流内嵌 IDE，<b>开箱即用</b></h2>
+    <p class="lead" data-reveal>工作流不是终端命令行里的插件，是直接嵌入 IDE 的原生功能。</p>
+
+    <div class="abilities" data-reveal>
+      <div class="ab">
+        <div class="abn">BOARD</div>
+        <div class="abt"><b>Task Board</b><span>可视化看板 / 拖拽管理 / 搜索排序 / 定时调度</span></div>
+      </div>
+      <div class="ab">
+        <div class="abn">NEWTASK</div>
+        <div class="abt"><b>New Task Modal</b><span>多轮对话创建需求 / AI 自动生成 spec+task+checklist</span></div>
+      </div>
+      <div class="ab">
+        <div class="abn">AGENT</div>
+        <div class="abt"><b>Agent Tab</b><span>Feature Detail 对话区 / Review+Modify+Develop 三模式</span></div>
+      </div>
+      <div class="ab">
+        <div class="abn">MONITOR</div>
+        <div class="abt"><b>Runtime Monitor</b><span>实时监控 Agent 进程 / Session 输出持久化</span></div>
+      </div>
+      <div class="ab">
+        <div class="abn">SETTINGS</div>
+        <div class="abt"><b>Settings</b><span>Agent 类型选择 / LLM Provider 配置 / Workflow 参数</span></div>
+      </div>
+      <div class="ab">
+        <div class="abn">PIXEL</div>
+        <div class="abt"><b>Pixel Observatory</b><span>像素小人可视化展示 Agent 实时行为</span></div>
+      </div>
+    </div>
+
+    <div class="callout" data-reveal>
+      非技术人员不再需要知道终端 Coding Agent 的细节问题。<span>打开 IDE，描述你想做什么，工作流自动驱动 Agent 完成</span>。
+    </div>
+  </div>
+</section>
+
+<!-- PROOF -->
+<section class="section" id="proof">
+  <div class="inner">
+    <div class="section-kicker" data-reveal>// 127 个特性实证</div>
+    <h2 data-reveal>Agent 自己造自己，<b>127 个特性归档</b></h2>
+
+    <div class="metrics" data-reveal>
+      <div class="metric">
+        <div class="num">127</div>
+        <div class="ml">FEATURES ARCHIVED</div>
+      </div>
+      <div class="metric">
+        <div class="num">90+</div>
+        <div class="ml">TAURI IPC COMMANDS</div>
+      </div>
+      <div class="metric">
+        <div class="num">4</div>
+        <div class="ml">AGENT PROTOCOLS</div>
+      </div>
+    </div>
+
+    <p class="lead" data-reveal style="margin-top:28px">
+      这款 IDE 的第一个真实项目，就是用它自己开发自己。<b>127 个 Feature 全部由 Agent 通过工作流自动交付</b>——需求分析、规格输出、代码实现、验证归档，完整的软件工程周期。
+    </p>
+
+    <div class="callout" data-reveal>
+      这不是概念验证，是 <span>Agent 自己造自己的工程实证</span>。每一个归档特性都有完整的 spec、task、checklist、验证记录，可追溯、可回滚、可审计。
+    </div>
+  </div>
+</section>
+
+<!-- FRAMEWORKS -->
+<section class="section" id="frameworks">
+  <div class="inner">
+    <div class="section-kicker" data-reveal>// 与主流框架的关系</div>
+    <h2 data-reveal>汲取优秀实践，<b>FDD 为核心</b></h2>
+    <p class="lead" data-reveal>Feature-Workflow 汲取了当前 AI Coding 工作流领域的优秀实践，以 FDD 为核心方法论构建完整工程实践。</p>
+
+    <div class="cards2" data-reveal>
+      <div class="card">
+        <div class="tab tab-blue">OpenSpec</div>
+        <h3>规范先行</h3>
+        <p>构建前共识、<b>propose &rarr; apply &rarr; archive</b> 流程、轻量灵活、工具无关</p>
+      </div>
+      <div class="card">
+        <div class="tab tab-orange">BMad Method</div>
+        <h3>多角色分工</h3>
+        <p>12+ 专业代理、<b>PM / Architect / Developer</b> 角色分离、规模自适应</p>
+      </div>
+    </div>
+    <div class="cards2" data-reveal style="margin-top:16px">
+      <div class="card">
+        <div class="tab tab-green">Superpowers</div>
+        <h3>TDD 强制流程</h3>
+        <p><b>worktree 隔离</b>、子代理架构、RED-GREEN-REFACTOR、证据优于声明</p>
+      </div>
+      <div class="card">
+        <div class="tab tab-purple">EvoDev 论文</div>
+        <h3>Feature Map DAG</h3>
+        <p><b>三层上下文传播</b>（Business / Design / Implementation）、依赖关系驱动开发</p>
+      </div>
+    </div>
+
+    <div class="flow" data-reveal style="margin-top:28px">
+      <div class="flow-node primary">OpenSpec 规范先行</div>
+      <span class="flow-arrow">+</span>
+      <div class="flow-node surface">BMad 角色分工</div>
+      <span class="flow-arrow">+</span>
+      <div class="flow-node outline">Superpowers TDD</div>
+      <span class="flow-arrow">+</span>
+      <div class="flow-node surface">EvoDev Feature Map</div>
+      <span class="flow-arrow">=</span>
+      <div class="flow-node green">Feature-Workflow</div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH -->
+<section class="section" id="tech">
+  <div class="inner">
+    <div class="section-kicker" data-reveal>// 技术底座</div>
+    <h2 data-reveal>生产级技术栈，<b>桌面性能</b></h2>
+
+    <div class="abilities" data-reveal>
+      <div class="ab">
+        <div class="abn">TAURI</div>
+        <div class="abt"><b>Tauri V2 + React 19</b><span>桌面级性能，Web 级开发效率</span></div>
+      </div>
+      <div class="ab">
+        <div class="abn">RUST</div>
+        <div class="abt"><b>Rust 后端</b><span>portable-pty / sysinfo / git2 / notify / reqwest</span></div>
+      </div>
+      <div class="ab">
+        <div class="abn">RUNTIME</div>
+        <div class="abt"><b>三协议 Runtime</b><span>Pipe / ACP / SDK — 一套 trait，多种 Agent</span></div>
+      </div>
+      <div class="ab">
+        <div class="abn">DATA</div>
+        <div class="abt"><b>FS-as-Database</b><span>YAML + Markdown 即数据库 / Git 天然版本管控</span></div>
+      </div>
+      <div class="ab">
+        <div class="abn">PLUGIN</div>
+        <div class="abt"><b>Feature Workflow Plugin</b><span>15 个原子 Skill / SubAgent 200k context</span></div>
+      </div>
+      <div class="ab">
+        <div class="abn">11.7K</div>
+        <div class="abt"><b>lib.rs</b><span>Rust 主文件 / 90+ Tauri Commands / 979 行 types.ts</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="inner">
+    <div class="divider" style="margin:0 auto 24px"></div>
+    <p style="font-size:1rem;color:var(--text-2);margin-bottom:16px;font-family:var(--font-sans);font-weight:400;letter-spacing:0;max-width:680px;margin-left:auto;margin-right:auto;line-height:1.7">
+      Neuro Syntax IDE 把主流 Coding Agent 统一接入了 IDE，用 FDD 工作流把 AI 编程从 vibe coding 推向了工程级交付。<br/>
+      127 个自我交付的特性证明：FDD 驱动的 AI Coding，不只是聊天写代码——是真正可工程化的软件开发方式。
+    </p>
+    <p style="margin-top:24px">NEURO SYNTAX IDE &middot; <b>FDD-DRIVEN AI ENGINEERING</b> &middot; 2026</p>
+  </div>
+</footer>
+
+</div>
+
+<script>
+(function(){
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        var el=e.target;
+        var delay=el.dataset.delay||0;
+        setTimeout(function(){el.classList.add('revealed')},delay);
+        io.unobserve(el);
+      }
+    });
+  },{threshold:.12});
+  document.querySelectorAll('[data-reveal]').forEach(function(el){
+    var siblings=el.parentElement.querySelectorAll('[data-reveal]');
+    var idx=Array.prototype.indexOf.call(siblings,el);
+    el.dataset.delay=idx*70;
+    io.observe(el);
+  });
+})();
+</script>
+
+</body>
+</html>

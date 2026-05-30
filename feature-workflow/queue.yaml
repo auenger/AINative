@@ -1,5 +1,5 @@
   meta:
-    last_updated: '2026-05-29T22:35:00Z'
+    last_updated: '2026-05-29T23:00:00Z'
     version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -64,7 +64,7 @@ parents:
     - feat-bmad-prd
     - feat-party-mode-optim
 active: []
-pending:
+pending: []
 blocked:
 - id: feat-agent-provider-core
   name: Agent Provider 核心抽象层 — OpenClaw WebSocket 接入 + Hermes 增强
@@ -79,6 +79,11 @@ blocked:
   priority: 40
   reason: '依赖 feat-agent-provider-core'
 completed:
+- id: feat-workshop-chat-ux-polish
+  name: "PM Workshop 对话渲染优化（OPTIONS 描述 + INIT 隐藏 + Tool Call 简化 + Party Mode 面板）"
+  completed_at: '2026-05-29T23:30:00Z'
+  tag: feat-workshop-chat-ux-polish-20260529
+  parent: feat-bmad-workshop
 - id: fix-workshop-session-state
   name: "PM Workshop 会话状态修复 — Tab 保持 + 清除对话 + 工具调用渲染"
   completed_at: '2026-05-29T22:45:00Z'

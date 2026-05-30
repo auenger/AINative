@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { cn } from '../lib/utils';
-import type { PMWorkshopTab, BMADSessionState, BrainstormOutput, PartyInsight, PartyReport, PRDDocument } from '../types';
-import { BrainstormPanel } from '../components/pm-workshop/BrainstormPanel';
-import { PartyModePanel } from '../components/pm-workshop/PartyModePanel';
-import { PrdCreationPanel } from '../components/pm-workshop/PrdCreationPanel';
+import { cn } from '../../lib/utils';
+import type { PMWorkshopTab, BMADSessionState, BrainstormOutput, PartyInsight, PartyReport, PRDDocument } from '../../types';
+import { BrainstormPanel } from '../pm-workshop/BrainstormPanel';
+import { PartyModePanel } from '../pm-workshop/PartyModePanel';
+import { PrdCreationPanel } from '../pm-workshop/PrdCreationPanel';
 
 interface PMWorkshopViewProps {
   workspacePath: string;

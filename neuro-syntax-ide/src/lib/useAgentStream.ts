@@ -275,7 +275,8 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       }
 
       // Capture real session_id from CLI response (first message establishes the session)
-      if (chunk.session_id) {
+      // Skip during capture mode — persona execution creates its own sessions
+      if (chunk.session_id && !captureRef.current) {
         setSessionId(chunk.session_id);
         sessionIdRef.current = chunk.session_id; // Immediate sync for ref
         awaitingResponseRef.current = false; // Session claimed, stop accepting

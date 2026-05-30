@@ -1,5 +1,6 @@
-import React from 'react';
-import { cn } from '../../lib/utils';
+import React, { useMemo } from 'react';
+import { FileText, Pencil, Terminal, Search, Cpu, FolderSearch, Wrench } from 'lucide-react';
+import { cn, parseContentSegments, type ContentSegment, type ToolCallInfo } from '../../lib/utils';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import type { ChatMessage } from '../../lib/useAgentStream';
 
@@ -9,35 +10,45 @@ interface WorkshopChatBubbleProps {
   isLast?: boolean;
 }
 
-function filterToolCallText(content: string): string {
-  let filtered = content
-    // XML-style tool tags
-    .replace(/<tool_use>[\s\S]*?<\/tool_use>/g, '')
-    .replace(/<tool_result>[\s\S]*?<\/tool_result>/g, '')
-    .replace(/<tool_name>[\s\S]*?<\/tool_name>/g, '')
-    .replace(/^\s*tool_name:\s*\S+.*$/gm, '')
-    .replace(/^\s*tool_result:\s*\S+.*$/gm, '')
-    // [tool: Agent] {json} pattern — single line and multiline
-    .replace(/\[tool:\s*\w+\]\s*\{[^}]*\}/g, '')
-    .replace(/^\[tool:.*?\]\s*\{[\s\S]*?\}/gm, '')
-    // task lifecycle markers — aggressive: handles task_progress"}, task_started" etc.
-    .replace(/task_(?:started|progress|notification)["'}\s]*\}?/gi, '')
-    // INIT system noise lines
-    .replace(/^\s*(\[SYSTEM\]\s*)?(INIT\s*[—\-].*)$/gim, '')
-    // [SYSTEM] OPTIONS JSON blocks (rendered as OptionCardMessage instead)
-    .replace(/\[SYSTEM\]\s*"OPTIONS"\s*:\s*\[[\s\S]*?\]\s*$/gm, '')
-    .replace(/"OPTIONS"\s*:\s*\[[\s\S]*?\{[\s\S]*?"DESCRIPTION"[\s\S]*?\}\s*\]/gm, '')
-    // Stray JSON fragments and braces from tool output
-    .replace(/\{"(?:description|prompt|tool_name)"[^}]*\}/g, '');
-  filtered = filtered.replace(/\n{3,}/g, '\n\n').trim();
-  return filtered;
+// ─── Tool Call Chip ───
+
+const TOOL_ICONS: Record<string, React.ReactNode> = {
+  Read: <FileText size={10} className="shrink-0" />,
+  Write: <Pencil size={10} className="shrink-0" />,
+  Edit: <Pencil size={10} className="shrink-0" />,
+  Bash: <Terminal size={10} className="shrink-0" />,
+  Grep: <Search size={10} className="shrink-0" />,
+  Agent: <Cpu size={10} className="shrink-0" />,
+  Glob: <FolderSearch size={10} className="shrink-0" />,
+};
+
+function ToolCallChip({ toolName, param }: ToolCallInfo) {
+  const icon = TOOL_ICONS[toolName] || <Wrench size={10} className="shrink-0" />;
+  return (
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface-container/40 border border-outline-variant/10 my-0.5">
+      <span className="text-on-surface-variant">{icon}</span>
+      <span className="text-[9px] font-semibold text-on-surface">{toolName}</span>
+      {param && (
+        <span className="text-[9px] text-on-surface-variant truncate max-w-[300px]" title={param}>
+          {param}
+        </span>
+      )}
+    </div>
+  );
 }
+
+// ─── Component ───
 
 export const WorkshopChatBubble: React.FC<WorkshopChatBubbleProps> = ({
   msg,
   isStreaming = false,
   isLast = false,
 }) => {
+  const segments: ContentSegment[] = useMemo(
+    () => (msg.role === 'assistant' && msg.content ? parseContentSegments(msg.content) : []),
+    [msg.role, msg.content],
+  );
+
   return (
     <div
       className={cn(
@@ -55,7 +66,19 @@ export const WorkshopChatBubble: React.FC<WorkshopChatBubbleProps> = ({
       >
         {msg.role === 'assistant' ? (
           <div className="[&_p]:text-[10px] [&_pre]:text-[10px] [&_code]:text-[10px]">
-            <MarkdownRenderer content={filterToolCallText(msg.content)} />
+            {segments.length === 1 && segments[0].type === 'text' ? (
+              <MarkdownRenderer content={segments[0].content} />
+            ) : (
+              <div className="space-y-1">
+                {segments.map((seg, i) =>
+                  seg.type === 'tool-call' && seg.toolInfo ? (
+                    <ToolCallChip key={i} toolName={seg.toolInfo.toolName} param={seg.toolInfo.param} />
+                  ) : seg.content ? (
+                    <MarkdownRenderer key={i} content={seg.content} />
+                  ) : null,
+                )}
+              </div>
+            )}
             {isLast && isStreaming && (
               <span className="inline-block w-1.5 h-3 bg-primary/70 animate-pulse ml-0.5 align-middle" />
             )}
