@@ -1019,7 +1019,7 @@ export interface PartyPersona {
   id: string;
   name: string;
   title: string;
-  icon: string;
+  icon: React.ReactNode;
   accentColor: string;
   description: string;
   expertise: string[];

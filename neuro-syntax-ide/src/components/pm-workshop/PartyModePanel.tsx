@@ -241,7 +241,7 @@ const PersonaRosterConfirm: React.FC<PersonaRosterConfirmProps> = ({
           className={cn(
             'px-3 py-1.5 text-[10px] font-bold rounded-md transition-colors',
             selected.size >= 2
-              ? 'bg-tertiary text-on-secondary hover:bg-tertiary/90'
+              ? 'bg-primary text-on-primary hover:bg-primary/90'
               : 'bg-surface-container text-on-surface-variant cursor-not-allowed',
           )}
         >
@@ -976,7 +976,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
 
           {/* Persona Grid by Category */}
           <div className="max-w-md w-full space-y-3">
-            {(Object.entries(PERSONA_CATEGORIES) as [PersonaCategory, { label: string; icon: string }][])
+            {(Object.entries(PERSONA_CATEGORIES) as [PersonaCategory, { label: string; icon: React.ReactNode }][])
               .map(([cat, info]) => {
                 const personas = ALL_PERSONAS.filter((p) => p.category === cat);
                 if (personas.length === 0) return null;
@@ -1009,14 +1009,14 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
           </div>
 
           {sessionState.partyInsights && sessionState.partyInsights.length > 0 && (
-            <span className="mt-4 px-2 py-0.5 text-[10px] font-bold rounded-full bg-tertiary/20 text-tertiary">
+            <span className="mt-4 px-2 py-0.5 text-[10px] font-bold rounded-full bg-primary/20 text-primary">
               {sessionState.partyInsights.length} insights collected
             </span>
           )}
 
           <button
             onClick={handleStartSession}
-            className="mt-6 px-4 py-2 text-xs font-bold rounded-lg bg-tertiary text-on-secondary hover:bg-tertiary/90 transition-colors"
+            className="mt-6 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors"
           >
             Start Party Session
           </button>

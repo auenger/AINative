@@ -11,7 +11,7 @@ export interface PersonaCardMessageProps {
   personaId: string;
   personaName: string;
   personaTitle: string;
-  personaIcon: string;
+  personaIcon: React.ReactNode;
   accentColor: string;
   content: string;
   isStreaming?: boolean;
