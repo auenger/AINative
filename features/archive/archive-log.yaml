@@ -1,8 +1,17 @@
 meta:
-  last_updated: '2026-05-29T23:30:00Z'
+  last_updated: '2026-05-30T12:00:00Z'
   version: 1
-  total_completed: 133
+  total_completed: 134
 records:
+- id: feat-workshop-ux-enhance
+  name: "PM Workshop UX 增强（可拖拽分栏 + 工具调用美化 + PRD 文件选择）"
+  completed_at: '2026-05-30T12:00:00Z'
+  tag: feat-workshop-ux-enhance-20260530
+  merged_to: main
+  parent: feat-bmad-workshop
+  stats:
+    files_changed: 8
+    commits: 1
 - id: feat-workshop-chat-ux-polish
   name: "PM Workshop 对话渲染优化（OPTIONS 描述 + INIT 隐藏 + Tool Call 简化 + Party Mode 面板）"
   completed_at: '2026-05-29T23:30:00Z'
