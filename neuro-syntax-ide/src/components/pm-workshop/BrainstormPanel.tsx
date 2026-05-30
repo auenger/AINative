@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { Lightbulb, RotateCcw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useAgentStream } from '../../lib/useAgentStream';
 import type { ChatMessage } from '../../lib/useAgentStream';
 import type { BMADSessionState, BrainstormOutput, BrainstormIdea, BrainstormStep } from '../../types';
-import { BRAINSTORM_SYSTEM_PROMPT, BRAINSTORM_GREETING } from '../../lib/bmad/brainstorm-prompts';
+import { BRAINSTORM_SYSTEM_PROMPT } from '../../lib/bmad/brainstorm-prompts';
 import { ProgressStepper } from './ProgressStepper';
 import { IdeaCounterBadge } from './IdeaCounterBadge';
 import { WorkshopChatPanel } from './WorkshopChatPanel';
@@ -172,6 +173,7 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
   onOutputChange,
   className,
 }) => {
+  const { t } = useTranslation();
   // ─── State ───
   const [currentStep, setCurrentStep] = useState<BrainstormStep>('setup');
   const [completedSteps, setCompletedSteps] = useState<BrainstormStep[]>([]);
@@ -184,7 +186,7 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
   const agent = useAgentStream({
     runtimeId: 'claude-code',
     systemPrompt: BRAINSTORM_SYSTEM_PROMPT,
-    greetingMessage: BRAINSTORM_GREETING,
+    greetingMessage: t("workshop.brainstormGreeting"),
     useSessions: true,
     persistMessages: true,
     storageKey: 'brainstorm-workshop',
@@ -230,7 +232,7 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
     if (ideas.length > 0) {
       onOutputChange({
         ideas,
-        summary: `${ideas.length} ideas generated via brainstorm session`,
+        summary: t('workshop.brainstormSummary', { count: ideas.length }),
         method: selectedTechnique,
         timestamp: Date.now(),
       });
@@ -334,7 +336,7 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
         case 'energy-checkpoint':
           return (
             <EnergyCheckpointMessage
-              message={payload.data.message || 'How are you feeling?'}
+              message={payload.data.message || t('workshop.brainstormEnergy')}
               exchangeCount={payload.data.exchangeCount || exchangeCountRef.current}
               ideaCount={ideas.length}
               onAction={(action) => handleSendMessage(action)}
@@ -373,7 +375,7 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
       <div className="flex items-center justify-between px-4 py-2 bg-surface-container-low border-b border-outline-variant/10 shrink-0">
         <div className="flex items-center gap-2">
           <Lightbulb size={16} className="text-secondary" />
-          <span className="text-xs font-headline font-bold text-on-surface">Brainstorm Workshop</span>
+          <span className="text-xs font-headline font-bold text-on-surface">{t('workshop.brainstormTitle')}</span>
           {selectedTechnique && (
             <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-secondary/20 text-secondary">
               {selectedTechnique}
@@ -393,7 +395,7 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
                 setTopic('');
               }}
               className="p-1.5 rounded-md hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-on-surface"
-              title="New Session"
+              title={t("workshop.newSession")}
             >
               <RotateCcw size={14} />
             </button>
@@ -409,16 +411,15 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
               <div className="p-4 rounded-2xl bg-surface-container-high">
                 <Lightbulb size={32} className="text-secondary" />
               </div>
-              <h2 className="text-sm font-headline font-bold text-on-surface">Brainstorm</h2>
+              <h2 className="text-sm font-headline font-bold text-on-surface">{t('workshop.brainstormWelcome')}</h2>
               <p className="text-[10px] text-on-surface-variant max-w-xs text-center leading-relaxed">
-                AI-powered brainstorming with multiple techniques. Generate, organize, and refine ideas
-                to feed into your product workflow.
+                {t('workshop.brainstormDesc')}
               </p>
               <button
                 onClick={handleStartSession}
-                className="mt-2 px-4 py-2 text-xs font-bold rounded-lg bg-secondary text-on-secondary hover:bg-secondary/90 transition-colors"
+                className="mt-2 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors"
               >
-                Start Brainstorm Session
+                {t('workshop.brainstormStart')}
               </button>
             </div>
           </div>
@@ -429,12 +430,12 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
             onSendMessage={handleSendMessage}
             placeholder={
               currentStep === 'setup'
-                ? 'Describe your topic, goal, or constraints...'
+                ? t('workshop.brainstormPlaceholderSetup')
                 : currentStep === 'technique'
-                  ? 'Choose a technique or ask for more options...'
+                  ? t('workshop.brainstormPlaceholderTechnique')
                   : currentStep === 'execute'
-                    ? 'Share your thoughts, ideas, or respond to the challenge...'
-                    : 'Review and organize your ideas...'
+                    ? t('workshop.brainstormPlaceholderExecute')
+                    : t('workshop.brainstormPlaceholderOrganize')
             }
             renderWorkshopMessage={renderWorkshopMessage}
             agentStatus={agent.agentStatus}

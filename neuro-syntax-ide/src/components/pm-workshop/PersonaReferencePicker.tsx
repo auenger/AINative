@@ -67,7 +67,7 @@ export const PersonaReferencePicker: React.FC<PersonaReferencePickerProps> = ({
       {/* Header */}
       <div className="px-3 py-1.5 border-b border-outline-variant/10 bg-surface-container-low">
         <p className="text-[9px] text-on-surface-variant font-medium">
-          Select a persona to address
+          选择要对话的角色
         </p>
       </div>
 
@@ -75,7 +75,7 @@ export const PersonaReferencePicker: React.FC<PersonaReferencePickerProps> = ({
       {filteredPersonas.length === 0 ? (
         <div className="px-3 py-3 text-center">
           <p className="text-[10px] text-on-surface-variant opacity-60">
-            No matching persona
+            未找到匹配角色
           </p>
         </div>
       ) : (
@@ -107,7 +107,7 @@ export const PersonaReferencePicker: React.FC<PersonaReferencePickerProps> = ({
       {/* Footer */}
       <div className="px-3 py-1.5 border-t border-outline-variant/10 bg-surface-container-lowest/50">
         <p className="text-[8px] text-on-surface-variant opacity-60">
-          Type to filter | Esc to close
+          输入过滤 | Esc 关闭
         </p>
       </div>
     </div>

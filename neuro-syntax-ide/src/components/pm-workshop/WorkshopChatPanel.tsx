@@ -91,7 +91,7 @@ export const WorkshopChatPanel: React.FC<WorkshopChatPanelProps> = ({
     <div ref={containerRef} className="flex h-full">
       {/* Chat Area */}
       <div
-        className="flex flex-col min-w-0"
+        className={cn("flex flex-col min-w-0", !rightPanel && "flex-1")}
         style={rightPanel ? { width: `${splitRatio * 100}%` } : undefined}
       >
         {/* Message List */}

@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { FileText, Loader2, RotateCcw, FolderOpen } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useAgentStream } from '../../lib/useAgentStream';
 import type { ChatMessage, FsChangeEvent } from '../../lib/useAgentStream';
@@ -12,7 +13,7 @@ import type {
   PRDMode,
   Assumption,
 } from '../../types';
-import { PRD_SYSTEM_PROMPT, PRD_GREETING } from '../../lib/bmad/prd-prompts';
+import { PRD_SYSTEM_PROMPT } from '../../lib/bmad/prd-prompts';
 import { WorkshopChatPanel } from './WorkshopChatPanel';
 import { IntentSelector, type IntentOption } from './IntentSelector';
 import { StakeCalibration, type StakeOption } from './StakeCalibration';
@@ -186,6 +187,7 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
   onDocumentChange,
   className,
 }) => {
+  const { t } = useTranslation();
   // ─── State ───
   const [isStarted, setIsStarted] = useState(false);
   const [prdPhase, setPrdPhase] = useState<PrdPhase>('discovery');
@@ -203,13 +205,13 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
   const [assumptions, setAssumptions] = useState<Assumption[]>([]);
   const [validationReport, setValidationReport] = useState<ValidationReportData | null>(null);
   const [finalizationSteps, setFinalizationSteps] = useState<FinalizationStep[]>([
-    { step: 1, title: 'Decision Log Audit', status: 'pending' },
-    { step: 2, title: 'Input Coordination', status: 'pending' },
-    { step: 3, title: 'Reviewer Checkpoint', status: 'pending' },
-    { step: 4, title: 'Open Items Triage', status: 'pending' },
-    { step: 5, title: 'Document Polish', status: 'pending' },
-    { step: 6, title: 'External Handoff', status: 'pending' },
-    { step: 7, title: 'Close', status: 'pending' },
+    { step: 1, title: '决策日志审计', status: 'pending' },
+    { step: 2, title: '输入协调', status: 'pending' },
+    { step: 3, title: '评审检查点', status: 'pending' },
+    { step: 4, title: '待办分流', status: 'pending' },
+    { step: 5, title: '文档润色', status: 'pending' },
+    { step: 6, title: '外部交付', status: 'pending' },
+    { step: 7, title: '收尾', status: 'pending' },
   ]);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
 
@@ -222,7 +224,7 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
   const agent = useAgentStream({
     runtimeId: 'claude-code',
     systemPrompt: PRD_SYSTEM_PROMPT,
-    greetingMessage: PRD_GREETING,
+    greetingMessage: t('workshop.prdGreeting'),
     useSessions: true,
     persistMessages: true,
     storageKey: 'prd-creation-workshop',
@@ -662,7 +664,7 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
         <div className="flex items-center justify-between px-4 py-2 bg-surface-container-low border-b border-outline-variant/10 shrink-0">
           <div className="flex items-center gap-2">
             <FileText size={16} className="text-primary" />
-            <span className="text-xs font-headline font-bold text-on-surface">Create PRD</span>
+            <span className="text-xs font-headline font-bold text-on-surface">创建 PRD</span>
           </div>
           <div className="flex items-center gap-2">
             {sessionState.brainstormOutput && (
@@ -672,7 +674,7 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
             )}
             {sessionState.partyInsights && sessionState.partyInsights.length > 0 && (
               <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-tertiary/20 text-tertiary">
-                {sessionState.partyInsights.length} insights
+                {sessionState.partyInsights.length} 条洞察
               </span>
             )}
           </div>
@@ -683,10 +685,9 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
             <div className="p-4 rounded-2xl bg-surface-container-high">
               <FileText size={32} className="text-primary" />
             </div>
-            <h2 className="text-sm font-headline font-bold text-on-surface">Create PRD</h2>
+            <h2 className="text-sm font-headline font-bold text-on-surface">创建 PRD</h2>
             <p className="text-[10px] text-on-surface-variant max-w-xs text-center leading-relaxed">
-              AI-guided PRD creation with coaching mode. Import brainstorm ideas and party mode
-              insights to build comprehensive product requirements.
+              AI 引导的 PRD 创建，支持辅导模式。导入头脑风暴创意和多角色洞察，构建完整的产品需求文档。
             </p>
           </div>
 
@@ -694,19 +695,19 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
           <div className="flex items-center gap-2 mb-4">
             {sessionState.brainstormOutput && (
               <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-secondary/20 text-secondary">
-                {sessionState.brainstormOutput.ideas.length} brainstorm ideas
+                {sessionState.brainstormOutput.ideas.length} 条头脑风暴创意
               </span>
             )}
             {sessionState.partyInsights && sessionState.partyInsights.length > 0 && (
               <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-tertiary/20 text-tertiary">
-                {sessionState.partyInsights.length} party insights
+                {sessionState.partyInsights.length} 条圆桌洞察
               </span>
             )}
           </div>
 
           {!(sessionState.brainstormOutput || sessionState.partyInsights?.length) && (
             <p className="text-[9px] text-on-surface-variant/60 italic mb-4">
-              Complete Brainstorm or Party Mode first to feed outputs here
+              请先完成头脑风暴或多角色圆桌，将输出导入此处
             </p>
           )}
 
@@ -717,7 +718,7 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
             }}
             className="px-4 py-2 text-xs font-bold rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors"
           >
-            Start PRD Session
+            开始创建 PRD
           </button>
         </div>
       </div>
@@ -731,7 +732,7 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
       <div className="flex items-center justify-between px-4 py-2 bg-surface-container-low border-b border-outline-variant/10 shrink-0">
         <div className="flex items-center gap-2">
           <FileText size={16} className="text-primary" />
-          <span className="text-xs font-headline font-bold text-on-surface">Create PRD</span>
+          <span className="text-xs font-headline font-bold text-on-surface">创建 PRD</span>
           {prdPhase !== 'discovery' && (
             <span className={cn(
               'px-1.5 py-0.5 text-[9px] font-bold rounded',
@@ -778,10 +779,10 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
                   ? "bg-surface-container-high text-on-surface"
                   : "hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface",
               )}
-              title="Select PRD file"
+              title="选择 PRD 文件"
             >
               <FolderOpen size={12} />
-              {mdFiles.length > 0 && <span className="max-w-[100px] truncate">{prdFilePath?.split('/').pop() || 'Select file'}</span>}
+              {mdFiles.length > 0 && <span className="max-w-[100px] truncate">{prdFilePath?.split('/').pop() || '选择文件'}</span>}
             </button>
             {fileDropdownOpen && mdFiles.length > 0 && (
               <>
@@ -823,7 +824,7 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
               setValidationReport(null);
             }}
             className="p-1.5 rounded-md hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-on-surface"
-            title="New Session"
+            title="新建会话"
           >
             <RotateCcw size={14} />
           </button>
@@ -835,7 +836,7 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
         {/* Left: Chat Panel */}
         <div
           className="flex shrink-0 overflow-hidden"
-          style={{ width: `${splitRatio * 100}%` }}
+          style={displaySections.length > 0 ? { width: `${splitRatio * 100}%` } : { width: '100%' }}
         >
           <WorkshopChatPanel
             messages={parsedMessages}
@@ -856,12 +857,15 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
         </div>
 
         {/* Drag divider */}
+        {displaySections.length > 0 && (
         <div
           onMouseDown={handleMouseDown}
           className="w-1.5 cursor-col-resize bg-outline-variant/10 hover:bg-primary/30 transition-colors shrink-0"
         />
+        )}
 
         {/* Right: PRD Preview */}
+        {displaySections.length > 0 && (
         <div className="flex-1 overflow-hidden">
           <PRDDocumentPreview
             title={displayTitle}
@@ -873,6 +877,7 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
             onSectionClick={setActiveSectionId}
           />
         </div>
+        )}
       </div>
     </div>
   );

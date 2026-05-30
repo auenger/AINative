@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Users, Loader2, Clock, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp, X, Plus, FileText, RotateCcw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn, filterToolCallText } from '../../lib/utils';
 import { useAgentStream } from '../../lib/useAgentStream';
 import type { ChatMessage } from '../../lib/useAgentStream';
@@ -15,7 +16,6 @@ import {
 } from '../../lib/bmad/persona-definitions';
 import {
   PARTY_ORCHESTRATOR_PROMPT,
-  PARTY_GREETING,
   buildPersonaPrompt,
   buildConvergencePrompt,
 } from '../../lib/bmad/party-mode-prompts';
@@ -49,8 +49,8 @@ interface PersonaRound {
 
 /** SDK call pool state */
 interface CallPoolState {
-  running: number;
-  queued: number;
+  运行中: number;
+  排队中: number;
   completed: number;
   timedOut: number;
 }
@@ -124,13 +124,13 @@ function getSimulatedResponse(personaId: string): string {
 interface PersonaRosterConfirmProps {
   recommendedPersonas: string[];
   onConfirm: (selectedIds: string[]) => void;
-  onCancel: () => void;
+  on取消: () => void;
 }
 
 const PersonaRosterConfirm: React.FC<PersonaRosterConfirmProps> = ({
   recommendedPersonas,
   onConfirm,
-  onCancel,
+  on取消,
 }) => {
   const [selected, setSelected] = useState<Set<string>>(new Set(recommendedPersonas));
   const [searchQuery, setSearchQuery] = useState('');
@@ -150,8 +150,8 @@ const PersonaRosterConfirm: React.FC<PersonaRosterConfirmProps> = ({
   return (
     <div className="p-4 rounded-lg border border-outline-variant/20 bg-surface-container-low space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-on-surface">Recommended Panelists</span>
-        <span className="text-[9px] text-on-surface-variant">{selected.size} selected</span>
+        <span className="text-xs font-bold text-on-surface">推荐参与者</span>
+        <span className="text-[9px] text-on-surface-variant">已选 {selected.size} 位</span>
       </div>
 
       {/* Recommended personas with checkboxes */}
@@ -194,7 +194,7 @@ const PersonaRosterConfirm: React.FC<PersonaRosterConfirmProps> = ({
           onClick={() => setShowSearch(true)}
           className="flex items-center gap-1 text-[9px] text-tertiary hover:text-tertiary/80"
         >
-          <Plus size={10} /> Add more personas
+          <Plus size={10} /> 添加更多角色
         </button>
       ) : (
         <div className="space-y-1.5">
@@ -202,7 +202,7 @@ const PersonaRosterConfirm: React.FC<PersonaRosterConfirmProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search personas..."
+            placeholder="搜索角色..."
             className="w-full px-2 py-1 text-[10px] bg-surface-container rounded border border-outline-variant/20 focus:outline-none focus:border-tertiary/50"
             autoFocus
           />
@@ -228,7 +228,7 @@ const PersonaRosterConfirm: React.FC<PersonaRosterConfirmProps> = ({
             onClick={() => { setShowSearch(false); setSearchQuery(''); }}
             className="text-[9px] text-on-surface-variant hover:text-on-surface"
           >
-            Cancel
+            取消
           </button>
         </div>
       )}
@@ -245,13 +245,13 @@ const PersonaRosterConfirm: React.FC<PersonaRosterConfirmProps> = ({
               : 'bg-surface-container text-on-surface-variant cursor-not-allowed',
           )}
         >
-          Confirm & Start
+          确认并开始
         </button>
         <button
-          onClick={onCancel}
+          onClick={on取消}
           className="px-3 py-1.5 text-[10px] text-on-surface-variant hover:text-on-surface"
         >
-          Cancel
+          取消
         </button>
       </div>
     </div>
@@ -269,7 +269,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onCreatePRD }) => (
   <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low overflow-hidden">
     <div className="flex items-center gap-2 px-3 py-2 bg-tertiary/10 border-b border-outline-variant/10">
       <FileText size={12} className="text-tertiary" />
-      <span className="text-[10px] font-bold text-on-surface">Convergence Report</span>
+      <span className="text-[10px] font-bold text-on-surface">收敛报告</span>
       <span className="text-[9px] text-on-surface-variant ml-auto">
         {report.rounds} rounds &middot; {new Date(report.generatedAt).toLocaleTimeString()}
       </span>
@@ -282,7 +282,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onCreatePRD }) => (
         <div>
           <div className="flex items-center gap-1 mb-1">
             <CheckCircle2 size={9} className="text-emerald-400" />
-            <span className="font-bold text-emerald-400">Consensus</span>
+            <span className="font-bold text-emerald-400">共识</span>
           </div>
           <ul className="space-y-0.5 pl-3">
             {report.consensus.map((c, i) => (
@@ -295,7 +295,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onCreatePRD }) => (
         <div>
           <div className="flex items-center gap-1 mb-1">
             <AlertTriangle size={9} className="text-amber-400" />
-            <span className="font-bold text-amber-400">Disagreements</span>
+            <span className="font-bold text-amber-400">分歧</span>
           </div>
           <ul className="space-y-0.5 pl-3">
             {report.disagreements.map((d, i) => (
@@ -308,7 +308,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onCreatePRD }) => (
         <div>
           <div className="flex items-center gap-1 mb-1">
             <ChevronDown size={9} className="text-blue-400" />
-            <span className="font-bold text-blue-400">Recommended Actions</span>
+            <span className="font-bold text-blue-400">建议行动</span>
           </div>
           <ul className="space-y-0.5 pl-3">
             {report.recommendedActions.map((a, i) => (
@@ -335,7 +335,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onCreatePRD }) => (
           onClick={onCreatePRD}
           className="mt-2 px-3 py-1.5 text-[10px] font-bold rounded-md bg-tertiary text-on-secondary hover:bg-tertiary/90 transition-colors"
         >
-          Create PRD from Report
+          从报告创建 PRD
         </button>
       )}
     </div>
@@ -348,20 +348,20 @@ const ProcessStatus: React.FC<{ pool: CallPoolState; total: number }> = ({ pool,
   <div className="flex items-center gap-2 text-[9px]">
     {pool.running > 0 && (
       <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-400">
-        <Loader2 size={8} className="animate-spin" />{pool.running} running
+        <Loader2 size={8} className="animate-spin" />{pool.running} 运行中
       </span>
     )}
     {pool.queued > 0 && (
       <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-400/10 text-blue-400">
-        <Clock size={8} />{pool.queued} queued
+        <Clock size={8} />{pool.queued} 排队中
       </span>
     )}
     <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-400/10 text-emerald-400">
-      <CheckCircle2 size={8} />{pool.completed}/{total} done
+      <CheckCircle2 size={8} />{pool.completed}/{total} 已完成
     </span>
     {pool.timedOut > 0 && (
       <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-400/10 text-red-400">
-        <AlertTriangle size={8} />{pool.timedOut} timeout
+        <AlertTriangle size={8} />{pool.timedOut} 超时
       </span>
     )}
   </div>
@@ -377,11 +377,12 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
   onCreatePRD,
   className,
 }) => {
+  const { t } = useTranslation();
   // ─── Config ───
   const config: PartyModeConfig = sessionState.partyModeConfig ?? {
     workshopRuntimeId: 'claude-code',
     maxConcurrent: 3,
-    timeoutSeconds: 120,
+    超时Seconds: 120,
     maxRounds: 3,
   };
 
@@ -402,7 +403,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
   const [pendingRoster, setPendingRoster] = useState<ParsedRoster | null>(null);
 
   // Call pool state
-  const [callPool, setCallPool] = useState<CallPoolState>({ running: 0, queued: 0, completed: 0, timedOut: 0 });
+  const [callPool, setCallPool] = useState<CallPoolState>({ 运行中: 0, 排队中: 0, completed: 0, timedOut: 0 });
 
   // Convergence state
   const [isConverging, setIsConverging] = useState(false);
@@ -416,7 +417,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
   const orchestrator = useAgentStream({
     runtimeId: config.workshopRuntimeId,
     systemPrompt: PARTY_ORCHESTRATOR_PROMPT,
-    greetingMessage: PARTY_GREETING,
+    greetingMessage: t('workshop.partyGreeting'),
     useSessions: true,
     persistMessages: true,
     storageKey: 'party-mode-orchestrator',
@@ -512,7 +513,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
 
       setCurrentRound(newRound);
       setActivePersonaId(personaIds[0] ?? null);
-      setCallPool({ running: Math.min(personaIds.length, config.maxConcurrent), queued: Math.max(0, personaIds.length - config.maxConcurrent), completed: 0, timedOut: 0 });
+      setCallPool({ 运行中: Math.min(personaIds.length, config.maxConcurrent), 排队中: Math.max(0, personaIds.length - config.maxConcurrent), completed: 0, timedOut: 0 });
 
       const responses: Array<{ personaId: string; personaName: string; content: string }> = [];
 
@@ -532,9 +533,9 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
             const { invoke } = await import('@tauri-apps/api/core');
 
             // Capture mode: route streaming output to persona's card, not orchestrator chat.
-            // captureUntilDone returns a Promise that resolves when is_done arrives.
+            // captureUntilDone returns a Promise that resolves when is_已完成 arrives.
             let capturedText = '';
-            const donePromise = orchestrator.captureUntilDone((text: string) => {
+            const 已完成Promise = orchestrator.captureUntilDone((text: string) => {
               capturedText += text;
               // Update the persona card in real-time
               setCurrentRound((prev) => {
@@ -554,8 +555,8 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
               systemPrompt: prompt,
             });
 
-            // Wait for streaming to complete (is_done signal) before moving to next persona
-            await donePromise;
+            // Wait for streaming to complete (is_已完成 signal) before moving to next persona
+            await 已完成Promise;
 
             // Stop capturing — route back to orchestrator chat
             orchestrator.setCapture(null);
@@ -565,7 +566,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
 
               setCallPool((prev) => ({
                 ...prev,
-                running: Math.max(0, prev.running - 1),
+                运行中: Math.max(0, prev.运行中 - 1),
                 completed: prev.completed + 1,
               }));
             }
@@ -591,7 +592,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
 
           setCallPool((prev) => ({
             ...prev,
-            running: Math.max(0, prev.running - 1),
+            运行中: Math.max(0, prev.运行中 - 1),
             completed: prev.completed + 1,
           }));
         }
@@ -600,7 +601,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
       // Complete the round
       if (currentExecuteRef.current === executeId) {
         setActivePersonaId(null);
-        setCallPool({ running: 0, queued: 0, completed: personaIds.length, timedOut: 0 });
+        setCallPool({ 运行中: 0, 排队中: 0, completed: personaIds.length, timedOut: 0 });
 
         const completedRound: PersonaRound = {
           ...newRound,
@@ -643,7 +644,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
             `### ${r.personaName}\n${filterToolCallText(r.content)}`
           ).join('\n\n');
           orchestrator.sendMessage(
-            `[Round ${roundNumber} — Discussion Results]\n\n${personaOutputs}\n\n---\n\n请基于以上所有角色的讨论结果，给出一份综合总结，包括：\n1. 各角色的核心观点\n2. 共识点\n3. 分歧点\n4. 建议的下一步`
+            `[第 ${roundNumber} 轮 — 讨论结果]\n\n${personaOutputs}\n\n---\n\n请基于以上所有角色的讨论结果，给出一份综合总结，包括：\n1. 各角色的核心观点\n2. 共识点\n3. 分歧点\n4. 建议的下一步`
           );
         }
 
@@ -781,7 +782,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
     [pendingRoster, executePersonaSequence],
   );
 
-  const handleRosterCancel = useCallback(() => {
+  const handleRoster取消 = useCallback(() => {
     setPendingRoster(null);
   }, []);
 
@@ -811,7 +812,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
       if (round.roundNumber > 1) {
         cards.push(
           <div key={`round-label-${round.id}`} className="flex items-center gap-2 py-1">
-            <span className="text-[9px] font-bold text-on-surface-variant">Round {round.roundNumber}</span>
+            <span className="text-[9px] font-bold text-on-surface-variant">第 {round.roundNumber} 轮</span>
             <div className="flex-1 h-px bg-outline-variant/10" />
           </div>,
         );
@@ -945,7 +946,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
     if (currentRoundNum === 0 && !currentRound) return null;
     return (
       <span className="text-[9px] text-on-surface-variant">
-        Round {currentRoundNum}/{config.maxRounds}
+        第 {currentRoundNum}/{config.maxRounds} 轮
       </span>
     );
   }, [rounds.length, currentRound, config.maxRounds]);
@@ -957,9 +958,9 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
         <div className="flex items-center justify-between px-4 py-2 bg-surface-container-low border-b border-outline-variant/10 shrink-0">
           <div className="flex items-center gap-2">
             <Users size={16} className="text-tertiary" />
-            <span className="text-xs font-headline font-bold text-on-surface">Party Mode</span>
+            <span className="text-xs font-headline font-bold text-on-surface">多角色圆桌</span>
           </div>
-          <span className="text-[9px] text-on-surface-variant">{ALL_PERSONAS.length} personas</span>
+          <span className="text-[9px] text-on-surface-variant">{ALL_PERSONAS.length} 个角色</span>
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center p-6">
@@ -967,10 +968,9 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
             <div className="p-4 rounded-2xl bg-surface-container-high">
               <Users size={32} className="text-tertiary" />
             </div>
-            <h2 className="text-sm font-headline font-bold text-on-surface">Party Mode</h2>
+            <h2 className="text-sm font-headline font-bold text-on-surface">多角色圆桌</h2>
             <p className="text-[10px] text-on-surface-variant max-w-xs text-center leading-relaxed">
-              Multi-persona roundtable discussion. AI personas with diverse expertise debate
-              your product decisions from different angles.
+              多角色圆桌讨论，AI 角色从不同专业视角对你的产品决策展开辩论。
             </p>
           </div>
 
@@ -1010,7 +1010,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
 
           {sessionState.partyInsights && sessionState.partyInsights.length > 0 && (
             <span className="mt-4 px-2 py-0.5 text-[10px] font-bold rounded-full bg-primary/20 text-primary">
-              {sessionState.partyInsights.length} insights collected
+              {sessionState.partyInsights.length} 条洞察
             </span>
           )}
 
@@ -1018,7 +1018,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
             onClick={handleStartSession}
             className="mt-6 px-4 py-2 text-xs font-bold rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors"
           >
-            Start Party Session
+            开始圆桌讨论
           </button>
         </div>
       </div>
@@ -1032,7 +1032,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
       <div className="flex items-center justify-between px-4 py-2 bg-surface-container-low border-b border-outline-variant/10 shrink-0">
         <div className="flex items-center gap-2">
           <Users size={16} className="text-tertiary" />
-          <span className="text-xs font-headline font-bold text-on-surface">Party Mode</span>
+          <span className="text-xs font-headline font-bold text-on-surface">多角色圆桌</span>
           {activePersonaId && (
             <span className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold rounded bg-tertiary/20 text-tertiary">
               <Loader2 size={9} className="animate-spin" />
@@ -1047,13 +1047,13 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
           {roundIndicator}
         </div>
         <div className="flex items-center gap-2">
-          {(callPool.running > 0 || callPool.queued > 0) && (
+          {(callPool.运行中 > 0 || callPool.排队中 > 0) && (
             <ProcessStatus pool={callPool} total={rounds.reduce((s, r) => s + r.selectedPersonas.length, 0) + (currentRound?.selectedPersonas.length ?? 0)} />
           )}
-          <span className="text-[9px] text-on-surface-variant">{ALL_PERSONAS.length} personas</span>
+          <span className="text-[9px] text-on-surface-variant">{ALL_PERSONAS.length} 个角色</span>
           {allInsights.length > 0 && (
             <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-tertiary/20 text-tertiary">
-              {allInsights.length} insights
+              {allInsights.length} 条洞察
             </span>
           )}
           <button
@@ -1067,10 +1067,10 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
               setPartyReport(null);
               setConversationSummary('');
               setPendingRoster(null);
-              setCallPool({ running: 0, queued: 0, completed: 0, timedOut: 0 });
+              setCallPool({ 运行中: 0, 排队中: 0, completed: 0, timedOut: 0 });
             }}
             className="p-1.5 rounded-md hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-on-surface"
-            title="New Session"
+            title="新建会话"
           >
             <RotateCcw size={14} />
           </button>
@@ -1083,7 +1083,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
           <PersonaRosterConfirm
             recommendedPersonas={pendingRoster.personas}
             onConfirm={handleRosterConfirm}
-            onCancel={handleRosterCancel}
+            on取消={handleRoster取消}
           />
         </div>
       )}
@@ -1098,8 +1098,8 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
             isConverging
               ? 'Generating convergence report...'
               : activePersonaId
-                ? `Waiting for ${getPersonaById(activePersonaId)?.name ?? 'persona'}...`
-                : 'Enter a topic for the panel, or @name to address a specific persona...'
+                ? `等待 ${getPersonaById(activePersonaId)?.name ?? '角色'} 中...`
+                : '输入讨论主题，或 @角色名 定向提问...'
           }
           renderWorkshopMessage={renderWorkshopMessage}
           inputAddons={inputAddons}
@@ -1119,7 +1119,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
                     )}
                   >
                     <Users size={9} />
-                    All
+                    全部
                   </button>
                   {personaTabIds.map((pid) => {
                     const persona = getPersonaById(pid);
