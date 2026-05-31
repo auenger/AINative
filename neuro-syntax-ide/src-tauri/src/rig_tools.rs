@@ -9,7 +9,7 @@
 //! - Shell commands have a 30s timeout and dangerous command blacklist
 //! - Git operations are read-only (status, diff, log)
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -48,6 +48,7 @@ pub struct ToolDefinition {
 
 /// Result of a tool execution.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ToolResult {
     /// Whether execution succeeded.
     pub success: bool,
@@ -922,6 +923,7 @@ impl ToolRegistry {
     }
 
     /// Check if a tool exists by name.
+    #[allow(dead_code)]
     pub fn has_tool(&self, name: &str) -> bool {
         self.tools.iter().any(|t| t.definition().name == name)
     }

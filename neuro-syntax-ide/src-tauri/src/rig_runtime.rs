@@ -36,6 +36,7 @@ pub enum RigProvider {
 }
 
 impl RigProvider {
+    #[allow(dead_code)]
     pub fn all() -> Vec<&'static str> {
         vec!["anthropic", "openai", "gemini", "deepseek", "ollama"]
     }
@@ -652,7 +653,7 @@ fn stream_anthropic_with_tools(
     rt.block_on(async {
         let mut stream = response.bytes_stream();
         let mut buffer = String::new();
-        let mut stop_reason: Option<String> = None;
+        let mut _stop_reason: Option<String> = None;
         let mut tool_calls: Vec<AnthropicToolCall> = Vec::new();
         let mut current_tool_id: Option<String> = None;
         let mut current_tool_name: Option<String> = None;
@@ -783,7 +784,7 @@ fn stream_anthropic_with_tools(
                                 "message_delta" => {
                                     if let Some(usage) = parsed.get("delta") {
                                         if let Some(reason) = usage.get("stop_reason").and_then(|r| r.as_str()) {
-                                            stop_reason = Some(reason.to_string());
+                                            _stop_reason = Some(reason.to_string());
                                         }
                                     }
                                 }
@@ -866,7 +867,7 @@ fn stream_openai_with_tools(
         let mut stream = response.bytes_stream();
         let mut buffer = String::new();
         let mut tool_calls: Vec<(String, String, String)> = Vec::new(); // (id, name, arguments)
-        let mut finish_reason: Option<String> = None;
+        let mut _finish_reason: Option<String> = None;
 
         while let Some(chunk_result) = stream.next().await {
             match chunk_result {
@@ -888,7 +889,7 @@ fn stream_openai_with_tools(
                                     let calls: Vec<AnthropicToolCall> = tool_calls
                                         .into_iter()
                                         .enumerate()
-                                        .map(|(i, (id, name, args))| AnthropicToolCall {
+                                        .map(|(_i, (id, name, args))| AnthropicToolCall {
                                             id: id.clone(),
                                             name,
                                             input_json: args,
@@ -979,7 +980,7 @@ fn stream_openai_with_tools(
 
                                     // Check for finish_reason
                                     if let Some(reason) = choice.get("finish_reason").and_then(|r| r.as_str()) {
-                                        finish_reason = Some(reason.to_string());
+                                        _finish_reason = Some(reason.to_string());
                                     }
                                 }
                             }
@@ -1048,6 +1049,7 @@ fn stream_openai_with_tools(
 }
 
 /// Process Anthropic SSE stream → StreamEvent (backward-compatible wrapper, no tool collection)
+#[allow(dead_code)]
 fn stream_anthropic(
     response: reqwest::Response,
     tx: std::sync::mpsc::Sender<StreamEvent>,
@@ -1196,6 +1198,7 @@ fn stream_anthropic(
 }
 
 /// Process OpenAI-compatible SSE stream → StreamEvent
+#[allow(dead_code)]
 fn stream_openai(
     response: reqwest::Response,
     tx: std::sync::mpsc::Sender<StreamEvent>,
@@ -1717,14 +1720,14 @@ impl AgentRuntime for RigRuntime {
                                         }));
 
                                         let mut user_content: Vec<Value> = Vec::new();
-                                        for (i, _tc) in calls.iter().enumerate() {
+                                        for (idx, _tc) in calls.iter().enumerate() {
                                             let result = tool_registry.execute(
-                                                &tool_results[i].1,
-                                                &tool_results[i].2,
+                                                &tool_results[idx].1,
+                                                &tool_results[idx].2,
                                             );
                                             user_content.push(serde_json::json!({
                                                 "type": "tool_result",
-                                                "tool_use_id": tool_results[i].0,
+                                                "tool_use_id": tool_results[idx].0,
                                                 "content": result.output,
                                             }));
                                         }
@@ -1737,7 +1740,7 @@ impl AgentRuntime for RigRuntime {
                                         // OpenAI format: assistant message with tool_calls,
                                         // then tool messages for each result
                                         let mut tool_calls_msg: Vec<Value> = Vec::new();
-                                        for (i, tc) in calls.iter().enumerate() {
+                                        for (_i, tc) in calls.iter().enumerate() {
                                             tool_calls_msg.push(serde_json::json!({
                                                 "id": tc.id,
                                                 "type": "function",
@@ -1752,14 +1755,14 @@ impl AgentRuntime for RigRuntime {
                                             "tool_calls": tool_calls_msg,
                                         }));
 
-                                        for (i, _tc) in calls.iter().enumerate() {
+                                        for (idx, _tc) in calls.iter().enumerate() {
                                             let result = tool_registry.execute(
-                                                &tool_results[i].1,
-                                                &tool_results[i].2,
+                                                &tool_results[idx].1,
+                                                &tool_results[idx].2,
                                             );
                                             messages.push(serde_json::json!({
                                                 "role": "tool",
-                                                "tool_call_id": tool_results[i].0,
+                                                "tool_call_id": tool_results[idx].0,
                                                 "content": result.output,
                                             }));
                                         }
