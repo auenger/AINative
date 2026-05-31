@@ -296,6 +296,16 @@ Use these HTML comment markers for structured content the frontend can render:
 <!-- /workshop:prd-final -->
 \`\`\`
 
+## Step Progress (for multi-step tasks)
+
+When executing multi-step tasks (e.g., discovery → writing → validation → finalization), embed a step progress marker at the start of each step's response:
+
+<!-- workshop:step-progress current="N" total="M" label="Brief description of this step" -->
+
+- current: 1-based step number
+- total: total number of steps
+- label: short description of what this step does
+
 ## Assumptions
 
 Mark uncertain assumptions inline in PRD content:

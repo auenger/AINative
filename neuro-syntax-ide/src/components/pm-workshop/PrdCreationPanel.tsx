@@ -12,8 +12,10 @@ import type {
   PRDStakeLevel,
   PRDMode,
   Assumption,
+  StepProgressPayload,
 } from '../../types';
 import { PRD_SYSTEM_PROMPT } from '../../lib/bmad/prd-prompts';
+import { parseStepProgressMarker, extractLatestStepProgress } from '../../lib/bmad/workshop-markers';
 import { WorkshopChatPanel } from './WorkshopChatPanel';
 import { IntentSelector, type IntentOption } from './IntentSelector';
 import { StakeCalibration, type StakeOption } from './StakeCalibration';
@@ -84,8 +86,11 @@ type PrdPayload =
   | { type: 'finalization-step'; data: ParsedFinalizationStep }
   | { type: 'prd-final'; data: ParsedPrdFinal };
 
-function parsePrdMarker(content: string): { text: string; payload: PrdPayload | null } {
-  // Try each marker type in order of specificity
+function parsePrdMarker(content: string): { text: string; payload: PrdPayload | null; stepProgress: StepProgressPayload | null } {
+  // Step 1: Extract step-progress marker (highest priority, self-closing)
+  const { text: stepCleaned, stepProgress } = parseStepProgressMarker(content);
+
+  // Step 2: Try each marker type in order of specificity on cleaned text
   const markers: Array<{ tag: string; type: PrdPayload['type'] }> = [
     { tag: 'intent-selector', type: 'intent-selector' },
     { tag: 'stake-calibration', type: 'stake-calibration' },
@@ -101,22 +106,22 @@ function parsePrdMarker(content: string): { text: string; payload: PrdPayload | 
     const regex = new RegExp(
       `<!-- workshop:${tag} -->\\s*({[\\s\\S]*?})\\s*<!-- /workshop:${tag} -->`
     );
-    const match = content.match(regex);
+    const match = stepCleaned.match(regex);
     if (match) {
       try {
         const data = JSON.parse(match[1]);
-        const cleanText = content.replace(
+        const cleanText = stepCleaned.replace(
           new RegExp(`<!-- workshop:${tag} -->[\\s\\S]*?<!-- /workshop:${tag} -->`),
           ''
         ).trim();
-        return { text: cleanText, payload: { type, data } as PrdPayload };
+        return { text: cleanText, payload: { type, data } as PrdPayload, stepProgress };
       } catch {
         // ignore parse errors
       }
     }
   }
 
-  return { text: content, payload: null };
+  return { text: stepCleaned, payload: null, stepProgress };
 }
 
 // ─── Extract assumptions from content ───
@@ -214,6 +219,9 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
     { step: 7, title: '收尾', status: 'pending' },
   ]);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+
+  // Step progress state
+  const [stepProgress, setStepProgress] = useState<StepProgressPayload | null>(null);
 
   // Drag-to-resize state
   const [splitRatio, setSplitRatio] = useState(0.45);
@@ -385,12 +393,20 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
   const parsedMessages = useMemo(() => {
     return agent.messages.map((msg) => {
       if (msg.role === 'assistant' && !msg.isToolCall) {
-        const { text, payload } = parsePrdMarker(msg.content);
-        return { ...msg, content: text, workshopPayload: payload };
+        const { text, payload, stepProgress: sp } = parsePrdMarker(msg.content);
+        return { ...msg, content: text, workshopPayload: payload, stepProgress: sp };
       }
       return msg;
     });
   }, [agent.messages]);
+
+  // ─── Track latest step-progress from all messages ───
+  useEffect(() => {
+    const latest = extractLatestStepProgress(parsedMessages);
+    if (latest) {
+      setStepProgress(latest);
+    }
+  }, [parsedMessages]);
 
   // ─── Watch for structured payloads from agent ───
   const lastProcessedRef = useRef<string>('');
@@ -822,6 +838,7 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
               setPrdSections([]);
               setAssumptions([]);
               setValidationReport(null);
+              setStepProgress(null);
             }}
             className="p-1.5 rounded-md hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-on-surface"
             title="新建会话"
@@ -853,6 +870,7 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
             }
             renderWorkshopMessage={renderWorkshopMessage}
             agentStatus={agent.agentStatus}
+            stepProgress={stepProgress}
           />
         </div>
 

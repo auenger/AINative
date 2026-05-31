@@ -2,7 +2,9 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Send, Loader2, GripVertical } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { ChatMessage } from '../../lib/useAgentStream';
+import type { StepProgressPayload } from '../../types';
 import { WorkshopMessageRenderer } from './WorkshopMessageRenderer';
+import { SkillStepProgress } from './SkillStepProgress';
 
 interface WorkshopChatPanelProps {
   messages: ChatMessage[];
@@ -17,6 +19,8 @@ interface WorkshopChatPanelProps {
   rightPanel?: React.ReactNode;
   /** Agent status for UI (e.g. 'thinking' when INIT noise detected) */
   agentStatus?: 'thinking' | null;
+  /** Step progress indicator for Skill multi-step execution */
+  stepProgress?: StepProgressPayload | null;
 }
 
 export const WorkshopChatPanel: React.FC<WorkshopChatPanelProps> = ({
@@ -28,6 +32,7 @@ export const WorkshopChatPanel: React.FC<WorkshopChatPanelProps> = ({
   inputAddons,
   rightPanel,
   agentStatus,
+  stepProgress,
 }) => {
   const [input, setInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -94,6 +99,9 @@ export const WorkshopChatPanel: React.FC<WorkshopChatPanelProps> = ({
         className={cn("flex flex-col min-w-0", !rightPanel && "flex-1")}
         style={rightPanel ? { width: `${splitRatio * 100}%` } : undefined}
       >
+        {/* Step Progress Indicator */}
+        {stepProgress && <SkillStepProgress progress={stepProgress} />}
+
         {/* Message List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 scroll-hide">
           {messages.map((msg, idx) => (

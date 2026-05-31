@@ -184,6 +184,18 @@ Actions:
 <!-- /workshop:action-menu -->
 \`\`\`
 
+### Step Progress (for multi-step tasks)
+When executing multi-step tasks, embed a step progress marker at the start of each step's response:
+\`\`\`
+<!-- workshop:step-progress current="N" total="M" label="Brief description of this step" -->
+\`\`\`
+- current: 1-based step number
+- total: total number of steps
+- label: short description of what this step does
+
+Example:
+<!-- workshop:step-progress current="2" total="4" label="Selecting brainstorm technique" -->
+
 ## Phase Transitions
 
 Always clearly announce when moving between phases. The 4 phases are:
