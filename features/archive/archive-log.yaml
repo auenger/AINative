@@ -1,8 +1,30 @@
 meta:
-  last_updated: '2026-05-31T14:35:00Z'
+  last_updated: '2026-05-31T16:00:00Z'
   version: 1
-  total_completed: 135
+  total_completed: 136
 records:
+- id: feat-rig-builtin-agent-provider
+  name: "Rig Multi-Provider — 20+ LLM 提供商配置与切换"
+  completed_at: '2026-05-31T16:00:00Z'
+  tag: feat-rig-builtin-agent-provider-20260531
+  merged_to: main
+  merge_commit: 9e8c2ae
+  branch_deleted: true
+  branch_name: feature/feat-rig-builtin-agent-provider
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-rig-builtin-agent-provider
+  parent: feat-rig-builtin-agent
+  conflicts:
+    had_conflict: false
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-05-31T15:00:00Z'
+    duration: 1h
+    commits: 1
+    files_changed: 5
 - id: feat-rig-builtin-agent-core
   name: "Rig Core — AgentRuntime 实现 + 基础流式"
   completed_at: '2026-05-31T14:35:00Z'
