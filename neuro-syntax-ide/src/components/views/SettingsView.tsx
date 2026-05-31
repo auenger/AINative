@@ -726,6 +726,7 @@ function AgentRuntimeCard({
   const runtimeOptions = [
     { value: 'claude-code', label: 'Claude Code CLI (claude -p)' },
     { value: 'agent-sdk', label: 'Agent SDK (Claude Agent SDK sidecar)' },
+    { value: 'rig', label: 'Rig (Built-in HTTP — Anthropic)' },
   ];
   const currentRuntime = runtimeOptions.find(o => o.value === (settings.agent_runtime || 'claude-code'));
 
