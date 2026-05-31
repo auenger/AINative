@@ -1,6 +1,7 @@
 mod skill_init;
 mod agent_sdk_runtime;
 mod rig_runtime;
+mod rig_tools;
 
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use serde::{Deserialize, Serialize};

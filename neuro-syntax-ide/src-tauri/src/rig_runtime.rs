@@ -17,6 +17,7 @@ use std::path::PathBuf;
 use crate::{
     AgentCapability, AgentRuntime, AgentRuntimeInfo, AgentRuntimeStatus, ExecuteParams, StreamEvent,
 };
+use crate::rig_tools::{ToolDefinition, ToolRegistry};
 
 // ---------------------------------------------------------------------------
 // Provider types & constants
@@ -434,6 +435,7 @@ fn execute_anthropic(
     config: &RigResolvedConfig,
     messages: Vec<Value>,
     system_prompt: Option<&str>,
+    tool_defs: Option<&Vec<ToolDefinition>>,
 ) -> Result<reqwest::Response, reqwest::Error> {
     let url = format!("{}/v1/messages", config.api_base);
 
@@ -447,6 +449,23 @@ fn execute_anthropic(
     if let Some(sp) = system_prompt {
         if !sp.is_empty() {
             body["system"] = serde_json::json!(sp);
+        }
+    }
+
+    // Add tool definitions if provided (Anthropic format)
+    if let Some(tools) = tool_defs {
+        if !tools.is_empty() {
+            let anthropic_tools: Vec<Value> = tools
+                .iter()
+                .map(|t| {
+                    serde_json::json!({
+                        "name": t.name,
+                        "description": t.description,
+                        "input_schema": t.parameters,
+                    })
+                })
+                .collect();
+            body["tools"] = serde_json::json!(anthropic_tools);
         }
     }
 
@@ -473,6 +492,7 @@ fn execute_openai_compatible(
     config: &RigResolvedConfig,
     messages: Vec<Value>,
     system_prompt: Option<&str>,
+    tool_defs: Option<&Vec<ToolDefinition>>,
 ) -> Result<reqwest::Response, reqwest::Error> {
     let url = format!("{}/v1/chat/completions", config.api_base);
 
@@ -490,12 +510,32 @@ fn execute_openai_compatible(
 
     all_messages.extend(messages);
 
-    let body = serde_json::json!({
+    let mut body = serde_json::json!({
         "model": config.model,
         "messages": all_messages,
         "max_tokens": 8192,
         "stream": true
     });
+
+    // Add tool definitions if provided (OpenAI function calling format)
+    if let Some(tools) = tool_defs {
+        if !tools.is_empty() {
+            let openai_tools: Vec<Value> = tools
+                .iter()
+                .map(|t| {
+                    serde_json::json!({
+                        "type": "function",
+                        "function": {
+                            "name": t.name,
+                            "description": t.description,
+                            "parameters": t.parameters,
+                        }
+                    })
+                })
+                .collect();
+            body["tools"] = serde_json::json!(openai_tools);
+        }
+    }
 
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -523,6 +563,7 @@ fn execute_gemini(
     config: &RigResolvedConfig,
     messages: Vec<Value>,
     system_prompt: Option<&str>,
+    _tool_defs: Option<&Vec<ToolDefinition>>,
 ) -> Result<reqwest::Response, reqwest::Error> {
     // Gemini streaming endpoint
     let url = format!(
@@ -582,7 +623,431 @@ fn execute_gemini(
 // SSE Stream Processors
 // ---------------------------------------------------------------------------
 
-/// Process Anthropic SSE stream → StreamEvent
+/// Collected tool call from an Anthropic streaming response.
+#[derive(Debug, Clone)]
+struct AnthropicToolCall {
+    id: String,
+    name: String,
+    input_json: String,
+}
+
+/// Result of processing a full Anthropic stream response.
+enum StreamOutcome {
+    /// LLM produced text and finished normally.
+    Done,
+    /// LLM requested tool calls (stop_reason = "tool_use").
+    ToolCalls(Vec<AnthropicToolCall>),
+}
+
+/// Process Anthropic SSE stream → StreamEvent, also collecting tool calls.
+fn stream_anthropic_with_tools(
+    response: reqwest::Response,
+    tx: &std::sync::mpsc::Sender<StreamEvent>,
+) -> StreamOutcome {
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
+    rt.block_on(async {
+        let mut stream = response.bytes_stream();
+        let mut buffer = String::new();
+        let mut stop_reason: Option<String> = None;
+        let mut tool_calls: Vec<AnthropicToolCall> = Vec::new();
+        let mut current_tool_id: Option<String> = None;
+        let mut current_tool_name: Option<String> = None;
+        let mut current_tool_input: String = String::new();
+
+        while let Some(chunk_result) = stream.next().await {
+            match chunk_result {
+                Ok(bytes) => {
+                    let text = String::from_utf8_lossy(&bytes);
+                    buffer.push_str(&text);
+
+                    while let Some(pos) = buffer.find('\n') {
+                        let line = buffer[..pos].trim().to_string();
+                        buffer = buffer[pos + 1..].to_string();
+
+                        if line.is_empty() {
+                            continue;
+                        }
+
+                        if let Some(data) = line.strip_prefix("data: ") {
+                            if data == "[DONE]" {
+                                // Flush any pending tool call
+                                if let (Some(id), Some(name)) = (current_tool_id.take(), current_tool_name.take()) {
+                                    tool_calls.push(AnthropicToolCall {
+                                        id,
+                                        name,
+                                        input_json: std::mem::take(&mut current_tool_input),
+                                    });
+                                }
+                                if !tool_calls.is_empty() {
+                                    return StreamOutcome::ToolCalls(tool_calls);
+                                }
+                                let _ = tx.send(StreamEvent {
+                                    text: String::new(),
+                                    is_done: true,
+                                    error: None,
+                                    msg_type: Some("result".to_string()),
+                                    session_id: None,
+                                    idle_seconds: None,
+                                });
+                                return StreamOutcome::Done;
+                            }
+
+                            let parsed: Value = match serde_json::from_str(data) {
+                                Ok(v) => v,
+                                Err(_) => continue,
+                            };
+
+                            let event_type = parsed.get("type")
+                                .and_then(|t| t.as_str())
+                                .unwrap_or("");
+
+                            match event_type {
+                                "content_block_start" => {
+                                    if let Some(cb) = parsed.get("content_block") {
+                                        let cb_type = cb.get("type").and_then(|t| t.as_str()).unwrap_or("");
+                                        if cb_type == "tool_use" {
+                                            let id = parsed.get("index")
+                                                .and_then(|i| i.as_u64())
+                                                .map(|i| format!("toolu_{}", i))
+                                                .unwrap_or_default();
+                                            let tool_id = cb.get("id")
+                                                .and_then(|i| i.as_str())
+                                                .unwrap_or(&id)
+                                                .to_string();
+                                            let tool_name = cb.get("name")
+                                                .and_then(|n| n.as_str())
+                                                .unwrap_or("")
+                                                .to_string();
+                                            current_tool_id = Some(tool_id);
+                                            current_tool_name = Some(tool_name.clone());
+                                            current_tool_input = String::new();
+                                        }
+                                    }
+                                }
+                                "content_block_delta" => {
+                                    if let Some(delta) = parsed.get("delta") {
+                                        let delta_type = delta.get("type")
+                                            .and_then(|t| t.as_str())
+                                            .unwrap_or("");
+
+                                        match delta_type {
+                                            "text_delta" => {
+                                                let text = delta.get("text")
+                                                    .and_then(|t| t.as_str())
+                                                    .unwrap_or("");
+                                                if !text.is_empty() {
+                                                    let _ = tx.send(StreamEvent {
+                                                        text: text.to_string(),
+                                                        is_done: false,
+                                                        error: None,
+                                                        msg_type: Some("assistant".to_string()),
+                                                        session_id: None,
+                                                        idle_seconds: None,
+                                                    });
+                                                }
+                                            }
+                                            "input_json_delta" => {
+                                                let partial = delta.get("partial_json")
+                                                    .and_then(|t| t.as_str())
+                                                    .unwrap_or("");
+                                                if !partial.is_empty() {
+                                                    current_tool_input.push_str(partial);
+                                                    let _ = tx.send(StreamEvent {
+                                                        text: partial.to_string(),
+                                                        is_done: false,
+                                                        error: None,
+                                                        msg_type: Some("tool_use".to_string()),
+                                                        session_id: None,
+                                                        idle_seconds: None,
+                                                    });
+                                                }
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                }
+                                "content_block_stop" => {
+                                    // Flush completed tool call
+                                    if current_tool_id.is_some() && current_tool_name.is_some() {
+                                        tool_calls.push(AnthropicToolCall {
+                                            id: current_tool_id.take().unwrap(),
+                                            name: current_tool_name.take().unwrap(),
+                                            input_json: std::mem::take(&mut current_tool_input),
+                                        });
+                                    }
+                                }
+                                "message_delta" => {
+                                    if let Some(usage) = parsed.get("delta") {
+                                        if let Some(reason) = usage.get("stop_reason").and_then(|r| r.as_str()) {
+                                            stop_reason = Some(reason.to_string());
+                                        }
+                                    }
+                                }
+                                "message_stop" => {
+                                    // If we have tool calls and stop_reason is tool_use, return them
+                                    if !tool_calls.is_empty() {
+                                        return StreamOutcome::ToolCalls(tool_calls);
+                                    }
+                                    let _ = tx.send(StreamEvent {
+                                        text: String::new(),
+                                        is_done: true,
+                                        error: None,
+                                        msg_type: Some("result".to_string()),
+                                        session_id: None,
+                                        idle_seconds: None,
+                                    });
+                                    return StreamOutcome::Done;
+                                }
+                                "error" => {
+                                    let error_msg = parsed.get("error")
+                                        .and_then(|e| e.get("message"))
+                                        .and_then(|m| m.as_str())
+                                        .unwrap_or("Unknown API error");
+                                    let _ = tx.send(StreamEvent {
+                                        text: String::new(),
+                                        is_done: true,
+                                        error: Some(error_msg.to_string()),
+                                        msg_type: Some("error".to_string()),
+                                        session_id: None,
+                                        idle_seconds: None,
+                                    });
+                                    return StreamOutcome::Done;
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    let _ = tx.send(StreamEvent {
+                        text: String::new(),
+                        is_done: true,
+                        error: Some(format!("流式读取错误: {}", e)),
+                        msg_type: Some("error".to_string()),
+                        session_id: None,
+                        idle_seconds: None,
+                    });
+                    return StreamOutcome::Done;
+                }
+            }
+        }
+
+        // If we ended with tool calls, return them
+        if !tool_calls.is_empty() {
+            return StreamOutcome::ToolCalls(tool_calls);
+        }
+        let _ = tx.send(StreamEvent {
+            text: String::new(),
+            is_done: true,
+            error: None,
+            msg_type: Some("result".to_string()),
+            session_id: None,
+            idle_seconds: None,
+        });
+        StreamOutcome::Done
+    })
+}
+
+/// Process OpenAI SSE stream → StreamEvent, also collecting tool calls.
+fn stream_openai_with_tools(
+    response: reqwest::Response,
+    tx: &std::sync::mpsc::Sender<StreamEvent>,
+) -> StreamOutcome {
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
+    rt.block_on(async {
+        let mut stream = response.bytes_stream();
+        let mut buffer = String::new();
+        let mut tool_calls: Vec<(String, String, String)> = Vec::new(); // (id, name, arguments)
+        let mut finish_reason: Option<String> = None;
+
+        while let Some(chunk_result) = stream.next().await {
+            match chunk_result {
+                Ok(bytes) => {
+                    let text = String::from_utf8_lossy(&bytes);
+                    buffer.push_str(&text);
+
+                    while let Some(pos) = buffer.find('\n') {
+                        let line = buffer[..pos].trim().to_string();
+                        buffer = buffer[pos + 1..].to_string();
+
+                        if line.is_empty() {
+                            continue;
+                        }
+
+                        if let Some(data) = line.strip_prefix("data: ") {
+                            if data == "[DONE]" {
+                                if !tool_calls.is_empty() {
+                                    let calls: Vec<AnthropicToolCall> = tool_calls
+                                        .into_iter()
+                                        .enumerate()
+                                        .map(|(i, (id, name, args))| AnthropicToolCall {
+                                            id: id.clone(),
+                                            name,
+                                            input_json: args,
+                                        })
+                                        .collect();
+                                    return StreamOutcome::ToolCalls(calls);
+                                }
+                                let _ = tx.send(StreamEvent {
+                                    text: String::new(),
+                                    is_done: true,
+                                    error: None,
+                                    msg_type: Some("result".to_string()),
+                                    session_id: None,
+                                    idle_seconds: None,
+                                });
+                                return StreamOutcome::Done;
+                            }
+
+                            let parsed: Value = match serde_json::from_str(data) {
+                                Ok(v) => v,
+                                Err(_) => continue,
+                            };
+
+                            // OpenAI format: { choices: [{ delta: { content: "..." } }] }
+                            if let Some(choices) = parsed.get("choices").and_then(|c| c.as_array()) {
+                                for choice in choices {
+                                    if let Some(delta) = choice.get("delta") {
+                                        // Text content
+                                        if let Some(content) = delta.get("content").and_then(|c| c.as_str()) {
+                                            if !content.is_empty() {
+                                                let _ = tx.send(StreamEvent {
+                                                    text: content.to_string(),
+                                                    is_done: false,
+                                                    error: None,
+                                                    msg_type: Some("assistant".to_string()),
+                                                    session_id: None,
+                                                    idle_seconds: None,
+                                                });
+                                            }
+                                        }
+                                        // Tool call (function call)
+                                        if let Some(tool_calls_delta) = delta.get("tool_calls").and_then(|t| t.as_array()) {
+                                            for tc in tool_calls_delta {
+                                                let tc_id = tc.get("id")
+                                                    .and_then(|i| i.as_str())
+                                                    .unwrap_or("")
+                                                    .to_string();
+                                                let tc_index = tc.get("index")
+                                                    .and_then(|i| i.as_u64())
+                                                    .unwrap_or(0) as usize;
+
+                                                if let Some(func) = tc.get("function") {
+                                                    let name = func.get("name")
+                                                        .and_then(|n| n.as_str())
+                                                        .unwrap_or("")
+                                                        .to_string();
+                                                    let args = func.get("arguments")
+                                                        .and_then(|a| a.as_str())
+                                                        .unwrap_or("")
+                                                        .to_string();
+
+                                                    // Ensure we have a slot for this tool call
+                                                    if tc_index >= tool_calls.len() {
+                                                        tool_calls.resize(tc_index + 1, (String::new(), String::new(), String::new()));
+                                                    }
+
+                                                    if !tc_id.is_empty() {
+                                                        tool_calls[tc_index].0 = tc_id;
+                                                    }
+                                                    if !name.is_empty() {
+                                                        tool_calls[tc_index].1 = name;
+                                                    }
+                                                    if !args.is_empty() {
+                                                        tool_calls[tc_index].2.push_str(&args);
+                                                        let _ = tx.send(StreamEvent {
+                                                            text: args.to_string(),
+                                                            is_done: false,
+                                                            error: None,
+                                                            msg_type: Some("tool_use".to_string()),
+                                                            session_id: None,
+                                                            idle_seconds: None,
+                                                        });
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Check for finish_reason
+                                    if let Some(reason) = choice.get("finish_reason").and_then(|r| r.as_str()) {
+                                        finish_reason = Some(reason.to_string());
+                                    }
+                                }
+                            }
+
+                            // DeepSeek may include reasoning_content
+                            if let Some(choices) = parsed.get("choices").and_then(|c| c.as_array()) {
+                                for choice in choices {
+                                    if let Some(delta) = choice.get("delta") {
+                                        if let Some(reasoning) = delta.get("reasoning_content").and_then(|r| r.as_str()) {
+                                            if !reasoning.is_empty() {
+                                                let _ = tx.send(StreamEvent {
+                                                    text: reasoning.to_string(),
+                                                    is_done: false,
+                                                    error: None,
+                                                    msg_type: Some("reasoning".to_string()),
+                                                    session_id: None,
+                                                    idle_seconds: None,
+                                                });
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    let _ = tx.send(StreamEvent {
+                        text: String::new(),
+                        is_done: true,
+                        error: Some(format!("流式读取错误: {}", e)),
+                        msg_type: Some("error".to_string()),
+                        session_id: None,
+                        idle_seconds: None,
+                    });
+                    return StreamOutcome::Done;
+                }
+            }
+        }
+
+        // If we ended with tool calls, return them
+        let non_empty_calls: Vec<AnthropicToolCall> = tool_calls
+            .into_iter()
+            .filter(|(_, name, _)| !name.is_empty())
+            .map(|(id, name, args)| AnthropicToolCall {
+                id,
+                name,
+                input_json: args,
+            })
+            .collect();
+
+        if !non_empty_calls.is_empty() {
+            return StreamOutcome::ToolCalls(non_empty_calls);
+        }
+
+        let _ = tx.send(StreamEvent {
+            text: String::new(),
+            is_done: true,
+            error: None,
+            msg_type: Some("result".to_string()),
+            session_id: None,
+            idle_seconds: None,
+        });
+        StreamOutcome::Done
+    })
+}
+
+/// Process Anthropic SSE stream → StreamEvent (backward-compatible wrapper, no tool collection)
 fn stream_anthropic(
     response: reqwest::Response,
     tx: std::sync::mpsc::Sender<StreamEvent>,
@@ -1080,6 +1545,7 @@ impl AgentRuntime for RigRuntime {
         let provider = config.provider.clone();
         let system_prompt = params.system_prompt.clone();
         let user_message = params.message.clone();
+        let workspace_path = PathBuf::from(&workspace);
 
         std::thread::spawn(move || {
             let rt = tokio::runtime::Builder::new_current_thread()
@@ -1088,6 +1554,10 @@ impl AgentRuntime for RigRuntime {
                 .unwrap();
 
             let client = rt.block_on(async { reqwest::Client::new() });
+
+            // Create tool registry for workspace
+            let tool_registry = ToolRegistry::new(workspace_path.clone());
+            let tool_defs = tool_registry.definitions();
 
             // Parse user message — JSON-encoded messages array or plain string
             let mut messages: Vec<Value> = Vec::new();
@@ -1109,55 +1579,221 @@ impl AgentRuntime for RigRuntime {
                 model: model.clone(),
             };
 
-            // Send request based on provider type
-            let response_result = match provider {
-                RigProvider::Anthropic => execute_anthropic(&client, &resolved, messages, system_prompt.as_deref()),
-                RigProvider::Openai | RigProvider::Deepseek => {
-                    execute_openai_compatible(&client, &resolved, messages, system_prompt.as_deref())
-                }
-                RigProvider::Gemini => execute_gemini(&client, &resolved, messages, system_prompt.as_deref()),
-                RigProvider::Ollama => execute_openai_compatible(&client, &resolved, messages, system_prompt.as_deref()),
-            };
+            // Tool-use loop: max 10 iterations to prevent infinite loops
+            let max_iterations = 10;
+            for _iteration in 0..max_iterations {
+                // Send request based on provider type
+                let response_result = match provider {
+                    RigProvider::Anthropic => execute_anthropic(
+                        &client, &resolved, messages.clone(),
+                        system_prompt.as_deref(),
+                        Some(&tool_defs),
+                    ),
+                    RigProvider::Openai | RigProvider::Deepseek => {
+                        execute_openai_compatible(
+                            &client, &resolved, messages.clone(),
+                            system_prompt.as_deref(),
+                            Some(&tool_defs),
+                        )
+                    }
+                    RigProvider::Gemini => execute_gemini(
+                        &client, &resolved, messages.clone(),
+                        system_prompt.as_deref(),
+                        None, // Gemini tools not yet supported
+                    ),
+                    RigProvider::Ollama => execute_openai_compatible(
+                        &client, &resolved, messages.clone(),
+                        system_prompt.as_deref(),
+                        Some(&tool_defs),
+                    ),
+                };
 
-            match response_result {
-                Ok(resp) => {
-                    let status = resp.status();
-                    if !status.is_success() {
-                        let error_body: String = rt.block_on(async {
-                            resp.text().await.unwrap_or_else(|_| "Unknown error".into())
-                        });
+                match response_result {
+                    Ok(resp) => {
+                        let status = resp.status();
+                        if !status.is_success() {
+                            let error_body: String = rt.block_on(async {
+                                resp.text().await.unwrap_or_else(|_| "Unknown error".into())
+                            });
+                            let _ = tx.send(StreamEvent {
+                                text: String::new(),
+                                is_done: true,
+                                error: Some(format!("{} API 错误 ({}): {}", provider.label(), status, error_body)),
+                                msg_type: Some("error".to_string()),
+                                session_id: None,
+                                idle_seconds: None,
+                            });
+                            return;
+                        }
+
+                        eprintln!("[RigRuntime] response status={}", status);
+
+                        // Route to provider-specific stream processor with tool collection
+                        let outcome = match provider {
+                            RigProvider::Anthropic => stream_anthropic_with_tools(resp, &tx),
+                            RigProvider::Openai | RigProvider::Deepseek => stream_openai_with_tools(resp, &tx),
+                            RigProvider::Gemini => {
+                                stream_gemini(resp, tx.clone());
+                                StreamOutcome::Done
+                            }
+                            RigProvider::Ollama => stream_openai_with_tools(resp, &tx),
+                        };
+
+                        match outcome {
+                            StreamOutcome::Done => {
+                                // LLM finished without requesting tools
+                                return;
+                            }
+                            StreamOutcome::ToolCalls(calls) => {
+                                // Execute each tool call and send results
+                                let mut tool_results: Vec<(String, String, Value)> = Vec::new(); // (tool_call_id, tool_name, result)
+
+                                for tc in &calls {
+                                    eprintln!(
+                                        "[RigRuntime] Tool call: {} ({})",
+                                        tc.name, tc.id
+                                    );
+
+                                    // Parse tool arguments
+                                    let args: Value = serde_json::from_str(&tc.input_json)
+                                        .unwrap_or_else(|_| serde_json::json!({}));
+
+                                    // Send tool_use event to frontend
+                                    let _ = tx.send(StreamEvent {
+                                        text: serde_json::json!({
+                                            "name": tc.name,
+                                            "args": args,
+                                            "id": tc.id,
+                                        }).to_string(),
+                                        is_done: false,
+                                        error: None,
+                                        msg_type: Some("tool_use".to_string()),
+                                        session_id: None,
+                                        idle_seconds: None,
+                                    });
+
+                                    // Execute the tool
+                                    let result = tool_registry.execute(&tc.name, &args);
+
+                                    // Send tool_result event to frontend
+                                    let _ = tx.send(StreamEvent {
+                                        text: serde_json::json!({
+                                            "name": tc.name,
+                                            "success": result.success,
+                                            "output": if result.output.len() > 5000 {
+                                                format!("{}...\n(truncated, {} chars total)", &result.output[..5000], result.output.len())
+                                            } else {
+                                                result.output.clone()
+                                            },
+                                        }).to_string(),
+                                        is_done: false,
+                                        error: None,
+                                        msg_type: Some("tool_result".to_string()),
+                                        session_id: None,
+                                        idle_seconds: None,
+                                    });
+
+                                    tool_results.push((tc.id.clone(), tc.name.clone(), args));
+                                }
+
+                                // Add tool calls and results to messages for next iteration
+                                match provider {
+                                    RigProvider::Anthropic => {
+                                        // Anthropic format: assistant message with tool_use content blocks,
+                                        // then user message with tool_result content blocks
+                                        let mut assistant_content: Vec<Value> = Vec::new();
+                                        for tc in &calls {
+                                            assistant_content.push(serde_json::json!({
+                                                "type": "tool_use",
+                                                "id": tc.id,
+                                                "name": tc.name,
+                                                "input": serde_json::from_str::<Value>(&tc.input_json)
+                                                    .unwrap_or_else(|_| serde_json::json!({}))
+                                            }));
+                                        }
+                                        messages.push(serde_json::json!({
+                                            "role": "assistant",
+                                            "content": assistant_content,
+                                        }));
+
+                                        let mut user_content: Vec<Value> = Vec::new();
+                                        for (i, _tc) in calls.iter().enumerate() {
+                                            let result = tool_registry.execute(
+                                                &tool_results[i].1,
+                                                &tool_results[i].2,
+                                            );
+                                            user_content.push(serde_json::json!({
+                                                "type": "tool_result",
+                                                "tool_use_id": tool_results[i].0,
+                                                "content": result.output,
+                                            }));
+                                        }
+                                        messages.push(serde_json::json!({
+                                            "role": "user",
+                                            "content": user_content,
+                                        }));
+                                    }
+                                    _ => {
+                                        // OpenAI format: assistant message with tool_calls,
+                                        // then tool messages for each result
+                                        let mut tool_calls_msg: Vec<Value> = Vec::new();
+                                        for (i, tc) in calls.iter().enumerate() {
+                                            tool_calls_msg.push(serde_json::json!({
+                                                "id": tc.id,
+                                                "type": "function",
+                                                "function": {
+                                                    "name": tc.name,
+                                                    "arguments": tc.input_json,
+                                                }
+                                            }));
+                                        }
+                                        messages.push(serde_json::json!({
+                                            "role": "assistant",
+                                            "tool_calls": tool_calls_msg,
+                                        }));
+
+                                        for (i, _tc) in calls.iter().enumerate() {
+                                            let result = tool_registry.execute(
+                                                &tool_results[i].1,
+                                                &tool_results[i].2,
+                                            );
+                                            messages.push(serde_json::json!({
+                                                "role": "tool",
+                                                "tool_call_id": tool_results[i].0,
+                                                "content": result.output,
+                                            }));
+                                        }
+                                    }
+                                }
+
+                                // Continue loop — next iteration sends messages+results back to LLM
+                                continue;
+                            }
+                        }
+                    }
+                    Err(e) => {
                         let _ = tx.send(StreamEvent {
                             text: String::new(),
                             is_done: true,
-                            error: Some(format!("{} API 错误 ({}): {}", provider.label(), status, error_body)),
+                            error: Some(format!("连接 {} API 失败: {}", provider.label(), e)),
                             msg_type: Some("error".to_string()),
                             session_id: None,
                             idle_seconds: None,
                         });
                         return;
                     }
-
-                    eprintln!("[RigRuntime] response status={}", status);
-
-                    // Route to provider-specific stream processor
-                    match provider {
-                        RigProvider::Anthropic => stream_anthropic(resp, tx),
-                        RigProvider::Openai | RigProvider::Deepseek => stream_openai(resp, tx),
-                        RigProvider::Gemini => stream_gemini(resp, tx),
-                        RigProvider::Ollama => stream_openai(resp, tx),
-                    }
-                }
-                Err(e) => {
-                    let _ = tx.send(StreamEvent {
-                        text: String::new(),
-                        is_done: true,
-                        error: Some(format!("连接 {} API 失败: {}", provider.label(), e)),
-                        msg_type: Some("error".to_string()),
-                        session_id: None,
-                        idle_seconds: None,
-                    });
                 }
             }
+
+            // If we exited the loop due to max iterations
+            let _ = tx.send(StreamEvent {
+                text: String::new(),
+                is_done: true,
+                error: Some("Max tool-use iterations reached (10)".to_string()),
+                msg_type: Some("error".to_string()),
+                session_id: None,
+                idle_seconds: None,
+            });
         });
 
         Ok(rx)
