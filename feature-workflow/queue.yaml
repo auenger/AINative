@@ -1,5 +1,5 @@
   meta:
-    last_updated: '2026-05-31T17:30:00Z'
+    last_updated: '2026-05-31T19:30:00Z'
     version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -86,6 +86,10 @@ blocked:
   priority: 40
   reason: '依赖 feat-agent-provider-core'
 completed:
+- id: feat-skill-step-progress
+  name: "Skill Step Progress — 产品工坊 Skill 执行步骤进度实时展示"
+  completed_at: '2026-05-31T19:30:00Z'
+  tag: feat-skill-step-progress-20260531
 - id: feat-rig-builtin-agent-tools
   name: "Rig IDE Tools — Rust 原生文件/Shell/Git 工具集"
   completed_at: '2026-05-31T17:30:00Z'
