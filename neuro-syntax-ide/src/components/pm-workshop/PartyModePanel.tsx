@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { cn, filterToolCallText } from '../../lib/utils';
 import { useAgentStream } from '../../lib/useAgentStream';
 import type { ChatMessage } from '../../lib/useAgentStream';
-import type { BMADSessionState, PartyInsight, PartyReport, PartyModeConfig, DEFAULT_PARTY_MODE_CONFIG } from '../../types';
+import type { BMADSessionState, PartyInsight, PartyReport, PartyModeConfig, DEFAULT_PARTY_MODE_CONFIG, StepProgressPayload } from '../../types';
 import {
   ALL_PERSONAS,
   getPersonaById,
@@ -19,6 +19,7 @@ import {
   buildPersonaPrompt,
   buildConvergencePrompt,
 } from '../../lib/bmad/party-mode-prompts';
+import { parseStepProgressMarker, extractLatestStepProgress } from '../../lib/bmad/workshop-markers';
 import { WorkshopChatPanel } from './WorkshopChatPanel';
 import { PersonaCardMessage } from './PersonaCardMessage';
 import { OrchestratorNoteMessage } from './OrchestratorNoteMessage';
@@ -408,6 +409,9 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
   // Convergence state
   const [isConverging, setIsConverging] = useState(false);
 
+  // Step progress state
+  const [stepProgress, setStepProgress] = useState<StepProgressPayload | null>(null);
+
   // Tab for right panel persona cards: null = "All", string = personaId
   const [activePersonaTab, setActivePersonaTab] = useState<string | null>(null);
 
@@ -441,16 +445,19 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
         continue;
       }
 
-      const roster = parseRosterMarker(msg.content);
-      const note = parseOrchestratorNote(msg.content);
-      const report = parseReportMarker(msg.content);
+      // Extract step-progress first (highest priority)
+      const { text: stepCleaned, stepProgress: sp } = parseStepProgressMarker(msg.content);
+
+      const roster = parseRosterMarker(stepCleaned);
+      const note = parseOrchestratorNote(stepCleaned);
+      const report = parseReportMarker(stepCleaned);
 
       if (roster) {
-        const cleanText = msg.content
+        const cleanText = stepCleaned
           .replace(/<!-- workshop:party-roster -->[\s\S]*?<!-- \/workshop:party-roster -->/, '')
           .trim();
         if (cleanText) {
-          messages.push({ ...msg, content: cleanText });
+          messages.push({ ...msg, content: cleanText, stepProgress: sp });
         }
       } else if (report) {
         messages.push({
@@ -458,6 +465,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
           content: '',
           workshopType: 'party-report',
           workshopPayload: { type: 'party-report', data: report },
+          stepProgress: sp,
         });
       } else if (note) {
         messages.push({
@@ -465,14 +473,23 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
           content: '',
           workshopType: 'orchestrator-note',
           workshopPayload: { type: 'orchestrator-note', data: { note } },
+          stepProgress: sp,
         });
       } else {
-        messages.push(msg);
+        messages.push({ ...msg, content: stepCleaned, stepProgress: sp });
       }
     }
 
     return messages;
   }, [orchestrator.messages]);
+
+  // ─── Track latest step-progress from display messages ───
+  useEffect(() => {
+    const latest = extractLatestStepProgress(displayMessages);
+    if (latest) {
+      setStepProgress(latest);
+    }
+  }, [displayMessages]);
 
   // ─── Watch for roster selections from orchestrator ───
   const lastProcessedMsgRef = useRef<string>('');
@@ -1068,6 +1085,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
               setConversationSummary('');
               setPendingRoster(null);
               setCallPool({ 运行中: 0, 排队中: 0, completed: 0, timedOut: 0 });
+              setStepProgress(null);
             }}
             className="p-1.5 rounded-md hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-on-surface"
             title="新建会话"
@@ -1104,6 +1122,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
           renderWorkshopMessage={renderWorkshopMessage}
           inputAddons={inputAddons}
           agentStatus={orchestrator.agentStatus}
+          stepProgress={stepProgress}
           rightPanel={
             personaCardsSection.length > 0 ? (
               <div className="flex flex-col h-full">

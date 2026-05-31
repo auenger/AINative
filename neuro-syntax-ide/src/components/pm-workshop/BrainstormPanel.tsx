@@ -4,8 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useAgentStream } from '../../lib/useAgentStream';
 import type { ChatMessage } from '../../lib/useAgentStream';
-import type { BMADSessionState, BrainstormOutput, BrainstormIdea, BrainstormStep } from '../../types';
+import type { BMADSessionState, BrainstormOutput, BrainstormIdea, BrainstormStep, StepProgressPayload } from '../../types';
 import { BRAINSTORM_SYSTEM_PROMPT } from '../../lib/bmad/brainstorm-prompts';
+import { parseStepProgressMarker, extractLatestStepProgress } from '../../lib/bmad/workshop-markers';
 import { ProgressStepper } from './ProgressStepper';
 import { IdeaCounterBadge } from './IdeaCounterBadge';
 import { WorkshopChatPanel } from './WorkshopChatPanel';
@@ -180,6 +181,7 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
   const [ideas, setIdeas] = useState<BrainstormIdea[]>(sessionState.brainstormOutput?.ideas ?? []);
   const [selectedTechnique, setSelectedTechnique] = useState<string | undefined>();
   const [topic, setTopic] = useState('');
+  const [stepProgress, setStepProgress] = useState<StepProgressPayload | null>(null);
   const exchangeCountRef = useRef(0);
 
   // ─── Agent Stream ───
@@ -196,12 +198,23 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
   const parsedMessages = useMemo(() => {
     return agent.messages.map((msg) => {
       if (msg.role === 'assistant' && !msg.isToolCall) {
-        const { text, payload } = parseWorkshopMarkers(msg.content);
-        return { ...msg, content: text, workshopPayload: payload };
+        // Step 1: Extract step-progress marker (highest priority, self-closing)
+        const { text: stepCleaned, stepProgress: sp } = parseStepProgressMarker(msg.content);
+        // Step 2: Run existing marker parser on cleaned text
+        const { text, payload } = parseWorkshopMarkers(stepCleaned);
+        return { ...msg, content: text, workshopPayload: payload, stepProgress: sp };
       }
       return msg;
     });
   }, [agent.messages]);
+
+  // ─── Track latest step-progress from all messages ───
+  React.useEffect(() => {
+    const latest = extractLatestStepProgress(parsedMessages);
+    if (latest) {
+      setStepProgress(latest);
+    }
+  }, [parsedMessages]);
 
   // ─── Track extracted ideas from messages ───
   React.useEffect(() => {
@@ -393,6 +406,7 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
                 setIdeas([]);
                 setSelectedTechnique(undefined);
                 setTopic('');
+                setStepProgress(null);
               }}
               className="p-1.5 rounded-md hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-on-surface"
               title={t("workshop.newSession")}
@@ -439,6 +453,7 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
             }
             renderWorkshopMessage={renderWorkshopMessage}
             agentStatus={agent.agentStatus}
+            stepProgress={stepProgress}
           />
         )}
       </div>

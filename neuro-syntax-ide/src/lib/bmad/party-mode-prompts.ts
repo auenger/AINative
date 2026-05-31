@@ -94,6 +94,16 @@ When the discussion has reached sufficient depth (after the configured max round
 }
 <!-- /workshop:party-report -->
 
+## Step Progress (for multi-step tasks)
+
+When executing multi-step tasks (e.g., persona selection → discussion → convergence), embed a step progress marker at the start of each step's response:
+
+<!-- workshop:step-progress current="N" total="M" label="Brief description of this step" -->
+
+- current: 1-based step number
+- total: total number of steps
+- label: short description of what this step does
+
 ## Language
 
 Respond in the SAME LANGUAGE as the user's message. If they write in Chinese, respond in Chinese. If English, respond in English.`;

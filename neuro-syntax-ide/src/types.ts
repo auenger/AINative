@@ -1090,7 +1090,19 @@ export type WorkshopMessageType =
   | 'energy-checkpoint'
   | 'orchestrator-note'
   | 'validation-report'
-  | 'party-report';
+  | 'party-report'
+  | 'step-progress';
+
+/** Step progress payload for Skill execution progress indicator */
+export interface StepProgressPayload {
+  type: 'step-progress';
+  /** Current step number (1-based) */
+  current: number;
+  /** Total number of steps */
+  total: number;
+  /** Description of the current step */
+  label: string;
+}
 
 /** Convergence report from Party Mode multi-round discussion */
 export interface PartyReport {
