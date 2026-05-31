@@ -1,8 +1,30 @@
 meta:
-  last_updated: '2026-05-30T12:00:00Z'
+  last_updated: '2026-05-31T14:35:00Z'
   version: 1
-  total_completed: 134
+  total_completed: 135
 records:
+- id: feat-rig-builtin-agent-core
+  name: "Rig Core — AgentRuntime 实现 + 基础流式"
+  completed_at: '2026-05-31T14:35:00Z'
+  tag: feat-rig-builtin-agent-core-20260531
+  merged_to: main
+  merge_commit: dc232b3
+  branch_deleted: true
+  branch_name: feature/feat-rig-builtin-agent-core
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-feat-rig-builtin-agent-core
+  parent: feat-rig-builtin-agent
+  conflicts:
+    had_conflict: false
+  verification:
+    status: warning
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-05-31T14:00:00Z'
+    duration: 35min
+    commits: 1
+    files_changed: 3
 - id: feat-workshop-ux-enhance
   name: "PM Workshop UX 增强（可拖拽分栏 + 工具调用美化 + PRD 文件选择）"
   completed_at: '2026-05-30T12:00:00Z'
