@@ -1,8 +1,30 @@
 meta:
-  last_updated: '2026-05-31T16:00:00Z'
+  last_updated: '2026-05-31T17:30:00Z'
   version: 1
-  total_completed: 136
+  total_completed: 137
 records:
+- id: feat-rig-builtin-agent-tools
+  name: "Rig IDE Tools — Rust 原生文件/Shell/Git 工具集"
+  completed_at: '2026-05-31T17:30:00Z'
+  tag: feat-rig-builtin-agent-tools-20260531
+  merged_to: main
+  merge_commit: 968e98d
+  branch_deleted: true
+  branch_name: feature/rig-builtin-agent-tools
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-rig-builtin-agent-tools
+  parent: feat-rig-builtin-agent
+  conflicts:
+    had_conflict: false
+  verification:
+    status: passed
+    scenarios_total: 3
+    scenarios_passed: 3
+  stats:
+    started: '2026-05-31T17:00:00Z'
+    duration: 30m
+    commits: 2
+    files_changed: 5
 - id: feat-rig-builtin-agent-provider
   name: "Rig Multi-Provider — 20+ LLM 提供商配置与切换"
   completed_at: '2026-05-31T16:00:00Z'

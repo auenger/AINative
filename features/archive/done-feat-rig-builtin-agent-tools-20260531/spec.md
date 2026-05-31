@@ -153,9 +153,18 @@ And 不应读取 workspace 外的文件
 ```
 
 ### General Checklist
-- [ ] 6 个 Tool 实现（FileRead/Write/ShellExec/ListDir/GitStatus/GitDiff）
-- [ ] Agent builder 注册所有 Tool
-- [ ] 路径安全约束（workspace sandbox）
-- [ ] Shell 命令超时 + 危险命令过滤
-- [ ] 工具调用事件前端渲染
-- [ ] 工具结果正确传递给 LLM
+- [x] 6 个 Tool 实现（FileRead/Write/ShellExec/ListDir/GitStatus/GitDiff）
+- [x] Agent builder 注册所有 Tool
+- [x] 路径安全约束（workspace sandbox）
+- [x] Shell 命令超时 + 危险命令过滤
+- [x] 工具调用事件前端渲染
+- [x] 工具结果正确传递给 LLM
+
+## Merge Record
+- **Completed**: 2026-05-31T17:30:00Z
+- **Merged Branch**: feature/rig-builtin-agent-tools
+- **Merge Commit**: 968e98d (fast-forward)
+- **Archive Tag**: feat-rig-builtin-agent-tools-20260531
+- **Conflicts**: none
+- **Verification**: 14/14 tests passed, all Gherkin scenarios validated
+- **Stats**: 2 commits, 5 files changed, +1831/-39 lines

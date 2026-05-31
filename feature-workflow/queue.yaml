@@ -1,5 +1,5 @@
   meta:
-    last_updated: '2026-05-31T16:00:00Z'
+    last_updated: '2026-05-31T17:30:00Z'
     version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -71,13 +71,7 @@ parents:
     - feat-rig-builtin-agent-provider
     - feat-rig-builtin-agent-tools
 active: []
-pending:
-- id: feat-rig-builtin-agent-tools
-  name: Rig IDE Tools — Rust 原生文件/Shell/Git 工具集
-  priority: 85
-  parent: feat-rig-builtin-agent
-  depends_on:
-  - feat-rig-builtin-agent-core
+pending: []
 blocked:
 - id: feat-agent-provider-core
   name: Agent Provider 核心抽象层 — OpenClaw WebSocket 接入 + Hermes 增强
@@ -92,6 +86,11 @@ blocked:
   priority: 40
   reason: '依赖 feat-agent-provider-core'
 completed:
+- id: feat-rig-builtin-agent-tools
+  name: "Rig IDE Tools — Rust 原生文件/Shell/Git 工具集"
+  completed_at: '2026-05-31T17:30:00Z'
+  tag: feat-rig-builtin-agent-tools-20260531
+  parent: feat-rig-builtin-agent
 - id: feat-rig-builtin-agent-provider
   name: "Rig Multi-Provider — 20+ LLM 提供商配置与切换"
   completed_at: '2026-05-31T16:00:00Z'
