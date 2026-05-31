@@ -1,5 +1,5 @@
   meta:
-    last_updated: '2026-05-31T14:00:00Z'
+    last_updated: '2026-05-31T15:00:00Z'
     version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -70,14 +70,17 @@ parents:
     - feat-rig-builtin-agent-core
     - feat-rig-builtin-agent-provider
     - feat-rig-builtin-agent-tools
-active: []
-pending:
+active:
 - id: feat-rig-builtin-agent-provider
   name: Rig Multi-Provider — 20+ LLM 提供商配置与切换
   priority: 85
   parent: feat-rig-builtin-agent
   depends_on:
   - feat-rig-builtin-agent-core
+  branch: feature/feat-rig-builtin-agent-provider
+  worktree: ../NeuroSyntaxIDE-feat-rig-builtin-agent-provider
+  started_at: '2026-05-31T15:00:00Z'
+pending:
 - id: feat-rig-builtin-agent-tools
   name: Rig IDE Tools — Rust 原生文件/Shell/Git 工具集
   priority: 85
