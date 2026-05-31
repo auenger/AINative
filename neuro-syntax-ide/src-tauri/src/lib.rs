@@ -1,5 +1,6 @@
 mod skill_init;
 mod agent_sdk_runtime;
+mod rig_runtime;
 
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use serde::{Deserialize, Serialize};
@@ -3880,6 +3881,7 @@ fn create_default_registry() -> RuntimeRegistry {
     registry.register(Box::new(CodexRuntime::new()));
     registry.register(Box::new(HttpRuntime::new()));
     registry.register(Box::new(agent_sdk_runtime::AgentSdkRuntime::new()));
+    registry.register(Box::new(rig_runtime::RigRuntime::new()));
     registry
 }
 
