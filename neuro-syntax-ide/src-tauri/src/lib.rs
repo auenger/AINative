@@ -1009,6 +1009,23 @@ impl Default for SdkRuntimeConfig {
     }
 }
 
+/// Rig built-in provider configuration for multi-provider LLM access.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct RigProviderConfigYaml {
+    /// Provider identifier: anthropic | openai | gemini | deepseek | ollama
+    #[serde(default)]
+    pub provider: String,
+    /// API key for the selected provider
+    #[serde(default)]
+    pub api_key: String,
+    /// Optional custom base URL (overrides provider default)
+    #[serde(default)]
+    pub base_url: String,
+    /// Optional model override (overrides provider default)
+    #[serde(default)]
+    pub model: String,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AppSettings {
     #[serde(default)]
@@ -1021,12 +1038,15 @@ pub struct AppSettings {
     pub user: UserProfile,
     #[serde(default)]
     pub terminal: TerminalConfigYaml,
-    /// Agent runtime type: "claude-code" (default) or "agent-sdk"
+    /// Agent runtime type: "claude-code" (default) or "agent-sdk" or "rig"
     #[serde(default = "default_agent_runtime")]
     pub agent_runtime: String,
     /// SDK Runtime independent configuration
     #[serde(default)]
     pub sdk_runtime: SdkRuntimeConfig,
+    /// Rig built-in provider configuration
+    #[serde(default)]
+    pub rig: RigProviderConfigYaml,
 }
 
 fn default_agent_runtime() -> String { "claude-code".to_string() }
@@ -1049,6 +1069,7 @@ impl Default for AppSettings {
             terminal: TerminalConfigYaml::default(),
             agent_runtime: default_agent_runtime(),
             sdk_runtime: SdkRuntimeConfig::default(),
+            rig: RigProviderConfigYaml::default(),
         }
     }
 }
@@ -10442,6 +10463,21 @@ async fn test_llm_connection(
     Ok(models)
 }
 
+/// Test a Rig provider connection by querying the models endpoint.
+/// Returns a list of available model IDs on success.
+#[tauri::command]
+async fn test_rig_connection(
+    config: RigProviderConfigYaml,
+) -> Result<Vec<String>, String> {
+    let rig_config = crate::rig_runtime::RigProviderConfig {
+        provider: config.provider,
+        api_key: config.api_key,
+        base_url: config.base_url,
+        model: config.model,
+    };
+    crate::rig_runtime::RigRuntime::test_connection(&rig_config)
+}
+
 // ===========================================================================
 // Tauri commands - PMFile management (feat-agent-multimodal-upload)
 // ===========================================================================
@@ -11572,6 +11608,8 @@ pub fn run() {
             read_settings,
             write_settings,
             test_llm_connection,
+            // Rig Multi-Provider (feat-rig-builtin-agent-provider)
+            test_rig_connection,
             // SDK Runtime Config (feat-sdk-runtime-config)
             check_claude_config,
             // User Profile (feat-user-profile)
