@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { AppSettings, SdkRuntimeConfig } from '../types';
+import type { AppSettings, SdkRuntimeConfig, RigProviderConfig } from '../types';
 
 // ---------------------------------------------------------------------------
 // Tauri helpers (safe no-op outside Tauri)
@@ -21,6 +21,13 @@ const DEFAULT_SDK_RUNTIME: SdkRuntimeConfig = {
   config_mode: 'claude-config',
   custom_provider: '',
   custom_model: '',
+};
+
+const DEFAULT_RIG: RigProviderConfig = {
+  provider: '',
+  api_key: '',
+  base_url: '',
+  model: '',
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -50,6 +57,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   },
   agent_runtime: 'claude-code',
   sdk_runtime: { ...DEFAULT_SDK_RUNTIME },
+  rig: { ...DEFAULT_RIG },
 };
 
 // ---------------------------------------------------------------------------
@@ -85,6 +93,7 @@ export function useSettings() {
         terminal: { ...DEFAULT_SETTINGS.terminal, ...loaded.terminal },
         agent_runtime: loaded.agent_runtime || DEFAULT_SETTINGS.agent_runtime,
         sdk_runtime: { ...DEFAULT_SDK_RUNTIME, ...loaded.sdk_runtime },
+        rig: { ...DEFAULT_RIG, ...loaded.rig },
       });
       setDirty(false);
     } catch (e: unknown) {
@@ -130,6 +139,7 @@ export function useSettings() {
       if (patch.terminal !== undefined) next.terminal = { ...prev.terminal, ...patch.terminal };
       if (patch.agent_runtime !== undefined) next.agent_runtime = patch.agent_runtime;
       if (patch.sdk_runtime !== undefined) next.sdk_runtime = { ...prev.sdk_runtime, ...patch.sdk_runtime };
+      if (patch.rig !== undefined) next.rig = { ...prev.rig, ...patch.rig };
       return next;
     });
     setDirty(true);

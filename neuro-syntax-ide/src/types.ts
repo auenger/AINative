@@ -276,6 +276,18 @@ export interface SdkRuntimeConfig {
   custom_model: string;
 }
 
+/** Rig built-in provider configuration for multi-provider LLM access. */
+export interface RigProviderConfig {
+  /** Provider identifier: anthropic | openai | gemini | deepseek | ollama */
+  provider: string;
+  /** API key for the selected provider */
+  api_key: string;
+  /** Optional custom base URL (overrides provider default) */
+  base_url: string;
+  /** Optional model override (overrides provider default) */
+  model: string;
+}
+
 /** Root settings object stored in settings.yaml. */
 export interface AppSettings {
   providers: Record<string, ProviderConfig>;
@@ -283,10 +295,12 @@ export interface AppSettings {
   app: AppConfig;
   user: UserProfile;
   terminal: TerminalConfig;
-  /** Agent runtime type: "claude-code" (default) or "agent-sdk" */
+  /** Agent runtime type: "claude-code" (default) or "agent-sdk" or "rig" */
   agent_runtime?: string;
   /** SDK Runtime independent configuration */
   sdk_runtime?: SdkRuntimeConfig;
+  /** Rig built-in provider configuration */
+  rig?: RigProviderConfig;
 }
 
 // ---------------------------------------------------------------------------
