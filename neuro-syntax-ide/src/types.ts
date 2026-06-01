@@ -238,6 +238,12 @@ export interface LlmConfig {
   max_tokens: number;
   temperature: number;
   context_window_tokens: number;
+  /** Compaction trigger ratio (0.5–0.95, default 0.75). */
+  compaction_trigger_ratio: number;
+  /** Number of recent assistant+tool_result pairs to keep (default 4). */
+  compaction_keep_recent: number;
+  /** Compaction strategy: "sliding_window" | "summarize". */
+  compaction_strategy: string;
 }
 
 /** Application-level settings. */

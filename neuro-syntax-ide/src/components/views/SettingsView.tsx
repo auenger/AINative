@@ -664,6 +664,47 @@ function LlmPanel({
                       className="config-input-mono"
                     />
                   </div>
+                  {/* Context Compaction Settings */}
+                  <div style={{ marginTop: "12px", marginBottom: "8px", fontSize: "12px", fontWeight: 600, opacity: 0.7, letterSpacing: "0.5px" }}>
+                    CONTEXT COMPACTION
+                  </div>
+                  <div>
+                    <label className="config-label">Trigger Ratio</label>
+                    <input
+                      type="number"
+                      min={0.5}
+                      max={0.95}
+                      step={0.05}
+                      value={settings.llm.compaction_trigger_ratio ?? 0.75}
+                      onChange={(e) => onUpdate({ llm: { ...settings.llm, compaction_trigger_ratio: Number(e.target.value) } })}
+                      className="config-input-mono"
+                    />
+                    <span style={{ fontSize: "11px", opacity: 0.5, marginLeft: "8px" }}>Triggers at {Math.round((settings.llm.compaction_trigger_ratio ?? 0.75) * 100)}% of context window</span>
+                  </div>
+                  <div>
+                    <label className="config-label">Keep Recent Turns</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      step={1}
+                      value={settings.llm.compaction_keep_recent ?? 4}
+                      onChange={(e) => onUpdate({ llm: { ...settings.llm, compaction_keep_recent: Number(e.target.value) } })}
+                      className="config-input-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="config-label">Strategy</label>
+                    <select
+                      value={settings.llm.compaction_strategy ?? "sliding_window"}
+                      onChange={(e) => onUpdate({ llm: { ...settings.llm, compaction_strategy: e.target.value } })}
+                      className="config-input-mono"
+                      style={{ width: "100%", padding: "6px 8px", borderRadius: "6px", border: "1px solid var(--border-color, #333)", background: "var(--bg-secondary, #1a1a1a)", color: "inherit" }}
+                    >
+                      <option value="sliding_window">Sliding Window</option>
+                      <option value="summarize">Summarize</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             )}
