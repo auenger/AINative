@@ -725,6 +725,179 @@ impl RigRuntime {
             }
         })
     }
+
+    // -------------------------------------------------------------------
+    // Slash command parsing & routing (feat-rig-slash-commands)
+    // -------------------------------------------------------------------
+
+    /// Parse a slash command from user input.
+    /// Returns `Some(command_name)` if the input starts with `/`, else `None`.
+    fn parse_command(input: &str) -> Option<&str> {
+        let trimmed = input.trim();
+        if !trimmed.starts_with('/') {
+            return None;
+        }
+        let without_slash = &trimmed[1..];
+        let cmd = without_slash
+            .split_whitespace()
+            .next()
+            .unwrap_or("");
+        if cmd.is_empty() {
+            return None;
+        }
+        Some(cmd)
+    }
+
+    /// Handle a slash command synchronously. Returns a `StreamEvent` with `msg_type: "command"`.
+    /// Does NOT call the LLM — responds immediately.
+    fn handle_command(
+        cmd: &str,
+        messages: &mut Vec<Value>,
+        total_input_tokens: &mut usize,
+        config: &RigResolvedConfig,
+        compaction_cfg: &CompactionConfig,
+        tool_defs: &[ToolDefinition],
+    ) -> StreamEvent {
+        match cmd {
+            "clear" => {
+                let prev_count = messages.len();
+                messages.clear();
+                *total_input_tokens = 0;
+                let text = format!("Session cleared. {} messages removed, 0 tokens.", prev_count);
+                StreamEvent {
+                    text,
+                    is_done: true,
+                    error: None,
+                    msg_type: Some("command".to_string()),
+                    session_id: None,
+                    idle_seconds: None,
+                }
+            }
+            "context" => {
+                let msg_count = messages.len();
+                let tool_turns = messages.iter().filter(|m| {
+                    let role = m.get("role").and_then(|r| r.as_str()).unwrap_or("");
+                    role == "tool"
+                        || m.get("content").and_then(|c| c.as_array()).map_or(false, |arr| {
+                            arr.iter().any(|b| b.get("type").and_then(|t| t.as_str()) == Some("tool_result"))
+                        })
+                }).count();
+                let threshold = (compaction_cfg.context_window_tokens as f64
+                    * compaction_cfg.trigger_ratio) as usize;
+                let pct = if compaction_cfg.context_window_tokens > 0 {
+                    (*total_input_tokens as f64 / compaction_cfg.context_window_tokens as f64 * 100.0)
+                } else {
+                    0.0
+                };
+                let text = format!(
+                    "Context: {:?} / {:?} tokens ({:.1}%). {} messages, {} tool-result turns.\nAuto-compact at {:?} ({:.0}%).",
+                    *total_input_tokens,
+                    compaction_cfg.context_window_tokens,
+                    pct,
+                    msg_count,
+                    tool_turns,
+                    threshold,
+                    compaction_cfg.trigger_ratio * 100.0,
+                );
+                StreamEvent {
+                    text,
+                    is_done: true,
+                    error: None,
+                    msg_type: Some("command".to_string()),
+                    session_id: None,
+                    idle_seconds: None,
+                }
+            }
+            "compact" => {
+                let before_count = messages.len();
+                let compaction_result = compact_messages(
+                    messages,
+                    compaction_cfg.context_window_tokens,
+                    compaction_cfg.keep_recent,
+                    compaction_cfg.strategy,
+                );
+                let after_count = compaction_result.messages.len();
+                let removed = compaction_result.removed_count;
+                *messages = compaction_result.messages;
+                let summary_note = compaction_result.summary
+                    .as_ref()
+                    .map(|s| format!("\nSummary generated ({} chars).", s.len()))
+                    .unwrap_or_default();
+                let text = if removed > 0 {
+                    format!(
+                        "Compacted: {} → {} messages. Removed {} turns.{}",
+                        before_count, after_count, removed, summary_note,
+                    )
+                } else {
+                    format!(
+                        "No compaction needed. {} messages, tokens remain unchanged.",
+                        before_count,
+                    )
+                };
+                StreamEvent {
+                    text,
+                    is_done: true,
+                    error: None,
+                    msg_type: Some("command".to_string()),
+                    session_id: None,
+                    idle_seconds: None,
+                }
+            }
+            "help" => {
+                let mut lines = vec![
+                    "Available slash commands:".to_string(),
+                    "  /clear   — Clear all messages and reset token count".to_string(),
+                    "  /context — Show current context usage (tokens, messages, threshold)".to_string(),
+                    "  /compact — Manually trigger context compaction".to_string(),
+                    "  /help    — Show this help message".to_string(),
+                    "  /model   — Show current model, provider, and context window".to_string(),
+                    String::new(),
+                    "Available tools:".to_string(),
+                ];
+                for td in tool_defs {
+                    lines.push(format!("  {} — {}", td.name, td.description));
+                }
+                StreamEvent {
+                    text: lines.join("\n"),
+                    is_done: true,
+                    error: None,
+                    msg_type: Some("command".to_string()),
+                    session_id: None,
+                    idle_seconds: None,
+                }
+            }
+            "model" => {
+                let text = format!(
+                    "Model: {} | Provider: {} | Context window: {:?} tokens",
+                    config.model,
+                    config.provider.label(),
+                    compaction_cfg.context_window_tokens,
+                );
+                StreamEvent {
+                    text,
+                    is_done: true,
+                    error: None,
+                    msg_type: Some("command".to_string()),
+                    session_id: None,
+                    idle_seconds: None,
+                }
+            }
+            _ => {
+                let text = format!(
+                    "Unknown command: /{}. Type /help for available commands.",
+                    cmd,
+                );
+                StreamEvent {
+                    text,
+                    is_done: true,
+                    error: None,
+                    msg_type: Some("command".to_string()),
+                    session_id: None,
+                    idle_seconds: None,
+                }
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1902,6 +2075,37 @@ impl AgentRuntime for RigRuntime {
             // Create tool registry for workspace
             let tool_registry = ToolRegistry::new(workspace_path.clone());
             let tool_defs = tool_registry.definitions();
+
+            // ── Slash command interception ──
+            // If the raw user_message starts with '/', intercept and handle as a command.
+            // Commands are handled synchronously — no LLM call, no token cost.
+            if let Some(cmd) = Self::parse_command(&user_message) {
+                eprintln!("[RigRuntime] Slash command intercepted: /{}", cmd);
+                // Parse existing messages for context-aware commands
+                let mut messages: Vec<Value> = Vec::new();
+                if let Ok(chat_msgs) = serde_json::from_str::<Vec<Value>>(&user_message) {
+                    for msg in &chat_msgs {
+                        messages.push(msg.clone());
+                    }
+                }
+                let mut total_tokens: usize = 0;
+                let resolved_for_cmd = RigResolvedConfig {
+                    provider: provider.clone(),
+                    api_key: api_key.clone(),
+                    api_base: api_base.clone(),
+                    model: model.clone(),
+                };
+                let event = Self::handle_command(
+                    cmd,
+                    &mut messages,
+                    &mut total_tokens,
+                    &resolved_for_cmd,
+                    &compaction_cfg,
+                    &tool_defs,
+                );
+                let _ = tx.send(event);
+                return;
+            }
 
             // Parse user message — JSON-encoded messages array or plain string
             let mut messages: Vec<Value> = Vec::new();

@@ -49,6 +49,17 @@ export const WorkshopChatBubble: React.FC<WorkshopChatBubbleProps> = ({
     [msg.role, msg.content],
   );
 
+  // Command response: monospace font + special background (feat-rig-slash-commands)
+  if (msg.isCommand) {
+    return (
+      <div className="flex flex-col gap-1 max-w-[85%] items-start">
+        <div className="p-3 rounded-lg rounded-tl-none bg-surface-container/60 border border-outline-variant/20 text-xs leading-relaxed">
+          <pre className="whitespace-pre-wrap font-mono text-[10px] text-on-surface-variant">{msg.content}</pre>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(

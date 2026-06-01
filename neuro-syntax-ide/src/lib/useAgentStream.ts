@@ -59,6 +59,8 @@ export interface ChatMessage {
   toolStatus?: 'running' | 'success' | 'error';
   /** Tool result summary (feat-agent-tool-ui) */
   toolResult?: string;
+  /** Whether this is a slash command response (feat-rig-slash-commands) */
+  isCommand?: boolean;
   /** Workshop-specific structured message type (feat-bmad-workspace) */
   workshopType?: import('../types').WorkshopMessageType;
   /** Workshop-specific structured payload (feat-bmad-workspace) */
@@ -311,6 +313,25 @@ export function useAgentStream(options: UseAgentStreamOptions) {
           setIsStreaming(false);
           if (useSessions && (chunk.type === 'disconnect' || chunk.type === 'timeout')) {
             setConnectionState('error');
+          }
+        }
+        return;
+      }
+
+      // Handle slash command responses (feat-rig-slash-commands)
+      // Commands are synchronous — they arrive as a single event with is_done=true.
+      // Render them with special monospace styling via isCommand flag.
+      if (chunk.type === 'command' && chunk.text) {
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant' as const, content: chunk.text, isCommand: true },
+        ]);
+        if (chunk.is_done) {
+          setIsStreaming(false);
+          awaitingResponseRef.current = false;
+          if (!useSessions) {
+            unlisten();
+            chunkUnlistenRef.current = null;
           }
         }
         return;
