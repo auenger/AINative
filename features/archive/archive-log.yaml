@@ -1,8 +1,30 @@
 meta:
-  last_updated: '2026-05-31T19:30:00Z'
+  last_updated: '2026-06-02T10:00:00Z'
   version: 1
-  total_completed: 138
+  total_completed: 139
 records:
+- id: feat-rig-context-compaction-engine
+  name: "Rig Agent Context Compaction Engine — 滑动窗口 + 摘要压缩 + 可配置管理"
+  completed_at: '2026-06-02T10:00:00Z'
+  tag: feat-rig-context-compaction-engine-20260602
+  merged_to: main
+  merge_commit: f6fff2f
+  branch_deleted: true
+  branch_name: feature/rig-context-compaction-engine
+  worktree_deleted: true
+  worktree_path: ../NeuroSyntaxIDE-rig-context-compaction-engine
+  conflicts:
+    had_conflict: false
+    conflict_files: []
+  verification:
+    status: passed
+    scenarios_total: 5
+    scenarios_passed: 5
+  stats:
+    started: '2026-06-02T10:00:00Z'
+    duration: "~1h"
+    commits: 2
+    files_changed: 5
 - id: feat-skill-step-progress
   name: "Skill Step Progress — 产品工坊 Skill 执行步骤进度实时展示"
   completed_at: '2026-05-31T19:30:00Z'

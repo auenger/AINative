@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-06-02T10:00:00Z'
+  last_updated: '2026-06-02T10:30:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -76,21 +76,12 @@ parents:
     features:
     - feat-rig-context-compaction-engine
     - feat-rig-slash-commands
-active:
-- id: feat-rig-context-compaction-engine
-  name: Rig Agent Context Compaction Engine — 滑动窗口 + 摘要压缩 + 可配置管理
-  priority: 60
-  parent: feat-rig-context-compaction
-  branch: feature/rig-context-compaction-engine
-  worktree: ../NeuroSyntaxIDE-rig-context-compaction-engine
-  started_at: '2026-06-02T10:00:00Z'
+active: []
 pending:
 - id: feat-rig-slash-commands
   name: Rig Agent Built-in Slash Commands — /clear /context /compact /help /model
   priority: 60
   parent: feat-rig-context-compaction
-  depends_on:
-  - feat-rig-context-compaction-engine
 blocked:
 - id: feat-agent-provider-core
   name: Agent Provider 核心抽象层 — OpenClaw WebSocket 接入 + Hermes 增强
@@ -105,6 +96,11 @@ blocked:
   priority: 40
   reason: '依赖 feat-agent-provider-core'
 completed:
+- id: feat-rig-context-compaction-engine
+  name: "Rig Agent Context Compaction Engine — 滑动窗口 + 摘要压缩 + 可配置管理"
+  completed_at: '2026-06-02T10:00:00Z'
+  tag: feat-rig-context-compaction-engine-20260602
+  parent: feat-rig-context-compaction
 - id: feat-skill-step-progress
   name: "Skill Step Progress — 产品工坊 Skill 执行步骤进度实时展示"
   completed_at: '2026-05-31T19:30:00Z'
