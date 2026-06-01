@@ -33,10 +33,18 @@ function ToolCallMessage({ msg }: { msg: ChatMessage }) {
     <div className={cn("flex items-center gap-1.5 px-2.5 py-1 rounded border text-[9px]", config.bg)}>
       {config.icon}
       {msg.toolStatus === 'running' ? (
-        <span className={cn("italic", config.label)}>Working...</span>
+        <>
+          <span className={cn("font-medium", config.label)}>{displayName || 'Tool'}</span>
+          {msg.content && (
+            <span className="text-on-surface-variant truncate max-w-[300px]">{msg.content}</span>
+          )}
+        </>
       ) : (
         <>
           <span className={cn("font-medium", config.label)}>{displayName || 'Done'}</span>
+          {msg.content && (
+            <span className="text-on-surface-variant truncate max-w-[300px]">{msg.content}</span>
+          )}
         </>
       )}
     </div>

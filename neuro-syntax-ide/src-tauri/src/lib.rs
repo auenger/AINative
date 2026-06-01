@@ -10482,18 +10482,14 @@ async fn test_llm_connection(
 }
 
 /// Test a Rig provider connection by querying the models endpoint.
+/// Test Rig connection using the active LLM provider from settings.
 /// Returns a list of available model IDs on success.
 #[tauri::command]
 async fn test_rig_connection(
-    config: RigProviderConfigYaml,
+    state: tauri::State<'_, crate::AppState>,
 ) -> Result<Vec<String>, String> {
-    let rig_config = crate::rig_runtime::RigProviderConfig {
-        provider: config.provider,
-        api_key: config.api_key,
-        base_url: config.base_url,
-        model: config.model,
-    };
-    crate::rig_runtime::RigRuntime::test_connection(&rig_config)
+    let workspace = state.workspace_path.lock().map_err(|e| e.to_string())?.clone();
+    crate::rig_runtime::RigRuntime::test_connection_from_settings(&workspace)
 }
 
 // ===========================================================================

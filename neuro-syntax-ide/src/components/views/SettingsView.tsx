@@ -27,7 +27,7 @@ import { useWorkspace } from '../../lib/useWorkspace';
 import { ProfilePanel } from '../common/ProfilePanel';
 import { WorkflowPanel } from '../common/WorkflowPanel';
 import { SkillPanel } from '../common/SkillPanel';
-import type { AppSettings, ProviderConfig, SdkConfigMode, RigProviderConfig } from '../../types';
+import type { AppSettings, ProviderConfig, SdkConfigMode } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -714,9 +714,6 @@ function LlmPanel({
 
       {/* Agent Runtime Mode Selector */}
       <AgentRuntimeCard settings={settings} onUpdate={onUpdate} />
-
-      {/* Rig Multi-Provider Configuration */}
-      <RigProviderPanel settings={settings} onUpdate={onUpdate} />
     </div>
   );
 }
@@ -983,250 +980,31 @@ function AgentRuntimeCard({
           )}
         </>
       )}
-    </div>
-  );
-}
 
-// ---------------------------------------------------------------------------
-// Rig Provider Panel
-// ---------------------------------------------------------------------------
-
-/** Provider metadata constants. */
-const RIG_PROVIDERS = [
-  { id: 'anthropic', label: 'Anthropic', defaultModel: 'claude-sonnet-4-20250514', defaultBase: 'https://api.anthropic.com', envKey: 'ANTHROPIC_API_KEY', needsKey: true },
-  { id: 'openai', label: 'OpenAI', defaultModel: 'gpt-4o', defaultBase: 'https://api.openai.com', envKey: 'OPENAI_API_KEY', needsKey: true },
-  { id: 'gemini', label: 'Google Gemini', defaultModel: 'gemini-2.0-flash', defaultBase: 'https://generativelanguage.googleapis.com', envKey: 'GOOGLE_API_KEY', needsKey: true },
-  { id: 'deepseek', label: 'DeepSeek', defaultModel: 'deepseek-chat', defaultBase: 'https://api.deepseek.com', envKey: 'DEEPSEEK_API_KEY', needsKey: true },
-  { id: 'ollama', label: 'Ollama (Local)', defaultModel: 'llama3', defaultBase: 'http://localhost:11434', envKey: '', needsKey: false },
-] as const;
-
-function RigProviderPanel({
-  settings,
-  onUpdate,
-}: {
-  settings: AppSettings;
-  onUpdate: (patch: Partial<AppSettings>) => void;
-}) {
-  const { t } = useTranslation();
-  const [providerDropdownOpen, setProviderDropdownOpen] = useState(false);
-  const [keyVisible, setKeyVisible] = useState(false);
-  const [testState, setTestState] = useState<{ loading: boolean; models?: string[]; error?: string } | null>(null);
-  const providerRef = useRef<HTMLDivElement>(null);
-
-  const rig = settings.rig || { provider: '', api_key: '', base_url: '', model: '' };
-  const selectedProvider = RIG_PROVIDERS.find(p => p.id === rig.provider);
-  const isRigRuntime = settings.agent_runtime === 'rig';
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (!providerRef.current?.contains(e.target as Node)) setProviderDropdownOpen(false);
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
-  const handleProviderChange = useCallback((providerId: string) => {
-    const prov = RIG_PROVIDERS.find(p => p.id === providerId);
-    onUpdate({
-      rig: {
-        ...rig,
-        provider: providerId,
-        api_key: '', // Clear key on provider switch
-        base_url: '', // Reset to default
-        model: '', // Reset to default
-      },
-    });
-    setProviderDropdownOpen(false);
-    setTestState(null);
-  }, [rig, onUpdate]);
-
-  const handleRigUpdate = useCallback((field: keyof RigProviderConfig, value: string) => {
-    onUpdate({
-      rig: { ...rig, [field]: value },
-    });
-    setTestState(null);
-  }, [rig, onUpdate]);
-
-  const testConnection = useCallback(async () => {
-    if (!rig.provider) return;
-    setTestState({ loading: true });
-    try {
-      const models = await invoke<string[]>('test_rig_connection', { config: rig });
-      setTestState({ loading: false, models });
-    } catch (e: unknown) {
-      setTestState({ loading: false, error: e instanceof Error ? e.message : String(e) });
-    }
-  }, [rig]);
-
-  return (
-    <div className="config-card">
-      <div className="flex items-center gap-2 mb-3">
-        <Cpu size={14} className="text-primary" />
-        <span className="config-label">Rig Provider</span>
-        {isRigRuntime && (
-          <span className="text-[10px] text-primary font-bold bg-primary/10 px-1.5 py-0.5 rounded">
-            ACTIVE
-          </span>
-        )}
-      </div>
-
-      <p className="text-xs text-on-surface-variant opacity-60 mb-4">
-        配置 Rig 内置 LLM Provider，支持 5 种主流提供商。在 Agent Runtime 中选择 "Rig" 模式后生效。
-      </p>
-
-      {/* Provider selector */}
-      <div className="mb-3">
-        <span className="text-[10px] font-medium text-on-surface-variant uppercase tracking-wider mb-1 block">Provider</span>
-        <div className="relative" ref={providerRef}>
-          <button
-            onClick={() => setProviderDropdownOpen(prev => !prev)}
-            className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest w-full",
-              "border border-outline-variant/20 bg-surface-container-high hover:bg-surface-container-highest transition-all",
-              providerDropdownOpen && "border-primary/50 ring-1 ring-primary/30"
-            )}
-          >
-            <Cpu size={12} className="text-outline" />
-            <span className="text-on-surface flex-1 text-left">
-              {selectedProvider ? selectedProvider.label : '选择 Provider'}
-            </span>
-            <ChevronDown size={12} className={cn("text-outline transition-transform", providerDropdownOpen && "rotate-180")} />
-          </button>
-          <AnimatePresence>
-            {providerDropdownOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                className="absolute left-0 mt-1 w-full bg-surface-container-low border border-outline-variant/20 rounded-lg shadow-xl z-20 overflow-hidden"
-              >
-                {RIG_PROVIDERS.map((prov) => (
-                  <button
-                    key={prov.id}
-                    onClick={() => handleProviderChange(prov.id)}
-                    className={cn(
-                      "w-full px-4 py-2 text-left text-xs transition-all flex items-center gap-3",
-                      rig.provider === prov.id
-                        ? "bg-primary/10 text-primary"
-                        : "text-on-surface hover:bg-surface-container-high"
-                    )}
-                  >
-                    <span className={cn(
-                      "shrink-0 w-2 h-2 rounded-full",
-                      rig.provider === prov.id ? "bg-primary" : "bg-outline-variant/40"
-                    )} />
-                    <div className="flex-1 min-w-0">
-                      <span className="block font-bold">{prov.label}</span>
-                      <span className="block text-[10px] text-on-surface-variant opacity-60">
-                        {prov.defaultModel} {!prov.needsKey && '(无需 API Key)'}
-                      </span>
-                    </div>
-                    {rig.provider === prov.id && (
-                      <CheckCircle2 size={12} className="text-primary shrink-0" />
-                    )}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
+      {/* Rig info hint (only when rig selected) */}
+      {settings.agent_runtime === 'rig' && (
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-surface-container-high border border-outline-variant/10">
+          <Zap size={14} className="text-primary shrink-0 mt-0.5" />
+          <div>
+            <p className="text-[10px] font-bold text-on-surface mb-0.5">
+              Rig 使用上方 LLM 提供商配置
+            </p>
+            <p className="text-[9px] text-on-surface-variant leading-relaxed">
+              Rig 会自动使用上方激活的 LLM 提供商（API Key / Base URL / Model），
+              通过 Protocol 设置决定通信方式：
+              <span className="text-primary font-medium"> OpenAI</span> 协议 → /v1/chat/completions，
+              <span className="text-primary font-medium"> Anthropic</span> 协议 → /v1/messages。
+            </p>
+          </div>
         </div>
-      </div>
-
-      {selectedProvider && (
-        <>
-          {/* API Key (only for providers that need it) */}
-          {selectedProvider.needsKey && (
-            <div className="mb-3">
-              <span className="text-[10px] font-medium text-on-surface-variant uppercase tracking-wider mb-1 block">API Key</span>
-              <div className="relative">
-                <input
-                  type={keyVisible ? 'text' : 'password'}
-                  value={rig.api_key}
-                  onChange={(e) => handleRigUpdate('api_key', e.target.value)}
-                  placeholder={`留空则使用环境变量 ${selectedProvider.envKey}`}
-                  className="config-input-mono pr-8"
-                />
-                <button
-                  type="button"
-                  onClick={() => setKeyVisible(prev => !prev)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-50 hover:opacity-100 transition-opacity"
-                >
-                  {keyVisible ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Base URL (optional) */}
-          <div className="mb-3">
-            <span className="text-[10px] font-medium text-on-surface-variant uppercase tracking-wider mb-1 block">
-              Base URL <span className="opacity-50">(可选，留空使用默认)</span>
-            </span>
-            <input
-              type="url"
-              value={rig.base_url}
-              onChange={(e) => handleRigUpdate('base_url', e.target.value)}
-              placeholder={selectedProvider.defaultBase}
-              className="config-input-mono"
-            />
-          </div>
-
-          {/* Model (optional) */}
-          <div className="mb-3">
-            <span className="text-[10px] font-medium text-on-surface-variant uppercase tracking-wider mb-1 block">
-              Model <span className="opacity-50">(可选，留空使用默认)</span>
-            </span>
-            <input
-              type="text"
-              value={rig.model}
-              onChange={(e) => handleRigUpdate('model', e.target.value)}
-              placeholder={selectedProvider.defaultModel}
-              className="config-input-mono"
-            />
-          </div>
-
-          {/* Connection Test */}
-          <div className="flex items-center gap-3 mt-4 pt-3 border-t border-outline-variant/10">
-            <button
-              type="button"
-              onClick={testConnection}
-              disabled={testState?.loading || !rig.provider || (selectedProvider.needsKey && !rig.api_key)}
-              className={cn(
-                'config-action-btn',
-                testState?.loading
-                  ? 'text-on-surface-variant opacity-50 cursor-not-allowed'
-                  : 'text-primary hover:bg-primary/10',
-              )}
-            >
-              {testState?.loading ? (
-                <Loader2 size={12} className="animate-spin" />
-              ) : testState?.models ? (
-                <CheckCircle2 size={12} className="text-green-500" />
-              ) : testState?.error ? (
-                <XCircle size={12} className="text-error" />
-              ) : (
-                <Cpu size={12} />
-              )}
-              测试连接
-            </button>
-
-            {testState?.models && (
-              <span className="text-[10px] text-green-500 font-mono">
-                {testState.models.length} 个模型可用
-              </span>
-            )}
-            {testState?.error && (
-              <span className="text-[10px] text-error font-mono truncate max-w-[200px]" title={testState.error}>
-                {testState.error}
-              </span>
-            )}
-          </div>
-        </>
       )}
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Rig Provider Panel — DEPRECATED: Rig now uses the LLM Provider config above.
+// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // Main SettingsView

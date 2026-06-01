@@ -3,6 +3,8 @@ import { FileText, Loader2, RotateCcw, FolderOpen } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useAgentStream } from '../../lib/useAgentStream';
+
+const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 import type { ChatMessage, FsChangeEvent } from '../../lib/useAgentStream';
 import type {
   BMADSessionState,
@@ -17,6 +19,7 @@ import type {
 import { PRD_SYSTEM_PROMPT } from '../../lib/bmad/prd-prompts';
 import { parseStepProgressMarker, extractLatestStepProgress } from '../../lib/bmad/workshop-markers';
 import { WorkshopChatPanel } from './WorkshopChatPanel';
+import { WorkshopChatBubble } from './WorkshopChatBubble';
 import { IntentSelector, type IntentOption } from './IntentSelector';
 import { StakeCalibration, type StakeOption } from './StakeCalibration';
 import { WorkModeSelector, type WorkModeOption } from './WorkModeSelector';
@@ -30,6 +33,10 @@ interface PrdCreationPanelProps {
   workspacePath: string;
   sessionState: BMADSessionState;
   onDocumentChange: (doc: PRDDocument) => void;
+  /** If set, auto-starts the session and sends this prompt as the first message */
+  autoStartPrompt?: string | null;
+  /** Called after autoStartPrompt has been consumed */
+  onAutoStartConsumed?: () => void;
   className?: string;
 }
 
@@ -148,8 +155,6 @@ type PrdPhase = 'discovery' | 'writing' | 'validation' | 'finalization';
 
 // ─── Markdown → PRDSection parser ───
 
-const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-
 function parseMarkdownToPrdSections(content: string): { title: string; sections: PRDSection[] } {
   const titleMatch = content.match(/^#\s+(.+)$/m);
   const title = titleMatch ? titleMatch[1].trim() : 'Untitled';
@@ -190,9 +195,12 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
   workspacePath,
   sessionState,
   onDocumentChange,
+  autoStartPrompt,
+  onAutoStartConsumed,
   className,
 }) => {
   const { t } = useTranslation();
+
   // ─── State ───
   const [isStarted, setIsStarted] = useState(false);
   const [prdPhase, setPrdPhase] = useState<PrdPhase>('discovery');
@@ -237,6 +245,33 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
     persistMessages: true,
     storageKey: 'prd-creation-workshop',
   });
+
+  // ─── Sync runtime from settings on mount ───
+  useEffect(() => {
+    if (!isTauri) return;
+    (async () => {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const s: { agent_runtime?: string } = await invoke('read_settings');
+        if (s.agent_runtime) agent.setRuntimeId(s.agent_runtime);
+      } catch { /* ignore */ }
+    })();
+  }, []);
+
+  // ─── Auto-start from Party Mode report ───
+  const autoStartRef = useRef(false);
+  useEffect(() => {
+    if (!autoStartPrompt || autoStartRef.current) return;
+    autoStartRef.current = true;
+
+    const autoStart = async () => {
+      setIsStarted(true);
+      await agent.startSession();
+      agent.sendMessage(autoStartPrompt);
+      onAutoStartConsumed?.();
+    };
+    autoStart();
+  }, [autoStartPrompt]);
 
   // ─── File-based PRD: parse markdown content into sections ───
   const fileParsed = useMemo(() => {
@@ -384,6 +419,65 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
       setFileDropdownOpen(false);
     } catch { /* ignore */ }
   }, []);
+
+  // ─── Refresh file list helper ───
+  const refreshMdFiles = useCallback(async () => {
+    if (!workspacePath || !isTauri) return;
+    const { invoke } = await import('@tauri-apps/api/core');
+    interface FileNode { name: string; path: string; is_dir: boolean; children?: FileNode[] }
+    const prdNamePattern = /^(product|prd)/i;
+    const allFiles: { name: string; path: string; isPrd: boolean }[] = [];
+    try {
+      const rootTree = await invoke<FileNode[]>('read_file_tree', { path: workspacePath });
+      for (const n of (rootTree || [])) {
+        if (!n.is_dir && n.name.endsWith('.md')) {
+          allFiles.push({ name: n.name, path: n.path, isPrd: prdNamePattern.test(n.name) });
+        }
+      }
+    } catch { /* ignore */ }
+    try {
+      const docsTree = await invoke<FileNode[]>('read_file_tree', { path: `${workspacePath}/docs` });
+      for (const n of (docsTree || [])) {
+        if (!n.is_dir && n.name.endsWith('.md')) {
+          allFiles.push({ name: n.name, path: n.path, isPrd: prdNamePattern.test(n.name) || n.name.includes('-prd') });
+        }
+      }
+    } catch { /* no docs dir */ }
+    allFiles.sort((a, b) => {
+      if (a.isPrd && !b.isPrd) return -1;
+      if (!a.isPrd && b.isPrd) return 1;
+      return a.name.localeCompare(b.name);
+    });
+    setMdFiles(allFiles);
+  }, [workspacePath]);
+
+  // ─── Watch for file_write tool results → auto-refresh & load ───
+  const lastFileWriteRef = useRef('');
+  useEffect(() => {
+    for (let i = agent.messages.length - 1; i >= 0; i--) {
+      const msg = agent.messages[i];
+      if (msg.isToolCall && msg.toolName === 'file_write' && msg.toolStatus === 'success' && msg.content) {
+        if (msg.content !== lastFileWriteRef.current) {
+          lastFileWriteRef.current = msg.content;
+          // Extract path from content (format: "Writing {path}" or "Writing {path}")
+          const pathMatch = msg.content.match(/Writing\s+(.+)/);
+          const writtenPath = pathMatch ? pathMatch[1].trim() : '';
+          if (writtenPath && isTauri) {
+            const fullPath = writtenPath.startsWith('/') ? writtenPath : `${workspacePath}/${writtenPath}`;
+            // Load the written file + refresh file list
+            (async () => {
+              await refreshMdFiles();
+              await loadPrdFile(fullPath);
+            })();
+          } else {
+            // Path unknown — just refresh the file list
+            refreshMdFiles();
+          }
+        }
+        break;
+      }
+    }
+  }, [agent.messages, workspacePath, refreshMdFiles, loadPrdFile]);
 
   // ─── Merged sections: file content > agent markers ───
   const displayTitle = fileParsed.title || prdTitle;
@@ -620,49 +714,64 @@ export const PrdCreationPanel: React.FC<PrdCreationPanelProps> = ({
       const payload = msg.workshopPayload as PrdPayload | null | undefined;
       if (!payload) return null;
 
+      // Render cleaned text (marker removed) as a chat bubble before the payload component
+      const textBubble = msg.content?.trim() ? (
+        <WorkshopChatBubble msg={msg} />
+      ) : null;
+
+      let payloadNode: React.ReactNode = null;
       switch (payload.type) {
         case 'intent-selector':
-          return (
+          payloadNode = (
             <IntentSelector
               options={payload.data.options}
               onSelect={handleIntentSelect}
               disabled={agent.isStreaming}
             />
           );
+          break;
 
         case 'stake-calibration':
-          return (
+          payloadNode = (
             <StakeCalibration
               options={payload.data.options}
               onSelect={handleStakeSelect}
               disabled={agent.isStreaming}
             />
           );
+          break;
 
         case 'work-mode-selector':
-          return (
+          payloadNode = (
             <WorkModeSelector
               options={payload.data.options}
               onSelect={handleModeSelect}
               disabled={agent.isStreaming}
             />
           );
+          break;
 
         case 'validation-report':
-          return <ValidationReport report={payload.data} />;
+          payloadNode = <ValidationReport report={payload.data} />;
+          break;
 
         case 'prd-final':
-          return (
+          payloadNode = (
             <FinalizationChecklist
               steps={finalizationSteps}
               allComplete={finalizationSteps.every((s) => s.status === 'complete')}
               onCreateFeature={handleCreateFeature}
             />
           );
+          break;
 
         default:
-          return null;
+          break;
       }
+
+      if (!payloadNode) return textBubble;
+      if (!textBubble) return payloadNode;
+      return <>{textBubble}{payloadNode}</>;
     },
     [handleIntentSelect, handleStakeSelect, handleModeSelect, agent.isStreaming, finalizationSteps, handleCreateFeature],
   );

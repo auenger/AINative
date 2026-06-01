@@ -1,5 +1,5 @@
 meta:
-  last_updated: '2026-06-02T10:30:00Z'
+  last_updated: '2026-06-02T12:00:00Z'
   version: 1
 parents:
 - id: epic-neuro-syntax-ide-roadmap
@@ -77,11 +77,7 @@ parents:
     - feat-rig-context-compaction-engine
     - feat-rig-slash-commands
 active: []
-pending:
-- id: feat-rig-slash-commands
-  name: Rig Agent Built-in Slash Commands — /clear /context /compact /help /model
-  priority: 60
-  parent: feat-rig-context-compaction
+pending: []
 blocked:
 - id: feat-agent-provider-core
   name: Agent Provider 核心抽象层 — OpenClaw WebSocket 接入 + Hermes 增强
@@ -96,6 +92,11 @@ blocked:
   priority: 40
   reason: '依赖 feat-agent-provider-core'
 completed:
+- id: feat-rig-slash-commands
+  name: "Rig Agent Built-in Slash Commands — /clear /context /compact /help /model"
+  completed_at: '2026-06-02T12:00:00Z'
+  tag: feat-rig-slash-commands-20260602
+  parent: feat-rig-context-compaction
 - id: feat-rig-context-compaction-engine
   name: "Rig Agent Context Compaction Engine — 滑动窗口 + 摘要压缩 + 可配置管理"
   completed_at: '2026-06-02T10:00:00Z'

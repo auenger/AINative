@@ -69,7 +69,7 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 export function useSettings() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
 

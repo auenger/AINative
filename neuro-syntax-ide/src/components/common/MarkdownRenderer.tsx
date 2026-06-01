@@ -48,7 +48,7 @@ const Heading: Record<string, React.FC<React.HTMLAttributes<HTMLHeadingElement>>
 
 /** Paragraph */
 const MdParagraph: React.FC<React.HTMLAttributes<HTMLParagraphElement>> = ({ children, ...props }) => (
-  <p className="text-sm text-on-surface-variant leading-relaxed mb-3" {...props}>
+  <p className="text-sm text-on-surface-variant leading-relaxed mb-3 whitespace-pre-line" {...props}>
     {children}
   </p>
 );

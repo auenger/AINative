@@ -37,6 +37,11 @@ function ToolCallChip({ toolName, param }: ToolCallInfo) {
   );
 }
 
+// ─── Streaming text: plain text with whitespace preserved ───
+function StreamingText({ content }: { content: string }) {
+  return <span className="whitespace-pre-wrap break-words">{content}</span>;
+}
+
 // ─── Component ───
 
 export const WorkshopChatBubble: React.FC<WorkshopChatBubbleProps> = ({
@@ -44,9 +49,12 @@ export const WorkshopChatBubble: React.FC<WorkshopChatBubbleProps> = ({
   isStreaming = false,
   isLast = false,
 }) => {
+  // Use full markdown rendering only when NOT actively streaming this message
+  const useFullMarkdown = !(isStreaming && isLast);
+
   const segments: ContentSegment[] = useMemo(
-    () => (msg.role === 'assistant' && msg.content ? parseContentSegments(msg.content) : []),
-    [msg.role, msg.content],
+    () => (msg.role === 'assistant' && msg.content && useFullMarkdown ? parseContentSegments(msg.content) : []),
+    [msg.role, msg.content, useFullMarkdown],
   );
 
   // Command response: monospace font + special background (feat-rig-slash-commands)
@@ -59,6 +67,9 @@ export const WorkshopChatBubble: React.FC<WorkshopChatBubbleProps> = ({
       </div>
     );
   }
+
+  // During streaming, show raw text for speed; after done, parse segments for rich rendering
+  const isStreamingText = isStreaming && isLast && msg.role === 'assistant';
 
   return (
     <div
@@ -77,25 +88,29 @@ export const WorkshopChatBubble: React.FC<WorkshopChatBubbleProps> = ({
       >
         {msg.role === 'assistant' ? (
           <div className="[&_p]:text-[10px] [&_pre]:text-[10px] [&_code]:text-[10px]">
-            {segments.length === 1 && segments[0].type === 'text' ? (
-              <MarkdownRenderer content={segments[0].content} />
-            ) : (
+            {isStreamingText ? (
+              <StreamingText content={msg.content || ''} />
+            ) : segments.length === 1 && segments[0].type === 'text' ? (
+              <MarkdownRenderer key={`final-${segments[0].content.length}`} content={segments[0].content} />
+            ) : segments.length > 1 ? (
               <div className="space-y-1">
                 {segments.map((seg, i) =>
                   seg.type === 'tool-call' && seg.toolInfo ? (
                     <ToolCallChip key={i} toolName={seg.toolInfo.toolName} param={seg.toolInfo.param} />
                   ) : seg.content ? (
-                    <MarkdownRenderer key={i} content={seg.content} />
+                    <MarkdownRenderer key={`seg-${i}-${seg.content.length}`} content={seg.content} />
                   ) : null,
                 )}
               </div>
-            )}
+            ) : msg.content ? (
+              <MarkdownRenderer key={`final-${msg.content.length}`} content={msg.content} />
+            ) : null}
             {isLast && isStreaming && (
               <span className="inline-block w-1.5 h-3 bg-primary/70 animate-pulse ml-0.5 align-middle" />
             )}
           </div>
         ) : (
-          msg.content
+          <div className="whitespace-pre-line break-words">{msg.content}</div>
         )}
       </div>
     </div>

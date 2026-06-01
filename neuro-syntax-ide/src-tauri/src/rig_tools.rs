@@ -493,88 +493,75 @@ impl RigTool for ShellExecTool {
             };
         }
 
-        // Execute with timeout
+        // Execute with timeout using synchronous std::process::Command
+        // (cannot create tokio runtime here — we're already inside one)
         let workspace = self.workspace.clone();
         let cmd = command.to_string();
 
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let result = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(&cmd)
+                .current_dir(&workspace)
+                .output();
+            let _ = tx.send(result);
+        });
 
-        match rt {
-            Ok(runtime) => {
-                let result = runtime.block_on(async {
-                    tokio::time::timeout(
-                        Duration::from_secs(30),
-                        tokio::process::Command::new("sh")
-                            .arg("-c")
-                            .arg(&cmd)
-                            .current_dir(&workspace)
-                            .output(),
+        match rx.recv_timeout(Duration::from_secs(30)) {
+            Ok(Ok(output)) => {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+                let mut parts = Vec::new();
+                if !stdout.is_empty() {
+                    parts.push(stdout);
+                }
+                if !stderr.is_empty() {
+                    parts.push(format!("stderr:\n{}", stderr));
+                }
+
+                let combined = if parts.is_empty() {
+                    "(no output)".to_string()
+                } else {
+                    parts.join("\n")
+                };
+
+                // UTF-8 safe truncation
+                let max_chars = 50_000;
+                let output_text = if combined.len() > max_chars {
+                    let boundary = combined.char_indices().take_while(|(i, _)| *i < max_chars).last().map(|(i, c)| i + c.len_utf8()).unwrap_or(0);
+                    format!(
+                        "{}\n\n... (truncated at {} characters)",
+                        &combined[..boundary],
+                        max_chars
                     )
-                    .await
-                });
+                } else {
+                    combined
+                };
 
-                match result {
-                    Ok(Ok(output)) => {
-                        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-                        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-                        let mut parts = Vec::new();
-                        if !stdout.is_empty() {
-                            parts.push(stdout);
-                        }
-                        if !stderr.is_empty() {
-                            parts.push(format!("stderr:\n{}", stderr));
-                        }
-
-                        let combined = if parts.is_empty() {
-                            "(no output)".to_string()
-                        } else {
-                            parts.join("\n")
-                        };
-
-                        // Truncate if too long
-                        let max_chars = 50_000;
-                        let output_text = if combined.len() > max_chars {
-                            format!(
-                                "{}\n\n... (truncated at {} characters)",
-                                &combined[..max_chars],
-                                max_chars
-                            )
-                        } else {
-                            combined
-                        };
-
-                        ToolResult {
-                            success: output.status.success(),
-                            output: if output.status.success() {
-                                output_text
-                            } else {
-                                format!(
-                                    "Exit code: {}\n{}",
-                                    output.status.code().unwrap_or(-1),
-                                    output_text
-                                )
-                            },
-                            tool_name: "shell_exec".to_string(),
-                        }
-                    }
-                    Ok(Err(e)) => ToolResult {
-                        success: false,
-                        output: format!("Failed to execute command: {}", e),
-                        tool_name: "shell_exec".to_string(),
+                ToolResult {
+                    success: output.status.success(),
+                    output: if output.status.success() {
+                        output_text
+                    } else {
+                        format!(
+                            "Exit code: {}\n{}",
+                            output.status.code().unwrap_or(-1),
+                            output_text
+                        )
                     },
-                    Err(_) => ToolResult {
-                        success: false,
-                        output: "Command timed out after 30 seconds".to_string(),
-                        tool_name: "shell_exec".to_string(),
-                    },
+                    tool_name: "shell_exec".to_string(),
                 }
             }
-            Err(e) => ToolResult {
+            Ok(Err(e)) => ToolResult {
                 success: false,
-                output: format!("Failed to create runtime: {}", e),
+                output: format!("Failed to execute command: {}", e),
+                tool_name: "shell_exec".to_string(),
+            },
+            Err(_) => ToolResult {
+                success: false,
+                output: "Command timed out after 30 seconds".to_string(),
                 tool_name: "shell_exec".to_string(),
             },
         }

@@ -3,6 +3,8 @@ import { Lightbulb, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useAgentStream } from '../../lib/useAgentStream';
+
+const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 import type { ChatMessage } from '../../lib/useAgentStream';
 import type { BMADSessionState, BrainstormOutput, BrainstormIdea, BrainstormStep, StepProgressPayload } from '../../types';
 import { BRAINSTORM_SYSTEM_PROMPT } from '../../lib/bmad/brainstorm-prompts';
@@ -11,6 +13,7 @@ import { ProgressStepper } from './ProgressStepper';
 import { IdeaCounterBadge } from './IdeaCounterBadge';
 import { WorkshopChatPanel } from './WorkshopChatPanel';
 import { OptionCardMessage, type OptionItem } from './OptionCardMessage';
+import { WorkshopChatBubble } from './WorkshopChatBubble';
 import { IdeaCardMessage } from './IdeaCardMessage';
 import { EnergyCheckpointMessage } from './EnergyCheckpointMessage';
 import { ActionMenuMessage } from './ActionMenuMessage';
@@ -175,6 +178,7 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
   className,
 }) => {
   const { t } = useTranslation();
+
   // ─── State ───
   const [currentStep, setCurrentStep] = useState<BrainstormStep>('setup');
   const [completedSteps, setCompletedSteps] = useState<BrainstormStep[]>([]);
@@ -193,6 +197,18 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
     persistMessages: true,
     storageKey: 'brainstorm-workshop',
   });
+
+  // ─── Sync runtime from settings on mount ───
+  React.useEffect(() => {
+    if (!isTauri) return;
+    (async () => {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const s: { agent_runtime?: string } = await invoke('read_settings');
+        if (s.agent_runtime) agent.setRuntimeId(s.agent_runtime);
+      } catch { /* ignore */ }
+    })();
+  }, []);
 
   // ─── Parse messages for workshop payloads ───
   const parsedMessages = useMemo(() => {
@@ -333,21 +349,29 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
       const payload = msg.workshopPayload as ParsedWorkshopPayload | null | undefined;
       if (!payload) return null;
 
+      // Render text content (cleaned of marker syntax) as a regular bubble
+      const textBubble = msg.content?.trim() ? (
+        <WorkshopChatBubble msg={msg} />
+      ) : null;
+
+      let payloadNode: React.ReactNode = null;
       switch (payload.type) {
         case 'option-card':
-          return (
+          payloadNode = (
             <OptionCardMessage
               options={payload.data.options}
               onSelect={(id) => handleSendMessage(id)}
               disabled={agent.isStreaming}
             />
           );
+          break;
 
         case 'idea-card':
-          return <IdeaCardMessage idea={payload.data} />;
+          payloadNode = <IdeaCardMessage idea={payload.data} />;
+          break;
 
         case 'energy-checkpoint':
-          return (
+          payloadNode = (
             <EnergyCheckpointMessage
               message={payload.data.message || t('workshop.brainstormEnergy')}
               exchangeCount={payload.data.exchangeCount || exchangeCountRef.current}
@@ -356,19 +380,25 @@ export const BrainstormPanel: React.FC<BrainstormPanelProps> = ({
               disabled={agent.isStreaming}
             />
           );
+          break;
 
         case 'action-menu':
-          return (
+          payloadNode = (
             <ActionMenuMessage
               actions={payload.data.actions || []}
               onAction={(id) => handleSendMessage(id)}
               disabled={agent.isStreaming}
             />
           );
+          break;
 
         default:
-          return null;
+          break;
       }
+
+      if (!payloadNode) return textBubble;
+      if (!textBubble) return payloadNode;
+      return <>{textBubble}{payloadNode}</>;
     },
     [handleSendMessage, agent.isStreaming, ideas.length]
   );

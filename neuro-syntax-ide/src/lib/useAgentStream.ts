@@ -348,8 +348,8 @@ export function useAgentStream(options: UseAgentStreamOptions) {
           return;
         }
 
-        // Filter out task lifecycle noise embedded in content
-        const cleanText = trimmed.replace(TASK_NOISE_PATTERN, '').trim();
+        // Filter task noise from original text, preserving newlines for markdown
+        const cleanText = chunk.text.replace(TASK_NOISE_PATTERN, '');
         if (!cleanText) return;
 
         // Real content clears thinking status
@@ -367,7 +367,9 @@ export function useAgentStream(options: UseAgentStreamOptions) {
         streamingTextRef.current += cleanText;
         setMessages((prev) => {
           const last = prev[prev.length - 1];
-          if (last && last.role === 'assistant') {
+          // Append to last assistant text message, or create a new message
+          // (skip tool messages — they have their own lifecycle)
+          if (last && last.role === 'assistant' && !last.isToolCall) {
             return [...prev.slice(0, -1), { ...last, content: streamingTextRef.current }];
           }
           return [...prev, { role: 'assistant', content: streamingTextRef.current }];
@@ -378,6 +380,18 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       // These are emitted when the backend executes file operations requested by the LLM.
       // We create separate tool call messages with structured status for proper UI rendering.
       if (chunk.type === 'tool_use') {
+        // Capture mode: route tool call info to persona card instead of orchestrator chat
+        if (captureRef.current) {
+          const toolText = chunk.text || '';
+          if (toolText.trim()) {
+            captureRef.current('\n' + toolText + '\n');
+          }
+          return;
+        }
+
+        // Reset streaming text — next assistant response starts a fresh message
+        streamingTextRef.current = '';
+
         // Extract tool name from the text (format: "tool_name: summary" or just "summary")
         const toolText = chunk.text || '';
         const colonIdx = toolText.indexOf(':');
@@ -405,6 +419,9 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       }
 
       if (chunk.type === 'tool_result') {
+        // Capture mode: skip tool results (they're internal noise for persona execution)
+        if (captureRef.current) return;
+
         const isSuccess = !chunk.error;
         const resultText = chunk.text || '';
         setMessages((prev) => {
@@ -464,7 +481,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
 
         setIsStreaming(false);
         awaitingResponseRef.current = false;
-        if (!streamingTextRef.current) {
+        if (!streamingTextRef.current && !captureRef.current) {
           setMessages((prev) => [
             ...prev,
             { role: 'assistant', content: '(No response received)' },
@@ -615,27 +632,22 @@ export function useAgentStream(options: UseAgentStreamOptions) {
           await registerChunkListener();
         }
 
-        // Build message payload
-        let messagePayload: string;
-        if (currentRuntimeId === 'http') {
-          // HTTP runtime expects full conversation history as JSON
-          const chatMessages = [...messages, userMessage]
-            .filter((m) => !(m.role === 'assistant' && m.content.includes(greetingMessage)))
-            .map((m) => {
-              const msg: Record<string, unknown> = { role: m.role, content: m.content };
-              return msg;
-            });
-          // Attach multimodal content to the last (user) message
-          if (attachments && attachments.length > 0) {
-            const lastMsg = chatMessages[chatMessages.length - 1] as Record<string, unknown>;
-            if (lastMsg) {
-              lastMsg.attachments = attachments;
-            }
+        // Build message payload — send full conversation history for multi-turn context
+        const chatMessages = [...messages, userMessage]
+          .filter((m) => !(m.role === 'assistant' && m.content.includes(greetingMessage)))
+          .filter((m) => !(m as any).isToolCall)
+          .map((m) => {
+            const msg: Record<string, unknown> = { role: m.role, content: m.content };
+            return msg;
+          });
+        // Attach multimodal content to the last (user) message
+        if (attachments && attachments.length > 0) {
+          const lastMsg = chatMessages[chatMessages.length - 1] as Record<string, unknown>;
+          if (lastMsg) {
+            lastMsg.attachments = attachments;
           }
-          messagePayload = JSON.stringify(chatMessages);
-        } else {
-          messagePayload = input;
         }
+        const messagePayload = JSON.stringify(chatMessages);
 
         await invoke('runtime_execute', {
           runtimeId: currentRuntimeId,

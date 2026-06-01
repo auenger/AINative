@@ -282,7 +282,11 @@ export interface SdkRuntimeConfig {
   custom_model: string;
 }
 
-/** Rig built-in provider configuration for multi-provider LLM access. */
+/**
+ * @deprecated Rig now reads directly from the LLM provider config (`providers` + `llm`).
+ * This type is kept for backward compatibility with existing settings.yaml files.
+ * Rig built-in provider configuration for multi-provider LLM access.
+ */
 export interface RigProviderConfig {
   /** Provider identifier: anthropic | openai | gemini | deepseek | ollama */
   provider: string;
@@ -305,7 +309,7 @@ export interface AppSettings {
   agent_runtime?: string;
   /** SDK Runtime independent configuration */
   sdk_runtime?: SdkRuntimeConfig;
-  /** Rig built-in provider configuration */
+  /** @deprecated Rig now uses the active LLM provider config. Kept for backward compat. */
   rig?: RigProviderConfig;
 }
 

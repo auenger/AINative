@@ -334,7 +334,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onCreatePRD }) => (
       {onCreatePRD && (
         <button
           onClick={onCreatePRD}
-          className="mt-2 px-3 py-1.5 text-[10px] font-bold rounded-md bg-tertiary text-on-secondary hover:bg-tertiary/90 transition-colors"
+          className="mt-2 px-3 py-1.5 text-[10px] font-bold rounded-md bg-primary text-on-primary hover:bg-primary/90 transition-colors"
         >
           从报告创建 PRD
         </button>
@@ -379,6 +379,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
   className,
 }) => {
   const { t } = useTranslation();
+
   // ─── Config ───
   const config: PartyModeConfig = sessionState.partyModeConfig ?? {
     workshopRuntimeId: 'claude-code',
@@ -426,6 +427,18 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
     persistMessages: true,
     storageKey: 'party-mode-orchestrator',
   });
+
+  // ─── Sync runtime from settings on mount ───
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return;
+    (async () => {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const s: { agent_runtime?: string } = await invoke('read_settings');
+        if (s.agent_runtime) orchestrator.setRuntimeId(s.agent_runtime);
+      } catch { /* ignore */ }
+    })();
+  }, []);
 
   // ─── Build display messages ───
   const displayMessages: ChatMessage[] = useMemo(() => {
@@ -566,7 +579,7 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
             });
 
             await invoke('runtime_execute', {
-              runtimeId: config.workshopRuntimeId,
+              runtimeId: orchestrator.runtimeId,
               message: topic,
               sessionId: null,
               systemPrompt: prompt,
@@ -812,13 +825,15 @@ export const PartyModePanel: React.FC<PartyModePanelProps> = ({
           return <OrchestratorNoteMessage note={payload.data.note} />;
         }
       }
-      if (msg.workshopType === 'party-report' && msg.workshopPayload) {
-        // Report is rendered via partyReport state instead
+      if (msg.workshopType === 'party-report') {
+        if (partyReport) {
+          return <ReportCard report={partyReport} onCreatePRD={onCreatePRD} />;
+        }
         return null;
       }
       return null;
     },
-    [],
+    [partyReport, onCreatePRD],
   );
 
   // ─── Build persona cards for current round + completed rounds ───

@@ -20,6 +20,7 @@ export const PMWorkshopView: React.FC<PMWorkshopViewProps> = ({ workspacePath })
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<PMWorkshopTab>('brainstorm');
   const [sessionState, setSessionState] = useState<BMADSessionState>({});
+  const [prdAutoStart, setPrdAutoStart] = useState<string | null>(null);
 
   const WORKSHOP_TABS: { id: PMWorkshopTab; label: string }[] = [
     { id: 'brainstorm', label: t('workshop.brainstorm') },
@@ -93,7 +94,31 @@ export const PMWorkshopView: React.FC<PMWorkshopViewProps> = ({ workspacePath })
           onReportGenerated={(report: PartyReport) =>
             setSessionState((prev) => ({ ...prev, partyReport: report }))
           }
-          onCreatePRD={() => setActiveTab('prd')}
+          onCreatePRD={() => {
+            const report = sessionState.partyReport;
+            if (report) {
+              const lines = [
+                '基于以下多角色圆桌收敛报告，创建一份完整的产品需求文档（PRD）。',
+                '',
+                '## 收敛报告摘要',
+                report.summary,
+              ];
+              if (report.consensus.length > 0) {
+                lines.push('', '## 共识', ...report.consensus.map((c) => `- ${c}`));
+              }
+              if (report.disagreements.length > 0) {
+                lines.push('', '## 分歧', ...report.disagreements.map((d) => `- ${d}`));
+              }
+              if (report.recommendedActions.length > 0) {
+                lines.push('', '## 建议行动', ...report.recommendedActions.map((a) => `- ${a}`));
+              }
+              if (report.risks.length > 0) {
+                lines.push('', '## 风险', ...report.risks.map((r) => `- ${r}`));
+              }
+              setPrdAutoStart(lines.join('\n'));
+            }
+            setActiveTab('prd');
+          }}
           className={activeTab !== 'party-mode' ? 'hidden' : ''}
         />
         <PrdCreationPanel
@@ -102,6 +127,8 @@ export const PMWorkshopView: React.FC<PMWorkshopViewProps> = ({ workspacePath })
           onDocumentChange={(doc: PRDDocument) =>
             setSessionState((prev) => ({ ...prev, prdDocument: doc }))
           }
+          autoStartPrompt={prdAutoStart}
+          onAutoStartConsumed={() => setPrdAutoStart(null)}
           className={activeTab !== 'prd' ? 'hidden' : ''}
         />
       </div>
