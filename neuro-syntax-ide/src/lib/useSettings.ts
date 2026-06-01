@@ -43,6 +43,9 @@ const DEFAULT_SETTINGS: AppSettings = {
     max_tokens: 2000,
     temperature: 0.7,
     context_window_tokens: 128000,
+    compaction_trigger_ratio: 0.75,
+    compaction_keep_recent: 4,
+    compaction_strategy: 'sliding_window',
   },
   app: {
     auto_refresh_interval: 30,

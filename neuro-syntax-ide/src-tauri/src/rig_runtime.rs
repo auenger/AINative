@@ -137,6 +137,307 @@ struct RigResolvedConfig {
     model: String,
 }
 
+/// Compaction config resolved from settings.yaml.
+struct CompactionConfig {
+    /// Context window size in tokens (from LlmConfig.context_window_tokens).
+    pub context_window_tokens: usize,
+    /// Ratio at which compaction triggers (0.5–0.95, default 0.75).
+    pub trigger_ratio: f64,
+    /// Number of recent assistant+tool_result pairs to keep (default 4).
+    pub keep_recent: usize,
+    /// Compaction strategy.
+    pub strategy: CompactionStrategy,
+}
+
+/// Read compaction configuration from settings.yaml, using defaults for missing fields.
+fn read_compaction_config(workspace: &str) -> CompactionConfig {
+    let defaults = CompactionConfig {
+        context_window_tokens: 128000,
+        trigger_ratio: 0.75,
+        keep_recent: 4,
+        strategy: CompactionStrategy::SlidingWindow,
+    };
+
+    let settings_path = PathBuf::from(workspace)
+        .join(".neuro")
+        .join("settings.yaml");
+
+    if !settings_path.exists() {
+        return defaults;
+    }
+
+    let content = match std::fs::read_to_string(&settings_path) {
+        Ok(c) => c,
+        Err(_) => return defaults,
+    };
+
+    let settings: crate::AppSettings = match serde_yaml::from_str(&content) {
+        Ok(s) => s,
+        Err(_) => return defaults,
+    };
+
+    CompactionConfig {
+        context_window_tokens: settings.llm.context_window_tokens as usize,
+        trigger_ratio: settings.llm.compaction_trigger_ratio,
+        keep_recent: settings.llm.compaction_keep_recent as usize,
+        strategy: CompactionStrategy::from_str(&settings.llm.compaction_strategy),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Context Compaction Engine
+// ---------------------------------------------------------------------------
+
+/// Compaction strategy selection.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum CompactionStrategy {
+    /// Sliding window: drop oldest assistant+tool_result pairs, keep recent N.
+    #[default]
+    SlidingWindow,
+    /// Summarize: generate a summary message from evicted turns before dropping.
+    Summarize,
+}
+
+impl CompactionStrategy {
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "summarize" => Self::Summarize,
+            _ => Self::SlidingWindow,
+        }
+    }
+}
+
+/// Result of a compaction operation.
+pub struct CompactionResult {
+    /// The compacted messages array.
+    pub messages: Vec<Value>,
+    /// How many messages were removed.
+    pub removed_count: usize,
+    /// Token count before compaction.
+    pub original_tokens: usize,
+    /// Generated summary text (only for Summarize strategy).
+    pub summary: Option<String>,
+}
+
+/// Compact a messages array using sliding window and optional summarization.
+///
+/// Preserves the first user message, generates an optional summary from evicted
+/// turns, then keeps the most recent N assistant+tool_result pairs.
+///
+/// This function is designed to be independently callable — both from the
+/// automatic tool-loop compaction check and from a future `/compact` slash command.
+pub fn compact_messages(
+    messages: &[Value],
+    _context_window: usize,
+    keep_recent: usize,
+    strategy: CompactionStrategy,
+) -> CompactionResult {
+    let original_tokens = 0; // Not estimated here; caller tracks via API usage
+    let original_count = messages.len();
+
+    if messages.len() <= 3 {
+        // Too few messages to compact
+        return CompactionResult {
+            messages: messages.to_vec(),
+            removed_count: 0,
+            original_tokens,
+            summary: None,
+        };
+    }
+
+    // Find the index of the first user message (the original request)
+    let first_user_idx = messages.iter().position(|m| {
+        m.get("role").and_then(|r| r.as_str()) == Some("user")
+    }).unwrap_or(0);
+
+    // Collect assistant+tool_result pairs as contiguous groups.
+    // We scan from the end to identify the "keep_recent" pairs.
+    // Each "pair" is: assistant message (+ its tool_calls) followed by user/tool messages (tool_results).
+    //
+    // We work backwards: count N groups from the end.
+
+    // Build a list of "turn groups" — each group starts with an assistant message
+    // and includes any following tool-result messages (user with tool_result content,
+    // or role:"tool" messages).
+    let mut turn_groups: Vec<(usize, usize)> = Vec::new(); // (start_idx, end_idx_exclusive)
+    let mut i = first_user_idx + 1;
+    while i < messages.len() {
+        let role = messages[i].get("role").and_then(|r| r.as_str()).unwrap_or("");
+        if role == "assistant" {
+            let start = i;
+            i += 1;
+            // Consume following tool-result messages
+            while i < messages.len() {
+                let r = messages[i].get("role").and_then(|r2| r2.as_str()).unwrap_or("");
+                if r == "assistant" {
+                    break;
+                }
+                // Check if this is a tool result message
+                let is_tool_result = r == "tool"
+                    || (r == "user" && messages[i].get("content").and_then(|c| c.as_array()).map_or(false, |arr| {
+                        arr.iter().any(|block| block.get("type").and_then(|t| t.as_str()) == Some("tool_result"))
+                    }));
+                if !is_tool_result {
+                    break;
+                }
+                i += 1;
+            }
+            turn_groups.push((start, i));
+        } else {
+            i += 1;
+        }
+    }
+
+    // If we have fewer turn groups than keep_recent, no compaction needed
+    if turn_groups.len() <= keep_recent {
+        return CompactionResult {
+            messages: messages.to_vec(),
+            removed_count: 0,
+            original_tokens,
+            summary: None,
+        };
+    }
+
+    // Determine which groups to evict and which to keep
+    let keep_from = turn_groups.len() - keep_recent;
+    let evicted_groups = &turn_groups[..keep_from];
+    let kept_groups = &turn_groups[keep_from..];
+
+    // Build summary from evicted messages if Summarize strategy
+    let summary = if strategy == CompactionStrategy::Summarize && !evicted_groups.is_empty() {
+        Some(generate_summary_from_groups(messages, evicted_groups))
+    } else {
+        None
+    };
+
+    // Rebuild messages: first user message + optional summary + kept groups
+    let mut result = Vec::new();
+
+    // Keep everything up to and including the first user message
+    for msg in messages.iter().take(first_user_idx + 1) {
+        result.push(msg.clone());
+    }
+
+    // Insert summary message if generated
+    if let Some(ref summary_text) = summary {
+        result.push(serde_json::json!({
+            "role": "user",
+            "content": summary_text,
+        }));
+    }
+
+    // Add kept turn groups
+    for &(start, end) in kept_groups {
+        for msg in messages.iter().take(end).skip(start) {
+            result.push(msg.clone());
+        }
+    }
+
+    let removed_count = original_count - result.len();
+
+    CompactionResult {
+        messages: result,
+        removed_count,
+        original_tokens,
+        summary,
+    }
+}
+
+/// Generate a structured summary from evicted turn groups.
+///
+/// Extracts tool names, file paths, and result snippets to create a compact
+/// summary message that preserves key context without full conversation history.
+fn generate_summary_from_groups(messages: &[Value], groups: &[(usize, usize)]) -> String {
+    let mut tool_calls: Vec<String> = Vec::new();
+    let mut file_operations: Vec<String> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+
+    for &(start, end) in groups {
+        for msg in messages.iter().take(end).skip(start) {
+            let role = msg.get("role").and_then(|r| r.as_str()).unwrap_or("");
+
+            // Extract tool call names from assistant messages
+            if role == "assistant" {
+                // Anthropic format: content blocks with type "tool_use"
+                if let Some(content) = msg.get("content").and_then(|c| c.as_array()) {
+                    for block in content {
+                        if block.get("type").and_then(|t| t.as_str()) == Some("tool_use") {
+                            let name = block.get("name").and_then(|n| n.as_str()).unwrap_or("unknown");
+                            tool_calls.push(name.to_string());
+
+                            // Extract file paths from common tool arguments
+                            if let Some(path) = block.get("input")
+                                .and_then(|i| i.get("path"))
+                                .and_then(|p| p.as_str())
+                            {
+                                file_operations.push(format!("{}({})", name, path));
+                            }
+                        }
+                    }
+                }
+                // OpenAI format: tool_calls array
+                if let Some(tool_calls_arr) = msg.get("tool_calls").and_then(|c| c.as_array()) {
+                    for tc in tool_calls_arr {
+                        let name = tc.get("function")
+                            .and_then(|f| f.get("name"))
+                            .and_then(|n| n.as_str())
+                            .unwrap_or("unknown");
+                        tool_calls.push(name.to_string());
+
+                        let args_str = tc.get("function")
+                            .and_then(|f| f.get("arguments"))
+                            .and_then(|a| a.as_str())
+                            .unwrap_or("{}");
+                        if let Ok(args) = serde_json::from_str::<Value>(args_str) {
+                            if let Some(path) = args.get("path").and_then(|p| p.as_str()) {
+                                file_operations.push(format!("{}({})", name, path));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Extract errors from tool result messages
+            if role == "tool" || role == "user" {
+                let content = msg.get("content").and_then(|c| c.as_str()).unwrap_or("");
+                if content.contains("error") || content.contains("Error") || content.contains("failed") {
+                    let snippet = if content.len() > 200 {
+                        format!("{}...", &content[..200])
+                    } else {
+                        content.to_string()
+                    };
+                    errors.push(snippet);
+                }
+            }
+        }
+    }
+
+    let total_turns = groups.len();
+    let mut parts = vec![format!("[Context Summary — {} turns compacted]", total_turns)];
+
+    if !file_operations.is_empty() {
+        let unique_ops: Vec<String> = {
+            let mut seen = std::collections::HashSet::new();
+            file_operations.iter()
+                .filter(|op| seen.insert(op.clone()))
+                .cloned()
+                .collect()
+        };
+        parts.push(format!("Files: {}", unique_ops.join(", ")));
+    }
+
+    if !errors.is_empty() {
+        // Keep up to 3 error snippets
+        let error_snippets: Vec<&str> = errors.iter().take(3).map(|s| s.as_str()).collect();
+        parts.push(format!("Errors encountered: {}", error_snippets.join("; ")));
+    }
+
+    parts.push(format!("Tools used: {} calls total", tool_calls.len()));
+
+    parts.join("\n")
+}
+
 // ---------------------------------------------------------------------------
 // RigRuntime
 // ---------------------------------------------------------------------------
@@ -632,12 +933,19 @@ struct AnthropicToolCall {
     input_json: String,
 }
 
+/// Token usage reported by the LLM API response.
+#[derive(Debug, Clone, Default)]
+struct StreamUsage {
+    input_tokens: usize,
+    output_tokens: usize,
+}
+
 /// Result of processing a full Anthropic stream response.
 enum StreamOutcome {
     /// LLM produced text and finished normally.
-    Done,
+    Done(Option<StreamUsage>),
     /// LLM requested tool calls (stop_reason = "tool_use").
-    ToolCalls(Vec<AnthropicToolCall>),
+    ToolCalls(Vec<AnthropicToolCall>, Option<StreamUsage>),
 }
 
 /// Process Anthropic SSE stream → StreamEvent, also collecting tool calls.
@@ -658,6 +966,7 @@ fn stream_anthropic_with_tools(
         let mut current_tool_id: Option<String> = None;
         let mut current_tool_name: Option<String> = None;
         let mut current_tool_input: String = String::new();
+        let mut usage: StreamUsage = StreamUsage::default();
 
         while let Some(chunk_result) = stream.next().await {
             match chunk_result {
@@ -684,7 +993,7 @@ fn stream_anthropic_with_tools(
                                     });
                                 }
                                 if !tool_calls.is_empty() {
-                                    return StreamOutcome::ToolCalls(tool_calls);
+                                    return StreamOutcome::ToolCalls(tool_calls, Some(usage));
                                 }
                                 let _ = tx.send(StreamEvent {
                                     text: String::new(),
@@ -694,7 +1003,7 @@ fn stream_anthropic_with_tools(
                                     session_id: None,
                                     idle_seconds: None,
                                 });
-                                return StreamOutcome::Done;
+                                return StreamOutcome::Done(Some(usage));
                             }
 
                             let parsed: Value = match serde_json::from_str(data) {
@@ -707,6 +1016,19 @@ fn stream_anthropic_with_tools(
                                 .unwrap_or("");
 
                             match event_type {
+                                "message_start" => {
+                                    // Extract usage (input_tokens) from message_start event
+                                    if let Some(msg_usage) = parsed.get("message")
+                                        .and_then(|m| m.get("usage"))
+                                    {
+                                        usage.input_tokens = msg_usage.get("input_tokens")
+                                            .and_then(|t| t.as_u64())
+                                            .unwrap_or(0) as usize;
+                                        usage.output_tokens = msg_usage.get("output_tokens")
+                                            .and_then(|t| t.as_u64())
+                                            .unwrap_or(0) as usize;
+                                    }
+                                }
                                 "content_block_start" => {
                                     if let Some(cb) = parsed.get("content_block") {
                                         let cb_type = cb.get("type").and_then(|t| t.as_str()).unwrap_or("");
@@ -782,16 +1104,22 @@ fn stream_anthropic_with_tools(
                                     }
                                 }
                                 "message_delta" => {
-                                    if let Some(usage) = parsed.get("delta") {
-                                        if let Some(reason) = usage.get("stop_reason").and_then(|r| r.as_str()) {
+                                    if let Some(delta) = parsed.get("delta") {
+                                        if let Some(reason) = delta.get("stop_reason").and_then(|r| r.as_str()) {
                                             _stop_reason = Some(reason.to_string());
+                                        }
+                                    }
+                                    // Also check for usage in message_delta (output_tokens update)
+                                    if let Some(delta_usage) = parsed.get("usage") {
+                                        if let Some(out) = delta_usage.get("output_tokens").and_then(|t| t.as_u64()) {
+                                            usage.output_tokens = out as usize;
                                         }
                                     }
                                 }
                                 "message_stop" => {
                                     // If we have tool calls and stop_reason is tool_use, return them
                                     if !tool_calls.is_empty() {
-                                        return StreamOutcome::ToolCalls(tool_calls);
+                                        return StreamOutcome::ToolCalls(tool_calls, Some(usage));
                                     }
                                     let _ = tx.send(StreamEvent {
                                         text: String::new(),
@@ -801,7 +1129,7 @@ fn stream_anthropic_with_tools(
                                         session_id: None,
                                         idle_seconds: None,
                                     });
-                                    return StreamOutcome::Done;
+                                    return StreamOutcome::Done(Some(usage));
                                 }
                                 "error" => {
                                     let error_msg = parsed.get("error")
@@ -816,7 +1144,7 @@ fn stream_anthropic_with_tools(
                                         session_id: None,
                                         idle_seconds: None,
                                     });
-                                    return StreamOutcome::Done;
+                                    return StreamOutcome::Done(None);
                                 }
                                 _ => {}
                             }
@@ -832,14 +1160,14 @@ fn stream_anthropic_with_tools(
                         session_id: None,
                         idle_seconds: None,
                     });
-                    return StreamOutcome::Done;
+                    return StreamOutcome::Done(None);
                 }
             }
         }
 
         // If we ended with tool calls, return them
         if !tool_calls.is_empty() {
-            return StreamOutcome::ToolCalls(tool_calls);
+            return StreamOutcome::ToolCalls(tool_calls, Some(usage));
         }
         let _ = tx.send(StreamEvent {
             text: String::new(),
@@ -849,7 +1177,7 @@ fn stream_anthropic_with_tools(
             session_id: None,
             idle_seconds: None,
         });
-        StreamOutcome::Done
+        StreamOutcome::Done(Some(usage))
     })
 }
 
@@ -868,6 +1196,7 @@ fn stream_openai_with_tools(
         let mut buffer = String::new();
         let mut tool_calls: Vec<(String, String, String)> = Vec::new(); // (id, name, arguments)
         let mut _finish_reason: Option<String> = None;
+        let mut usage: StreamUsage = StreamUsage::default();
 
         while let Some(chunk_result) = stream.next().await {
             match chunk_result {
@@ -895,7 +1224,7 @@ fn stream_openai_with_tools(
                                             input_json: args,
                                         })
                                         .collect();
-                                    return StreamOutcome::ToolCalls(calls);
+                                    return StreamOutcome::ToolCalls(calls, Some(usage));
                                 }
                                 let _ = tx.send(StreamEvent {
                                     text: String::new(),
@@ -905,7 +1234,7 @@ fn stream_openai_with_tools(
                                     session_id: None,
                                     idle_seconds: None,
                                 });
-                                return StreamOutcome::Done;
+                                return StreamOutcome::Done(Some(usage));
                             }
 
                             let parsed: Value = match serde_json::from_str(data) {
@@ -985,6 +1314,16 @@ fn stream_openai_with_tools(
                                 }
                             }
 
+                            // Extract usage from OpenAI response (may appear in any chunk)
+                            if let Some(u) = parsed.get("usage") {
+                                if let Some(prompt) = u.get("prompt_tokens").and_then(|t| t.as_u64()) {
+                                    usage.input_tokens = prompt as usize;
+                                }
+                                if let Some(compl) = u.get("completion_tokens").and_then(|t| t.as_u64()) {
+                                    usage.output_tokens = compl as usize;
+                                }
+                            }
+
                             // DeepSeek may include reasoning_content
                             if let Some(choices) = parsed.get("choices").and_then(|c| c.as_array()) {
                                 for choice in choices {
@@ -1016,7 +1355,7 @@ fn stream_openai_with_tools(
                         session_id: None,
                         idle_seconds: None,
                     });
-                    return StreamOutcome::Done;
+                    return StreamOutcome::Done(None);
                 }
             }
         }
@@ -1033,7 +1372,7 @@ fn stream_openai_with_tools(
             .collect();
 
         if !non_empty_calls.is_empty() {
-            return StreamOutcome::ToolCalls(non_empty_calls);
+            return StreamOutcome::ToolCalls(non_empty_calls, Some(usage));
         }
 
         let _ = tx.send(StreamEvent {
@@ -1044,7 +1383,7 @@ fn stream_openai_with_tools(
             session_id: None,
             idle_seconds: None,
         });
-        StreamOutcome::Done
+        StreamOutcome::Done(Some(usage))
     })
 }
 
@@ -1532,12 +1871,14 @@ impl AgentRuntime for RigRuntime {
     fn execute(&self, params: ExecuteParams) -> Result<std::sync::mpsc::Receiver<StreamEvent>, String> {
         let workspace = params.workspace.clone().unwrap_or_default();
         let config = Self::resolve_config(&workspace)?;
+        let compaction_cfg = read_compaction_config(&workspace);
 
         eprintln!(
-            "[RigRuntime] Executing: provider={}, model={}, base={}",
+            "[RigRuntime] Executing: provider={}, model={}, base={}, context_window={}",
             config.provider.as_str(),
             config.model,
-            config.api_base
+            config.api_base,
+            compaction_cfg.context_window_tokens
         );
 
         let (tx, rx) = std::sync::mpsc::channel();
@@ -1584,7 +1925,25 @@ impl AgentRuntime for RigRuntime {
 
             // Tool-use loop: max 10 iterations to prevent infinite loops
             let max_iterations = 10;
-            for _iteration in 0..max_iterations {
+            let mut total_input_tokens: usize = 0;
+            for iteration in 0..max_iterations {
+                // Context budget check: if tokens exceed context window, stop
+                if total_input_tokens > 0 && total_input_tokens >= compaction_cfg.context_window_tokens {
+                    eprintln!("[RigRuntime] Context budget exceeded: {} >= {}, stopping tool loop",
+                        total_input_tokens, compaction_cfg.context_window_tokens);
+                    let _ = tx.send(StreamEvent {
+                        text: String::new(),
+                        is_done: true,
+                        error: Some(format!("上下文预算已达上限 ({} tokens)，已停止工具调用循环", total_input_tokens)),
+                        msg_type: Some("error".to_string()),
+                        session_id: None,
+                        idle_seconds: None,
+                    });
+                    return;
+                }
+
+                eprintln!("[RigRuntime] Tool-use loop iteration {}/{}, tokens={}/{}",
+                    iteration + 1, max_iterations, total_input_tokens, compaction_cfg.context_window_tokens);
                 // Send request based on provider type
                 let response_result = match provider {
                     RigProvider::Anthropic => execute_anthropic(
@@ -1637,17 +1996,23 @@ impl AgentRuntime for RigRuntime {
                             RigProvider::Openai | RigProvider::Deepseek => stream_openai_with_tools(resp, &tx),
                             RigProvider::Gemini => {
                                 stream_gemini(resp, tx.clone());
-                                StreamOutcome::Done
+                                StreamOutcome::Done(None)
                             }
                             RigProvider::Ollama => stream_openai_with_tools(resp, &tx),
                         };
 
                         match outcome {
-                            StreamOutcome::Done => {
+                            StreamOutcome::Done(_usage) => {
                                 // LLM finished without requesting tools
                                 return;
                             }
-                            StreamOutcome::ToolCalls(calls) => {
+                            StreamOutcome::ToolCalls(calls, usage) => {
+                                // Track token usage for context budget
+                                if let Some(u) = &usage {
+                                    total_input_tokens = u.input_tokens;
+                                    eprintln!("[RigRuntime] Tool calls: {}, tokens: input={}, output={}",
+                                        calls.len(), u.input_tokens, u.output_tokens);
+                                }
                                 // Execute each tool call and send results
                                 let mut tool_results: Vec<(String, String, Value)> = Vec::new(); // (tool_call_id, tool_name, result)
 
@@ -1767,6 +2132,51 @@ impl AgentRuntime for RigRuntime {
                                             }));
                                         }
                                     }
+                                }
+
+                                // Context compaction check: trigger if tokens exceed threshold
+                                let threshold = (compaction_cfg.context_window_tokens as f64
+                                    * compaction_cfg.trigger_ratio) as usize;
+                                if total_input_tokens >= threshold {
+                                    eprintln!(
+                                        "[RigRuntime] Context compaction triggered: tokens={} >= threshold={}, strategy={:?}, keep_recent={}",
+                                        total_input_tokens, threshold, compaction_cfg.strategy, compaction_cfg.keep_recent
+                                    );
+                                    let before_count = messages.len();
+                                    let compaction_result = compact_messages(
+                                        &messages,
+                                        compaction_cfg.context_window_tokens,
+                                        compaction_cfg.keep_recent,
+                                        compaction_cfg.strategy,
+                                    );
+                                    let after_count = compaction_result.messages.len();
+                                    eprintln!(
+                                        "[RigRuntime] Context compaction complete: removed {} messages ({} -> {}){}",
+                                        compaction_result.removed_count,
+                                        before_count,
+                                        after_count,
+                                        compaction_result.summary.as_ref()
+                                            .map(|s| format!(", summary generated ({} chars)", s.len()))
+                                            .unwrap_or_default()
+                                    );
+                                    // Send compaction event to frontend log
+                                    let _ = tx.send(StreamEvent {
+                                        text: format!(
+                                            "[RigRuntime] Context compaction: removed {} messages ({} -> {}){}",
+                                            compaction_result.removed_count,
+                                            before_count,
+                                            after_count,
+                                            compaction_result.summary.as_ref()
+                                                .map(|_| ", summary generated")
+                                                .unwrap_or_default()
+                                        ),
+                                        is_done: false,
+                                        error: None,
+                                        msg_type: Some("compaction".to_string()),
+                                        session_id: None,
+                                        idle_seconds: None,
+                                    });
+                                    messages = compaction_result.messages;
                                 }
 
                                 // Continue loop — next iteration sends messages+results back to LLM

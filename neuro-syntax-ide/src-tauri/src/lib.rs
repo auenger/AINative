@@ -941,6 +941,17 @@ pub struct LlmConfig {
     pub temperature: f32,
     #[serde(default = "default_context_window")]
     pub context_window_tokens: u32,
+    /// Compaction trigger ratio: compaction fires when tokens >= context_window * trigger_ratio.
+    /// Range 0.5–0.95, default 0.75.
+    #[serde(default = "default_compaction_trigger_ratio")]
+    pub compaction_trigger_ratio: f64,
+    /// Number of recent assistant+tool_result message pairs to keep during compaction.
+    /// Range 1–10, default 4.
+    #[serde(default = "default_compaction_keep_recent")]
+    pub compaction_keep_recent: u32,
+    /// Compaction strategy: "sliding_window" (default) or "summarize".
+    #[serde(default = "default_compaction_strategy")]
+    pub compaction_strategy: String,
 }
 
 fn default_llm_provider() -> String { String::new() }
@@ -948,6 +959,9 @@ fn default_llm_model() -> String { String::new() }
 fn default_max_tokens() -> u32 { 2000 }
 fn default_temperature() -> f32 { 0.7 }
 fn default_context_window() -> u32 { 128000 }
+fn default_compaction_trigger_ratio() -> f64 { 0.75 }
+fn default_compaction_keep_recent() -> u32 { 4 }
+fn default_compaction_strategy() -> String { "sliding_window".to_string() }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct AppConfigYaml {
@@ -1062,6 +1076,9 @@ impl Default for AppSettings {
                 max_tokens: default_max_tokens(),
                 temperature: default_temperature(),
                 context_window_tokens: default_context_window(),
+                compaction_trigger_ratio: default_compaction_trigger_ratio(),
+                compaction_keep_recent: default_compaction_keep_recent(),
+                compaction_strategy: default_compaction_strategy(),
             },
             app: AppConfigYaml {
                 auto_refresh_interval: default_auto_refresh(),
