@@ -725,7 +725,7 @@ export interface StreamEventChunk {
   is_done: boolean;
   /** Error message if something went wrong */
   error?: string;
-  /** The type of this event: "assistant", "result", "system", "tool_use", "raw", "stderr", "timeout", "idle_warning" */
+  /** The type of this event: "assistant", "result", "system", "tool_use", "raw", "stderr", "timeout", "idle_warning", "command" */
   type?: string;
   /** Session ID from the CLI */
   session_id?: string;

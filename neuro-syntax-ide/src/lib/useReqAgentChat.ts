@@ -36,6 +36,8 @@ export interface ReqAgentStatus {
 export interface ReqChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
+  /** Whether this is a slash command response (feat-rig-slash-commands) */
+  isCommand?: boolean;
 }
 
 export type ReqAgentConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -156,6 +158,19 @@ export function useReqAgentChat() {
           if (chunk.type === 'disconnect' || chunk.type === 'timeout') {
             setConnectionState('error');
           }
+        }
+        return;
+      }
+
+      // Handle slash command responses (feat-rig-slash-commands)
+      // Commands are synchronous — render with isCommand flag for special styling.
+      if (chunk.type === 'command' && chunk.text) {
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant' as const, content: chunk.text, isCommand: true },
+        ]);
+        if (chunk.is_done) {
+          setIsStreaming(false);
         }
         return;
       }
