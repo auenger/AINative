@@ -4299,10 +4299,15 @@ impl RouterEngine {
         &self.fallback_log[start..]
     }
 
-    /// Truncate task description for logging.
+    /// Truncate task description for logging (UTF-8 safe).
     fn truncate_task(task: &str) -> String {
         if task.len() > 80 {
-            format!("{}...", &task[..80])
+            let boundary = task.char_indices()
+                .take_while(|(i, _)| *i < 80)
+                .last()
+                .map(|(i, c)| i + c.len_utf8())
+                .unwrap_or(0);
+            format!("{}...", &task[..boundary])
         } else {
             task.to_string()
         }

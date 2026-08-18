@@ -12,12 +12,95 @@
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Mutex, OnceLock};
 
 use crate::{
     AgentCapability, AgentRuntime, AgentRuntimeInfo, AgentRuntimeStatus, ExecuteParams, StreamEvent,
 };
 use crate::rig_tools::{ToolDefinition, ToolRegistry};
+
+// ---------------------------------------------------------------------------
+// Session Store
+// ---------------------------------------------------------------------------
+
+/// Persistent session state for a Rig conversation.
+struct RigSession {
+    /// Accumulated estimated token count (system_prompt + tools + messages).
+    estimated_tokens: usize,
+}
+
+/// Global session store, keyed by session_id.
+static RIG_SESSIONS: OnceLock<Mutex<HashMap<String, RigSession>>> = OnceLock::new();
+
+fn sessions() -> &'static Mutex<HashMap<String, RigSession>> {
+    RIG_SESSIONS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Estimate token count for text content.
+/// Uses ~4 chars/token for ASCII, ~1.5 chars/token for CJK.
+fn estimate_tokens(text: &str) -> usize {
+    if text.is_empty() {
+        return 0;
+    }
+    let cjk: usize = text
+        .chars()
+        .filter(|c| ('\u{4E00}'..='\u{9FFF}').contains(c)
+            || ('\u{3040}'..='\u{30FF}').contains(c)
+            || ('\u{AC00}'..='\u{D7AF}').contains(c))
+        .count();
+    let other_chars = text.chars().count() - cjk;
+    let cjk_tokens = (cjk as f64 / 1.5).ceil() as usize;
+    let other_tokens = (other_chars as f64 / 4.0).ceil() as usize;
+    cjk_tokens + other_tokens
+}
+
+/// Safely truncate a string at a char boundary, avoiding mid-UTF-8 panics.
+fn truncate_str(s: &str, max_bytes: usize) -> &str {
+    if s.len() <= max_bytes {
+        return s;
+    }
+    let boundary = s.char_indices()
+        .take_while(|(i, _)| *i < max_bytes)
+        .last()
+        .map(|(i, c)| i + c.len_utf8())
+        .unwrap_or(0);
+    &s[..boundary]
+}
+
+/// Estimate total context tokens from system prompt, tool definitions, and messages.
+fn estimate_context_tokens(
+    system_prompt: Option<&str>,
+    tool_defs: &[ToolDefinition],
+    messages: &[Value],
+) -> usize {
+    let mut total = 0usize;
+
+    // System prompt
+    if let Some(sp) = system_prompt {
+        if !sp.is_empty() {
+            total += estimate_tokens(sp);
+        }
+    }
+
+    // Tool definitions: serialize each to JSON and count
+    for t in tool_defs {
+        let json = serde_json::json!({
+            "name": t.name,
+            "description": t.description,
+            "parameters": t.parameters,
+        });
+        total += estimate_tokens(&json.to_string());
+    }
+
+    // Messages
+    for msg in messages {
+        total += estimate_tokens(&msg.to_string());
+    }
+
+    total
+}
 
 // ---------------------------------------------------------------------------
 // Provider types & constants
@@ -403,7 +486,7 @@ fn generate_summary_from_groups(messages: &[Value], groups: &[(usize, usize)]) -
                 let content = msg.get("content").and_then(|c| c.as_str()).unwrap_or("");
                 if content.contains("error") || content.contains("Error") || content.contains("failed") {
                     let snippet = if content.len() > 200 {
-                        format!("{}...", &content[..200])
+                        format!("{}...", truncate_str(content, 200))
                     } else {
                         content.to_string()
                     };
@@ -521,33 +604,39 @@ impl RigRuntime {
                 }
             }
 
-            // Fallback: try legacy Anthropic provider from `providers` map
+            // Read from LLM providers configured in Settings
             let settings: crate::AppSettings = serde_yaml::from_str(&content)
                 .map_err(|e| format!("解析 settings.yaml 失败: {}", e))?;
 
-            for (name, config) in &settings.providers {
-                if config.protocol == crate::ChatProtocol::Anthropic
-                    && !config.api_key.is_empty()
-                {
-                    let api_base = if config.api_base.is_empty() {
-                        "https://api.anthropic.com".to_string()
-                    } else {
-                        config.api_base.trim_end_matches('/').to_string()
+            // Use llm.provider to find the active provider
+            let active_provider_name = settings.llm.provider.as_str();
+            if let Some(provider_config) = settings.providers.get(active_provider_name) {
+                if !provider_config.api_key.is_empty() {
+                    let provider = match provider_config.protocol {
+                        crate::ChatProtocol::Anthropic => RigProvider::Anthropic,
+                        crate::ChatProtocol::Openai => RigProvider::Openai,
                     };
+
+                    let api_base = if provider_config.api_base.is_empty() {
+                        provider.default_base_url().to_string()
+                    } else {
+                        provider_config.api_base.trim_end_matches('/').to_string()
+                    };
+
                     let model = if !settings.llm.model.is_empty() {
                         settings.llm.model.clone()
                     } else {
-                        "claude-sonnet-4-20250514".to_string()
+                        provider.default_model().to_string()
                     };
 
                     eprintln!(
-                        "[RigRuntime] Legacy fallback: Provider '{}' (anthropic protocol)",
-                        name
+                        "[RigRuntime] Using LLM provider '{}' ({:?} protocol), model={}",
+                        active_provider_name, provider_config.protocol, model
                     );
 
                     return Ok(RigResolvedConfig {
-                        provider: RigProvider::Anthropic,
-                        api_key: config.api_key.clone(),
+                        provider,
+                        api_key: provider_config.api_key.clone(),
                         api_base,
                         model,
                     });
@@ -726,6 +815,31 @@ impl RigRuntime {
         })
     }
 
+    /// Test connection by reading config from settings.yaml.
+    pub fn test_connection_from_settings(workspace: &str) -> Result<Vec<String>, String> {
+        let settings_path = std::path::PathBuf::from(workspace)
+            .join(".neuro")
+            .join("settings.yaml");
+
+        if !settings_path.exists() {
+            return Err("settings.yaml 不存在，请先配置 Rig Provider".to_string());
+        }
+
+        let content = std::fs::read_to_string(&settings_path)
+            .map_err(|e| format!("读取 settings.yaml 失败: {}", e))?;
+
+        let doc: serde_json::Value = serde_yaml::from_str(&content)
+            .map_err(|e| format!("解析 settings.yaml 失败: {}", e))?;
+
+        let rig_val = doc.get("rig")
+            .ok_or("settings.yaml 中未找到 rig 配置块")?;
+
+        let config: RigProviderConfig = serde_json::from_value(rig_val.clone())
+            .map_err(|e| format!("解析 rig 配置失败: {}", e))?;
+
+        Self::test_connection(&config)
+    }
+
     // -------------------------------------------------------------------
     // Slash command parsing & routing (feat-rig-slash-commands)
     // -------------------------------------------------------------------
@@ -757,6 +871,7 @@ impl RigRuntime {
         config: &RigResolvedConfig,
         compaction_cfg: &CompactionConfig,
         tool_defs: &[ToolDefinition],
+        session_id: &str,
     ) -> StreamEvent {
         match cmd {
             "clear" => {
@@ -769,7 +884,7 @@ impl RigRuntime {
                     is_done: true,
                     error: None,
                     msg_type: Some("command".to_string()),
-                    session_id: None,
+                    session_id: Some(session_id.to_string()),
                     idle_seconds: None,
                 }
             }
@@ -782,16 +897,21 @@ impl RigRuntime {
                             arr.iter().any(|b| b.get("type").and_then(|t| t.as_str()) == Some("tool_result"))
                         })
                 }).count();
+                // Get estimated tokens from session store (set before tool-use loop)
+                let estimated = sessions().lock()
+                    .map(|s| s.get(session_id).map(|sess| sess.estimated_tokens).unwrap_or(0))
+                    .unwrap_or(0);
+                let used_tokens = if *total_input_tokens > 0 { *total_input_tokens } else { estimated };
                 let threshold = (compaction_cfg.context_window_tokens as f64
                     * compaction_cfg.trigger_ratio) as usize;
                 let pct = if compaction_cfg.context_window_tokens > 0 {
-                    (*total_input_tokens as f64 / compaction_cfg.context_window_tokens as f64 * 100.0)
+                    (used_tokens as f64 / compaction_cfg.context_window_tokens as f64 * 100.0)
                 } else {
                     0.0
                 };
                 let text = format!(
-                    "Context: {:?} / {:?} tokens ({:.1}%). {} messages, {} tool-result turns.\nAuto-compact at {:?} ({:.0}%).",
-                    *total_input_tokens,
+                    "Context: {} / {} tokens ({:.1}%). {} messages, {} tool-result turns.\nAuto-compact at {} ({:.0}%).",
+                    used_tokens,
                     compaction_cfg.context_window_tokens,
                     pct,
                     msg_count,
@@ -804,7 +924,7 @@ impl RigRuntime {
                     is_done: true,
                     error: None,
                     msg_type: Some("command".to_string()),
-                    session_id: None,
+                    session_id: Some(session_id.to_string()),
                     idle_seconds: None,
                 }
             }
@@ -839,7 +959,7 @@ impl RigRuntime {
                     is_done: true,
                     error: None,
                     msg_type: Some("command".to_string()),
-                    session_id: None,
+                    session_id: Some(session_id.to_string()),
                     idle_seconds: None,
                 }
             }
@@ -862,7 +982,7 @@ impl RigRuntime {
                     is_done: true,
                     error: None,
                     msg_type: Some("command".to_string()),
-                    session_id: None,
+                    session_id: Some(session_id.to_string()),
                     idle_seconds: None,
                 }
             }
@@ -878,7 +998,7 @@ impl RigRuntime {
                     is_done: true,
                     error: None,
                     msg_type: Some("command".to_string()),
-                    session_id: None,
+                    session_id: Some(session_id.to_string()),
                     idle_seconds: None,
                 }
             }
@@ -892,7 +1012,7 @@ impl RigRuntime {
                     is_done: true,
                     error: None,
                     msg_type: Some("command".to_string()),
-                    session_id: None,
+                    session_id: Some(session_id.to_string()),
                     idle_seconds: None,
                 }
             }
@@ -905,7 +1025,8 @@ impl RigRuntime {
 // ---------------------------------------------------------------------------
 
 /// Build and send a streaming request to Anthropic API.
-fn execute_anthropic(
+/// Uses the provided runtime handle to ensure the response connection stays alive.
+async fn execute_anthropic(
     client: &reqwest::Client,
     config: &RigResolvedConfig,
     messages: Vec<Value>,
@@ -944,25 +1065,18 @@ fn execute_anthropic(
         }
     }
 
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
-
-    rt.block_on(async {
-        client
-            .post(&url)
-            .header("Content-Type", "application/json")
-            .header("anthropic-version", "2023-06-01")
-            .header("x-api-key", &config.api_key)
-            .json(&body)
-            .send()
-            .await
-    })
+    client
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .header("anthropic-version", "2023-06-01")
+        .header("x-api-key", &config.api_key)
+        .json(&body)
+        .send()
+        .await
 }
 
 /// Build and send a streaming request to OpenAI-compatible API.
-fn execute_openai_compatible(
+async fn execute_openai_compatible(
     client: &reqwest::Client,
     config: &RigResolvedConfig,
     messages: Vec<Value>,
@@ -1012,28 +1126,21 @@ fn execute_openai_compatible(
         }
     }
 
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
+    let mut req = client
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .json(&body);
 
-    rt.block_on(async {
-        let mut req = client
-            .post(&url)
-            .header("Content-Type", "application/json")
-            .json(&body);
+    // Only add auth header if API key is provided (Ollama doesn't need one)
+    if !config.api_key.is_empty() {
+        req = req.header("Authorization", format!("Bearer {}", config.api_key));
+    }
 
-        // Only add auth header if API key is provided (Ollama doesn't need one)
-        if !config.api_key.is_empty() {
-            req = req.header("Authorization", format!("Bearer {}", config.api_key));
-        }
-
-        req.send().await
-    })
+    req.send().await
 }
 
 /// Build and send a streaming request to Gemini API.
-fn execute_gemini(
+async fn execute_gemini(
     client: &reqwest::Client,
     config: &RigResolvedConfig,
     messages: Vec<Value>,
@@ -1079,19 +1186,12 @@ fn execute_gemini(
         }
     }
 
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
-
-    rt.block_on(async {
-        client
-            .post(&url)
-            .header("Content-Type", "application/json")
-            .json(&body)
-            .send()
-            .await
-    })
+    client
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
 }
 
 // ---------------------------------------------------------------------------
@@ -1122,40 +1222,40 @@ enum StreamOutcome {
 }
 
 /// Process Anthropic SSE stream → StreamEvent, also collecting tool calls.
-fn stream_anthropic_with_tools(
+async fn stream_anthropic_with_tools(
     response: reqwest::Response,
     tx: &std::sync::mpsc::Sender<StreamEvent>,
+    session_id: &str,
 ) -> StreamOutcome {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
+    let mut stream = response.bytes_stream();
+    let mut buffer = String::new();
+    let mut _stop_reason: Option<String> = None;
+    let mut tool_calls: Vec<AnthropicToolCall> = Vec::new();
+    let mut current_tool_id: Option<String> = None;
+    let mut current_tool_name: Option<String> = None;
+    let mut current_tool_input: String = String::new();
+    let mut usage: StreamUsage = StreamUsage::default();
 
-    rt.block_on(async {
-        let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
-        let mut _stop_reason: Option<String> = None;
-        let mut tool_calls: Vec<AnthropicToolCall> = Vec::new();
-        let mut current_tool_id: Option<String> = None;
-        let mut current_tool_name: Option<String> = None;
-        let mut current_tool_input: String = String::new();
-        let mut usage: StreamUsage = StreamUsage::default();
+    while let Some(chunk_result) = stream.next().await {
+        match chunk_result {
+            Ok(bytes) => {
+                let text = String::from_utf8_lossy(&bytes);
+                buffer.push_str(&text);
 
-        while let Some(chunk_result) = stream.next().await {
-            match chunk_result {
-                Ok(bytes) => {
-                    let text = String::from_utf8_lossy(&bytes);
-                    buffer.push_str(&text);
+                while let Some(pos) = buffer.find('\n') {
+                    let line = buffer[..pos].trim().to_string();
+                    buffer = buffer[pos + 1..].to_string();
 
-                    while let Some(pos) = buffer.find('\n') {
-                        let line = buffer[..pos].trim().to_string();
-                        buffer = buffer[pos + 1..].to_string();
+                    if line.is_empty() {
+                        continue;
+                    }
 
-                        if line.is_empty() {
-                            continue;
-                        }
+                    // Debug: log every SSE line to diagnose format issues
+                    if line.starts_with("event:") || line.starts_with("data:") {
+                        eprintln!("[RigRuntime::SSE] {}", truncate_str(&line, 300));
+                    }
 
-                        if let Some(data) = line.strip_prefix("data: ") {
+                    if let Some(data) = line.strip_prefix("data: ") {
                             if data == "[DONE]" {
                                 // Flush any pending tool call
                                 if let (Some(id), Some(name)) = (current_tool_id.take(), current_tool_name.take()) {
@@ -1173,7 +1273,7 @@ fn stream_anthropic_with_tools(
                                     is_done: true,
                                     error: None,
                                     msg_type: Some("result".to_string()),
-                                    session_id: None,
+                                    session_id: Some(session_id.to_string()),
                                     idle_seconds: None,
                                 });
                                 return StreamOutcome::Done(Some(usage));
@@ -1181,12 +1281,19 @@ fn stream_anthropic_with_tools(
 
                             let parsed: Value = match serde_json::from_str(data) {
                                 Ok(v) => v,
-                                Err(_) => continue,
+                                Err(e) => {
+                                    eprintln!("[RigRuntime::SSE] JSON parse error: {}, data={}", e, truncate_str(data, 200));
+                                    continue;
+                                }
                             };
 
                             let event_type = parsed.get("type")
                                 .and_then(|t| t.as_str())
                                 .unwrap_or("");
+
+                            if !event_type.is_empty() && event_type != "ping" {
+                                eprintln!("[RigRuntime::SSE] event_type={}", event_type);
+                            }
 
                             match event_type {
                                 "message_start" => {
@@ -1241,7 +1348,7 @@ fn stream_anthropic_with_tools(
                                                         is_done: false,
                                                         error: None,
                                                         msg_type: Some("assistant".to_string()),
-                                                        session_id: None,
+                                                        session_id: Some(session_id.to_string()),
                                                         idle_seconds: None,
                                                     });
                                                 }
@@ -1257,7 +1364,7 @@ fn stream_anthropic_with_tools(
                                                         is_done: false,
                                                         error: None,
                                                         msg_type: Some("tool_use".to_string()),
-                                                        session_id: None,
+                                                        session_id: Some(session_id.to_string()),
                                                         idle_seconds: None,
                                                     });
                                                 }
@@ -1299,7 +1406,7 @@ fn stream_anthropic_with_tools(
                                         is_done: true,
                                         error: None,
                                         msg_type: Some("result".to_string()),
-                                        session_id: None,
+                                        session_id: Some(session_id.to_string()),
                                         idle_seconds: None,
                                     });
                                     return StreamOutcome::Done(Some(usage));
@@ -1314,7 +1421,7 @@ fn stream_anthropic_with_tools(
                                         is_done: true,
                                         error: Some(error_msg.to_string()),
                                         msg_type: Some("error".to_string()),
-                                        session_id: None,
+                                        session_id: Some(session_id.to_string()),
                                         idle_seconds: None,
                                     });
                                     return StreamOutcome::Done(None);
@@ -1330,7 +1437,7 @@ fn stream_anthropic_with_tools(
                         is_done: true,
                         error: Some(format!("流式读取错误: {}", e)),
                         msg_type: Some("error".to_string()),
-                        session_id: None,
+                        session_id: Some(session_id.to_string()),
                         idle_seconds: None,
                     });
                     return StreamOutcome::Done(None);
@@ -1347,39 +1454,33 @@ fn stream_anthropic_with_tools(
             is_done: true,
             error: None,
             msg_type: Some("result".to_string()),
-            session_id: None,
+            session_id: Some(session_id.to_string()),
             idle_seconds: None,
         });
         StreamOutcome::Done(Some(usage))
-    })
 }
 
 /// Process OpenAI SSE stream → StreamEvent, also collecting tool calls.
-fn stream_openai_with_tools(
+async fn stream_openai_with_tools(
     response: reqwest::Response,
     tx: &std::sync::mpsc::Sender<StreamEvent>,
+    session_id: &str,
 ) -> StreamOutcome {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
+    let mut stream = response.bytes_stream();
+    let mut buffer = String::new();
+    let mut tool_calls: Vec<(String, String, String)> = Vec::new(); // (id, name, arguments)
+    let mut _finish_reason: Option<String> = None;
+    let mut usage: StreamUsage = StreamUsage::default();
 
-    rt.block_on(async {
-        let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
-        let mut tool_calls: Vec<(String, String, String)> = Vec::new(); // (id, name, arguments)
-        let mut _finish_reason: Option<String> = None;
-        let mut usage: StreamUsage = StreamUsage::default();
+    while let Some(chunk_result) = stream.next().await {
+        match chunk_result {
+            Ok(bytes) => {
+                let text = String::from_utf8_lossy(&bytes);
+                buffer.push_str(&text);
 
-        while let Some(chunk_result) = stream.next().await {
-            match chunk_result {
-                Ok(bytes) => {
-                    let text = String::from_utf8_lossy(&bytes);
-                    buffer.push_str(&text);
-
-                    while let Some(pos) = buffer.find('\n') {
-                        let line = buffer[..pos].trim().to_string();
-                        buffer = buffer[pos + 1..].to_string();
+                while let Some(pos) = buffer.find('\n') {
+                    let line = buffer[..pos].trim().to_string();
+                    buffer = buffer[pos + 1..].to_string();
 
                         if line.is_empty() {
                             continue;
@@ -1404,7 +1505,7 @@ fn stream_openai_with_tools(
                                     is_done: true,
                                     error: None,
                                     msg_type: Some("result".to_string()),
-                                    session_id: None,
+                                    session_id: Some(session_id.to_string()),
                                     idle_seconds: None,
                                 });
                                 return StreamOutcome::Done(Some(usage));
@@ -1427,7 +1528,7 @@ fn stream_openai_with_tools(
                                                     is_done: false,
                                                     error: None,
                                                     msg_type: Some("assistant".to_string()),
-                                                    session_id: None,
+                                                    session_id: Some(session_id.to_string()),
                                                     idle_seconds: None,
                                                 });
                                             }
@@ -1471,7 +1572,7 @@ fn stream_openai_with_tools(
                                                             is_done: false,
                                                             error: None,
                                                             msg_type: Some("tool_use".to_string()),
-                                                            session_id: None,
+                                                            session_id: Some(session_id.to_string()),
                                                             idle_seconds: None,
                                                         });
                                                     }
@@ -1508,7 +1609,7 @@ fn stream_openai_with_tools(
                                                     is_done: false,
                                                     error: None,
                                                     msg_type: Some("reasoning".to_string()),
-                                                    session_id: None,
+                                                    session_id: Some(session_id.to_string()),
                                                     idle_seconds: None,
                                                 });
                                             }
@@ -1525,7 +1626,7 @@ fn stream_openai_with_tools(
                         is_done: true,
                         error: Some(format!("流式读取错误: {}", e)),
                         msg_type: Some("error".to_string()),
-                        session_id: None,
+                        session_id: Some(session_id.to_string()),
                         idle_seconds: None,
                     });
                     return StreamOutcome::Done(None);
@@ -1553,30 +1654,24 @@ fn stream_openai_with_tools(
             is_done: true,
             error: None,
             msg_type: Some("result".to_string()),
-            session_id: None,
+            session_id: Some(session_id.to_string()),
             idle_seconds: None,
         });
         StreamOutcome::Done(Some(usage))
-    })
 }
 
 /// Process Anthropic SSE stream → StreamEvent (backward-compatible wrapper, no tool collection)
 #[allow(dead_code)]
-fn stream_anthropic(
+async fn stream_anthropic(
     response: reqwest::Response,
     tx: std::sync::mpsc::Sender<StreamEvent>,
+    session_id: &str,
 ) {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
+    let mut stream = response.bytes_stream();
+    let mut buffer = String::new();
 
-    rt.block_on(async {
-        let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
-
-        while let Some(chunk_result) = stream.next().await {
-            match chunk_result {
+    while let Some(chunk_result) = stream.next().await {
+        match chunk_result {
                 Ok(bytes) => {
                     let text = String::from_utf8_lossy(&bytes);
                     buffer.push_str(&text);
@@ -1596,7 +1691,7 @@ fn stream_anthropic(
                                     is_done: true,
                                     error: None,
                                     msg_type: Some("result".to_string()),
-                                    session_id: None,
+                                    session_id: Some(session_id.to_string()),
                                     idle_seconds: None,
                                 });
                                 return;
@@ -1629,7 +1724,7 @@ fn stream_anthropic(
                                                         is_done: false,
                                                         error: None,
                                                         msg_type: Some("assistant".to_string()),
-                                                        session_id: None,
+                                                        session_id: Some(session_id.to_string()),
                                                         idle_seconds: None,
                                                     });
                                                 }
@@ -1644,7 +1739,7 @@ fn stream_anthropic(
                                                         is_done: false,
                                                         error: None,
                                                         msg_type: Some("tool_use".to_string()),
-                                                        session_id: None,
+                                                        session_id: Some(session_id.to_string()),
                                                         idle_seconds: None,
                                                     });
                                                 }
@@ -1659,7 +1754,7 @@ fn stream_anthropic(
                                         is_done: true,
                                         error: None,
                                         msg_type: Some("result".to_string()),
-                                        session_id: None,
+                                        session_id: Some(session_id.to_string()),
                                         idle_seconds: None,
                                     });
                                     return;
@@ -1674,7 +1769,7 @@ fn stream_anthropic(
                                         is_done: true,
                                         error: Some(error_msg.to_string()),
                                         msg_type: Some("error".to_string()),
-                                        session_id: None,
+                                        session_id: Some(session_id.to_string()),
                                         idle_seconds: None,
                                     });
                                     return;
@@ -1690,7 +1785,7 @@ fn stream_anthropic(
                         is_done: true,
                         error: Some(format!("流式读取错误: {}", e)),
                         msg_type: Some("error".to_string()),
-                        session_id: None,
+                        session_id: Some(session_id.to_string()),
                         idle_seconds: None,
                     });
                     return;
@@ -1703,72 +1798,66 @@ fn stream_anthropic(
             is_done: true,
             error: None,
             msg_type: Some("result".to_string()),
-            session_id: None,
+            session_id: Some(session_id.to_string()),
             idle_seconds: None,
         });
-    });
 }
 
 /// Process OpenAI-compatible SSE stream → StreamEvent
 #[allow(dead_code)]
-fn stream_openai(
+async fn stream_openai(
     response: reqwest::Response,
     tx: std::sync::mpsc::Sender<StreamEvent>,
+    session_id: &str,
 ) {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
+    let mut stream = response.bytes_stream();
+    let mut buffer = String::new();
 
-    rt.block_on(async {
-        let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
+    while let Some(chunk_result) = stream.next().await {
+        match chunk_result {
+            Ok(bytes) => {
+                let text = String::from_utf8_lossy(&bytes);
+                buffer.push_str(&text);
 
-        while let Some(chunk_result) = stream.next().await {
-            match chunk_result {
-                Ok(bytes) => {
-                    let text = String::from_utf8_lossy(&bytes);
-                    buffer.push_str(&text);
+                while let Some(pos) = buffer.find('\n') {
+                    let line = buffer[..pos].trim().to_string();
+                    buffer = buffer[pos + 1..].to_string();
 
-                    while let Some(pos) = buffer.find('\n') {
-                        let line = buffer[..pos].trim().to_string();
-                        buffer = buffer[pos + 1..].to_string();
+                    if line.is_empty() {
+                        continue;
+                    }
 
-                        if line.is_empty() {
-                            continue;
+                    if let Some(data) = line.strip_prefix("data: ") {
+                        if data == "[DONE]" {
+                            let _ = tx.send(StreamEvent {
+                                text: String::new(),
+                                is_done: true,
+                                error: None,
+                                msg_type: Some("result".to_string()),
+                                session_id: Some(session_id.to_string()),
+                                idle_seconds: None,
+                            });
+                            return;
                         }
 
-                        if let Some(data) = line.strip_prefix("data: ") {
-                            if data == "[DONE]" {
-                                let _ = tx.send(StreamEvent {
-                                    text: String::new(),
-                                    is_done: true,
-                                    error: None,
-                                    msg_type: Some("result".to_string()),
-                                    session_id: None,
-                                    idle_seconds: None,
-                                });
-                                return;
-                            }
+                        let parsed: Value = match serde_json::from_str(data) {
+                            Ok(v) => v,
+                            Err(_) => continue,
+                        };
 
-                            let parsed: Value = match serde_json::from_str(data) {
-                                Ok(v) => v,
-                                Err(_) => continue,
-                            };
-
-                            // OpenAI format: { choices: [{ delta: { content: "..." } }] }
-                            if let Some(choices) = parsed.get("choices").and_then(|c| c.as_array()) {
-                                for choice in choices {
-                                    if let Some(delta) = choice.get("delta") {
-                                        // Text content
-                                        if let Some(content) = delta.get("content").and_then(|c| c.as_str()) {
-                                            if !content.is_empty() {
-                                                let _ = tx.send(StreamEvent {
+                        // OpenAI format: { choices: [{ delta: { content: "..." } }] }
+                        if let Some(choices) = parsed.get("choices").and_then(|c| c.as_array()) {
+                            for choice in choices {
+                                if let Some(delta) = choice.get("delta") {
+                                    // Text content
+                                    if let Some(content) = delta.get("content").and_then(|c| c.as_str()) {
+                                        if !content.is_empty() {
+                                            let _ = tx.send(StreamEvent {
                                                     text: content.to_string(),
                                                     is_done: false,
                                                     error: None,
                                                     msg_type: Some("assistant".to_string()),
-                                                    session_id: None,
+                                                    session_id: Some(session_id.to_string()),
                                                     idle_seconds: None,
                                                 });
                                             }
@@ -1784,7 +1873,7 @@ fn stream_openai(
                                                                 is_done: false,
                                                                 error: None,
                                                                 msg_type: Some("tool_use".to_string()),
-                                                                session_id: None,
+                                                                session_id: Some(session_id.to_string()),
                                                                 idle_seconds: None,
                                                             });
                                                         }
@@ -1814,7 +1903,7 @@ fn stream_openai(
                                                     is_done: false,
                                                     error: None,
                                                     msg_type: Some("reasoning".to_string()),
-                                                    session_id: None,
+                                                    session_id: Some(session_id.to_string()),
                                                     idle_seconds: None,
                                                 });
                                             }
@@ -1831,7 +1920,7 @@ fn stream_openai(
                         is_done: true,
                         error: Some(format!("流式读取错误: {}", e)),
                         msg_type: Some("error".to_string()),
-                        session_id: None,
+                        session_id: Some(session_id.to_string()),
                         idle_seconds: None,
                     });
                     return;
@@ -1844,83 +1933,77 @@ fn stream_openai(
             is_done: true,
             error: None,
             msg_type: Some("result".to_string()),
-            session_id: None,
+            session_id: Some(session_id.to_string()),
             idle_seconds: None,
         });
-    });
 }
 
 /// Process Gemini SSE stream → StreamEvent
-fn stream_gemini(
+async fn stream_gemini(
     response: reqwest::Response,
     tx: std::sync::mpsc::Sender<StreamEvent>,
+    session_id: &str,
 ) {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
+    let mut stream = response.bytes_stream();
+    let mut buffer = String::new();
 
-    rt.block_on(async {
-        let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
+    while let Some(chunk_result) = stream.next().await {
+        match chunk_result {
+            Ok(bytes) => {
+                let text = String::from_utf8_lossy(&bytes);
+                buffer.push_str(&text);
 
-        while let Some(chunk_result) = stream.next().await {
-            match chunk_result {
-                Ok(bytes) => {
-                    let text = String::from_utf8_lossy(&bytes);
-                    buffer.push_str(&text);
+                while let Some(pos) = buffer.find('\n') {
+                    let line = buffer[..pos].trim().to_string();
+                    buffer = buffer[pos + 1..].to_string();
 
-                    while let Some(pos) = buffer.find('\n') {
-                        let line = buffer[..pos].trim().to_string();
-                        buffer = buffer[pos + 1..].to_string();
+                    if line.is_empty() {
+                        continue;
+                    }
 
-                        if line.is_empty() {
-                            continue;
-                        }
+                    if let Some(data) = line.strip_prefix("data: ") {
+                        let parsed: Value = match serde_json::from_str(data) {
+                            Ok(v) => v,
+                            Err(_) => continue,
+                        };
 
-                        if let Some(data) = line.strip_prefix("data: ") {
-                            let parsed: Value = match serde_json::from_str(data) {
-                                Ok(v) => v,
-                                Err(_) => continue,
-                            };
-
-                            // Gemini format: { candidates: [{ content: { parts: [{ text: "..." }] } }] }
-                            if let Some(candidates) = parsed.get("candidates").and_then(|c| c.as_array()) {
-                                for candidate in candidates {
-                                    if let Some(parts) = candidate.get("content")
-                                        .and_then(|c| c.get("parts"))
-                                        .and_then(|p| p.as_array())
-                                    {
-                                        for part in parts {
-                                            if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
-                                                if !text.is_empty() {
-                                                    let _ = tx.send(StreamEvent {
-                                                        text: text.to_string(),
-                                                        is_done: false,
-                                                        error: None,
-                                                        msg_type: Some("assistant".to_string()),
-                                                        session_id: None,
-                                                        idle_seconds: None,
-                                                    });
-                                                }
+                        // Gemini format: { candidates: [{ content: { parts: [{ text: "..." }] } }] }
+                        if let Some(candidates) = parsed.get("candidates").and_then(|c| c.as_array()) {
+                            for candidate in candidates {
+                                if let Some(parts) = candidate.get("content")
+                                    .and_then(|c| c.get("parts"))
+                                    .and_then(|p| p.as_array())
+                                {
+                                    for part in parts {
+                                        if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
+                                            if !text.is_empty() {
+                                                let _ = tx.send(StreamEvent {
+                                                    text: text.to_string(),
+                                                    is_done: false,
+                                                    error: None,
+                                                    msg_type: Some("assistant".to_string()),
+                                                    session_id: Some(session_id.to_string()),
+                                                    idle_seconds: None,
+                                                });
                                             }
                                         }
                                     }
+                                }
 
-                                    // Check finish reason
-                                    if let Some(reason) = candidate.get("finishReason").and_then(|r| r.as_str()) {
-                                        if reason == "STOP" {
-                                            let _ = tx.send(StreamEvent {
-                                                text: String::new(),
-                                                is_done: true,
-                                                error: None,
-                                                msg_type: Some("result".to_string()),
-                                                session_id: None,
-                                                idle_seconds: None,
-                                            });
-                                            return;
-                                        }
+                                // Check finish reason
+                                if let Some(reason) = candidate.get("finishReason").and_then(|r| r.as_str()) {
+                                    if reason == "STOP" {
+                                        let _ = tx.send(StreamEvent {
+                                            text: String::new(),
+                                            is_done: true,
+                                            error: None,
+                                            msg_type: Some("result".to_string()),
+                                            session_id: Some(session_id.to_string()),
+                                            idle_seconds: None,
+                                        });
+                                        return;
                                     }
+                                }
                                 }
                             }
 
@@ -1934,7 +2017,7 @@ fn stream_gemini(
                                     is_done: true,
                                     error: Some(msg.to_string()),
                                     msg_type: Some("error".to_string()),
-                                    session_id: None,
+                                    session_id: Some(session_id.to_string()),
                                     idle_seconds: None,
                                 });
                                 return;
@@ -1948,7 +2031,7 @@ fn stream_gemini(
                         is_done: true,
                         error: Some(format!("流式读取错误: {}", e)),
                         msg_type: Some("error".to_string()),
-                        session_id: None,
+                        session_id: Some(session_id.to_string()),
                         idle_seconds: None,
                     });
                     return;
@@ -1961,10 +2044,9 @@ fn stream_gemini(
             is_done: true,
             error: None,
             msg_type: Some("result".to_string()),
-            session_id: None,
+            session_id: Some(session_id.to_string()),
             idle_seconds: None,
         });
-    });
 }
 
 // ---------------------------------------------------------------------------
@@ -2046,12 +2128,18 @@ impl AgentRuntime for RigRuntime {
         let config = Self::resolve_config(&workspace)?;
         let compaction_cfg = read_compaction_config(&workspace);
 
+        // Generate or reuse session_id
+        let session_id = params.session_id.clone().unwrap_or_else(|| {
+            uuid::Uuid::new_v4().to_string()
+        });
+
         eprintln!(
-            "[RigRuntime] Executing: provider={}, model={}, base={}, context_window={}",
+            "[RigRuntime] Executing: provider={}, model={}, base={}, context_window={}, session={}",
             config.provider.as_str(),
             config.model,
             config.api_base,
-            compaction_cfg.context_window_tokens
+            compaction_cfg.context_window_tokens,
+            &session_id[..8],
         );
 
         let (tx, rx) = std::sync::mpsc::channel();
@@ -2063,6 +2151,7 @@ impl AgentRuntime for RigRuntime {
         let system_prompt = params.system_prompt.clone();
         let user_message = params.message.clone();
         let workspace_path = PathBuf::from(&workspace);
+        let sid = session_id.clone();
 
         std::thread::spawn(move || {
             let rt = tokio::runtime::Builder::new_current_thread()
@@ -2070,18 +2159,43 @@ impl AgentRuntime for RigRuntime {
                 .build()
                 .unwrap();
 
-            let client = rt.block_on(async { reqwest::Client::new() });
+            let client = reqwest::Client::new();
 
             // Create tool registry for workspace
             let tool_registry = ToolRegistry::new(workspace_path.clone());
             let tool_defs = tool_registry.definitions();
 
             // ── Slash command interception ──
-            // If the raw user_message starts with '/', intercept and handle as a command.
-            // Commands are handled synchronously — no LLM call, no token cost.
-            if let Some(cmd) = Self::parse_command(&user_message) {
+            // Check if the latest user message is a slash command.
+            // The frontend may send either a plain string or a JSON-encoded messages array.
+            // We need to extract the text from the last user role message.
+            let maybe_cmd = {
+                if let Some(cmd) = Self::parse_command(&user_message) {
+                    Some(cmd.to_string())
+                } else if let Ok(chat_msgs) = serde_json::from_str::<Vec<Value>>(&user_message) {
+                    // Find the last user message and check if its content is a slash command
+                    chat_msgs.iter().rev()
+                        .find(|m| m.get("role").and_then(|r| r.as_str()) == Some("user"))
+                        .and_then(|m| {
+                            let content = m.get("content")?;
+                            let text = content.as_str().unwrap_or("");
+                            // Content may also be an array of blocks: [{"type":"text","text":"/cmd"}]
+                            if text.is_empty() {
+                                content.as_array()
+                                    .and_then(|arr| arr.iter().find(|b| b.get("type").and_then(|t| t.as_str()) == Some("text")))
+                                    .and_then(|b| b.get("text").and_then(|t| t.as_str()))
+                                    .and_then(|t| Self::parse_command(t).map(|c| c.to_string()))
+                            } else {
+                                Self::parse_command(text).map(|c| c.to_string())
+                            }
+                        })
+                } else {
+                    None
+                }
+            };
+
+            if let Some(ref cmd) = maybe_cmd {
                 eprintln!("[RigRuntime] Slash command intercepted: /{}", cmd);
-                // Parse existing messages for context-aware commands
                 let mut messages: Vec<Value> = Vec::new();
                 if let Ok(chat_msgs) = serde_json::from_str::<Vec<Value>>(&user_message) {
                     for msg in &chat_msgs {
@@ -2095,14 +2209,17 @@ impl AgentRuntime for RigRuntime {
                     api_base: api_base.clone(),
                     model: model.clone(),
                 };
-                let event = Self::handle_command(
+                let mut event = Self::handle_command(
                     cmd,
                     &mut messages,
                     &mut total_tokens,
                     &resolved_for_cmd,
                     &compaction_cfg,
                     &tool_defs,
+                    &sid,
                 );
+                // Patch session_id into the command response
+                event.session_id = Some(sid.clone());
                 let _ = tx.send(event);
                 return;
             }
@@ -2127,87 +2244,108 @@ impl AgentRuntime for RigRuntime {
                 model: model.clone(),
             };
 
-            // Tool-use loop: max 10 iterations to prevent infinite loops
-            let max_iterations = 10;
-            let mut total_input_tokens: usize = 0;
-            for iteration in 0..max_iterations {
-                // Context budget check: if tokens exceed context window, stop
-                if total_input_tokens > 0 && total_input_tokens >= compaction_cfg.context_window_tokens {
-                    eprintln!("[RigRuntime] Context budget exceeded: {} >= {}, stopping tool loop",
-                        total_input_tokens, compaction_cfg.context_window_tokens);
-                    let _ = tx.send(StreamEvent {
-                        text: String::new(),
-                        is_done: true,
-                        error: Some(format!("上下文预算已达上限 ({} tokens)，已停止工具调用循环", total_input_tokens)),
-                        msg_type: Some("error".to_string()),
-                        session_id: None,
-                        idle_seconds: None,
-                    });
-                    return;
-                }
+            // Estimate context tokens: system_prompt + tools + messages
+            let estimated_tokens = estimate_context_tokens(
+                system_prompt.as_deref(),
+                &tool_defs,
+                &messages,
+            );
 
-                eprintln!("[RigRuntime] Tool-use loop iteration {}/{}, tokens={}/{}",
-                    iteration + 1, max_iterations, total_input_tokens, compaction_cfg.context_window_tokens);
-                // Send request based on provider type
-                let response_result = match provider {
-                    RigProvider::Anthropic => execute_anthropic(
-                        &client, &resolved, messages.clone(),
-                        system_prompt.as_deref(),
-                        Some(&tool_defs),
-                    ),
-                    RigProvider::Openai | RigProvider::Deepseek => {
-                        execute_openai_compatible(
+            // Store/update session state
+            {
+                let mut store = sessions().lock().unwrap();
+                store.insert(sid.clone(), RigSession {
+                    estimated_tokens,
+                });
+            }
+            eprintln!(
+                "[RigRuntime] Session {}: estimated {} tokens (system+tools+messages={})",
+                &sid[..8], estimated_tokens, messages.len(),
+            );
+
+            // Run the entire tool-use loop on a single tokio runtime to keep
+            // the HTTP connection alive across request sending AND response reading.
+            rt.block_on(async {
+                // Tool-use loop: max 10 iterations to prevent infinite loops
+                let max_iterations = 10;
+                let mut total_input_tokens: usize = estimated_tokens;
+                for iteration in 0..max_iterations {
+                    // Context budget check: if tokens exceed context window, stop
+                    if total_input_tokens > 0 && total_input_tokens >= compaction_cfg.context_window_tokens {
+                        eprintln!("[RigRuntime] Context budget exceeded: {} >= {}, stopping tool loop",
+                            total_input_tokens, compaction_cfg.context_window_tokens);
+                        let _ = tx.send(StreamEvent {
+                            text: String::new(),
+                            is_done: true,
+                            error: Some(format!("上下文预算已达上限 ({} tokens)，已停止工具调用循环", total_input_tokens)),
+                            msg_type: Some("error".to_string()),
+                            session_id: Some(session_id.to_string()),
+                            idle_seconds: None,
+                        });
+                        return;
+                    }
+
+                    eprintln!("[RigRuntime] Tool-use loop iteration {}/{}, tokens={}/{}",
+                        iteration + 1, max_iterations, total_input_tokens, compaction_cfg.context_window_tokens);
+                    // Send request based on provider type — now async, runs on the same runtime
+                    let response_result = match provider {
+                        RigProvider::Anthropic => execute_anthropic(
                             &client, &resolved, messages.clone(),
                             system_prompt.as_deref(),
                             Some(&tool_defs),
-                        )
-                    }
-                    RigProvider::Gemini => execute_gemini(
-                        &client, &resolved, messages.clone(),
-                        system_prompt.as_deref(),
-                        None, // Gemini tools not yet supported
-                    ),
-                    RigProvider::Ollama => execute_openai_compatible(
-                        &client, &resolved, messages.clone(),
-                        system_prompt.as_deref(),
-                        Some(&tool_defs),
-                    ),
-                };
-
-                match response_result {
-                    Ok(resp) => {
-                        let status = resp.status();
-                        if !status.is_success() {
-                            let error_body: String = rt.block_on(async {
-                                resp.text().await.unwrap_or_else(|_| "Unknown error".into())
-                            });
-                            let _ = tx.send(StreamEvent {
-                                text: String::new(),
-                                is_done: true,
-                                error: Some(format!("{} API 错误 ({}): {}", provider.label(), status, error_body)),
-                                msg_type: Some("error".to_string()),
-                                session_id: None,
-                                idle_seconds: None,
-                            });
-                            return;
+                        ).await,
+                        RigProvider::Openai | RigProvider::Deepseek => {
+                            execute_openai_compatible(
+                                &client, &resolved, messages.clone(),
+                                system_prompt.as_deref(),
+                                Some(&tool_defs),
+                            ).await
                         }
+                        RigProvider::Gemini => execute_gemini(
+                            &client, &resolved, messages.clone(),
+                            system_prompt.as_deref(),
+                            None, // Gemini tools not yet supported
+                        ).await,
+                        RigProvider::Ollama => execute_openai_compatible(
+                            &client, &resolved, messages.clone(),
+                            system_prompt.as_deref(),
+                            Some(&tool_defs),
+                        ).await,
+                    };
 
-                        eprintln!("[RigRuntime] response status={}", status);
-
-                        // Route to provider-specific stream processor with tool collection
-                        let outcome = match provider {
-                            RigProvider::Anthropic => stream_anthropic_with_tools(resp, &tx),
-                            RigProvider::Openai | RigProvider::Deepseek => stream_openai_with_tools(resp, &tx),
-                            RigProvider::Gemini => {
-                                stream_gemini(resp, tx.clone());
-                                StreamOutcome::Done(None)
+                    match response_result {
+                        Ok(resp) => {
+                            let status = resp.status();
+                            if !status.is_success() {
+                                let error_body = resp.text().await.unwrap_or_else(|_| "Unknown error".into());
+                                let _ = tx.send(StreamEvent {
+                                    text: String::new(),
+                                    is_done: true,
+                                    error: Some(format!("{} API 错误 ({}): {}", provider.label(), status, error_body)),
+                                    msg_type: Some("error".to_string()),
+                                    session_id: Some(session_id.to_string()),
+                                    idle_seconds: None,
+                                });
+                                return;
                             }
-                            RigProvider::Ollama => stream_openai_with_tools(resp, &tx),
-                        };
+
+                            eprintln!("[RigRuntime] response status={}", status);
+
+                            // Route to provider-specific stream processor — now async, same runtime
+                            let outcome = match provider {
+                                RigProvider::Anthropic => stream_anthropic_with_tools(resp, &tx, &sid).await,
+                                RigProvider::Openai | RigProvider::Deepseek => stream_openai_with_tools(resp, &tx, &sid).await,
+                                RigProvider::Gemini => {
+                                    stream_gemini(resp, tx.clone(), &sid).await;
+                                    StreamOutcome::Done(None)
+                                }
+                                RigProvider::Ollama => stream_openai_with_tools(resp, &tx, &sid).await,
+                            };
 
                         match outcome {
                             StreamOutcome::Done(_usage) => {
                                 // LLM finished without requesting tools
+                                eprintln!("[RigRuntime] StreamOutcome::Done, no tool calls");
                                 return;
                             }
                             StreamOutcome::ToolCalls(calls, usage) => {
@@ -2240,7 +2378,7 @@ impl AgentRuntime for RigRuntime {
                                         is_done: false,
                                         error: None,
                                         msg_type: Some("tool_use".to_string()),
-                                        session_id: None,
+                                        session_id: Some(session_id.to_string()),
                                         idle_seconds: None,
                                     });
 
@@ -2253,7 +2391,7 @@ impl AgentRuntime for RigRuntime {
                                             "name": tc.name,
                                             "success": result.success,
                                             "output": if result.output.len() > 5000 {
-                                                format!("{}...\n(truncated, {} chars total)", &result.output[..5000], result.output.len())
+                                                format!("{}...\n(truncated, {} chars total)", truncate_str(&result.output, 5000), result.output.len())
                                             } else {
                                                 result.output.clone()
                                             },
@@ -2261,7 +2399,7 @@ impl AgentRuntime for RigRuntime {
                                         is_done: false,
                                         error: None,
                                         msg_type: Some("tool_result".to_string()),
-                                        session_id: None,
+                                        session_id: Some(session_id.to_string()),
                                         idle_seconds: None,
                                     });
 
@@ -2377,7 +2515,7 @@ impl AgentRuntime for RigRuntime {
                                         is_done: false,
                                         error: None,
                                         msg_type: Some("compaction".to_string()),
-                                        session_id: None,
+                                        session_id: Some(session_id.to_string()),
                                         idle_seconds: None,
                                     });
                                     messages = compaction_result.messages;
@@ -2394,7 +2532,7 @@ impl AgentRuntime for RigRuntime {
                             is_done: true,
                             error: Some(format!("连接 {} API 失败: {}", provider.label(), e)),
                             msg_type: Some("error".to_string()),
-                            session_id: None,
+                            session_id: Some(session_id.to_string()),
                             idle_seconds: None,
                         });
                         return;
@@ -2408,10 +2546,11 @@ impl AgentRuntime for RigRuntime {
                 is_done: true,
                 error: Some("Max tool-use iterations reached (10)".to_string()),
                 msg_type: Some("error".to_string()),
-                session_id: None,
+                session_id: Some(session_id.to_string()),
                 idle_seconds: None,
             });
-        });
+            }); // end rt.block_on(async { ... })
+        }); // end std::thread::spawn
 
         Ok(rx)
     }

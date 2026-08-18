@@ -1,4 +1,4 @@
-# Neuro Syntax IDE — CLAUDE.md
+# Neuro Syntax IDE — AGENTS.md
 
 ## Agent 工作流规则（最高优先级）
 
@@ -31,7 +31,7 @@ Neuro Syntax IDE — AI 原生桌面端 IDE，基于 Tauri V2。
 | State         | `useState` + switch 视图切换（不用 React Router）           |
 | Data          | FS-as-Database: YAML + Markdown（不用 SQLite）             |
 | Agent Runtime | 三协议: Pipe (NDJSON) + ACP (JSON-RPC 2.0) + SDK (Sidecar) |
-| AI SDK        | `@anthropic-ai/claude-agent-sdk` via Node.js Sidecar       |
+| AI SDK        | `@anthropic-ai/Codex-agent-sdk` via Node.js Sidecar       |
 
 ***
 
@@ -45,7 +45,7 @@ Neuro Syntax IDE — AI 原生桌面端 IDE，基于 Tauri V2。
                     │
 ┌──────────── Rust Backend ──────────────┐
 │  AgentRuntime trait                     │
-│  ├── ClaudeCodeRuntime (claude -p CLI)  │
+│  ├── ClaudeCodeRuntime (Codex -p CLI)  │
 │  ├── AgentSdkRuntime (Node.js Sidecar)  │
 │  ├── StdioSessionManager                │
 │  │   ├── PipeAdapter (NDJSON)           │
@@ -54,9 +54,9 @@ Neuro Syntax IDE — AI 原生桌面端 IDE，基于 Tauri V2。
 └────────────────────────────────────────┘
 ```
 
-* **CLI 模式** — `claude --print --output-format stream-json`，直接子进程
-* **SDK 模式** — `agent-sdk-bridge.mjs` Sidecar，通过 stdin/stdout NDJSON 通信，调用 `@anthropic-ai/claude-agent-sdk`
-* **Pipe 模式** — 支持 Claude Code / Cursor / OpenCode 的 NDJSON 管道协议
+* **CLI 模式** — `Codex --print --output-format stream-json`，直接子进程
+* **SDK 模式** — `agent-sdk-bridge.mjs` Sidecar，通过 stdin/stdout NDJSON 通信，调用 `@anthropic-ai/Codex-agent-sdk`
+* **Pipe 模式** — 支持 Codex / Cursor / OpenCode 的 NDJSON 管道协议
 * **ACP 模式** — JSON-RPC 2.0 双向通信，支持 Codex / Hermes / Kiro / Kimi / Pi
 * Settings 下拉选择 Runtime 类型，路由在 `useReqAgentChat` 内切换
 

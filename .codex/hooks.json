@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "SubagentStop": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '/Users/ryan/mycode/AmaxAINative/.codex/hooks/on-subagent-complete.sh'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '/Users/ryan/mycode/AmaxAINative/.codex/hooks/on-stop-check.sh'"
+          }
+        ]
+      }
+    ]
+  }
+}
